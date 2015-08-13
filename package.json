@@ -1,0 +1,22 @@
+{
+  "name": "lyph-server",
+  "version": "0.1.0",
+  "description": "the lyph server",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "lyph"
+  ],
+  "authors": [
+    "Michiel Helvensteijn <mhelvens@gmail.com>",
+    "Samuel Alexander <rmhiale@ucl.ac.uk>"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.13.3",
+    "express": "^4.13.3",
+    "mongodb": "^2.0.40"
+  }
+}
