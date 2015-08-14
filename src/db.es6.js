@@ -15,15 +15,23 @@ MongoClient.connect("mongodb://localhost:27017/lyphs", (err, db) => {
 	});
 
 	/* function for getting new ids */
-	function newID(prefix) {
+	function newID() {
 		return idCounterCollection.findOneAndUpdate({}, { $inc: { maxId: 1 } })
-				.then(doc => `${prefix}_${doc.value.maxId}`);
+				.then(doc => doc.value.maxId);
 	}
+
+
 
 
 	///// Lyphs /////
 
 	let lyphsCollection = db.collection('lyphs');
+
+
+	function createNewLyph() {
+
+	}
+
 
 	// TODO: remove/use test code
 	//lyphsCollection.insertOne({

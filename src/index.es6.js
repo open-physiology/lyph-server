@@ -1,7 +1,8 @@
 // imports
 import express    from 'express';
 import bodyParser from 'body-parser';
-import './db.es6.js';
+//import './db.es6.js';
+import './neo4j.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Conceptual entities

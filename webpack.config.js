@@ -14,7 +14,7 @@ fs.readdirSync('node_modules')
 module.exports = {
 	devtool: 'source-map',
 	entry: {
-		'index': ['./src/index.es6.js']
+		'index': ['babel/polyfill', './src/index.es6.js']
 	},
 	output: {
 		path: './dist',
@@ -25,7 +25,8 @@ module.exports = {
 	externals: nodeModules,
 	module: {
 		loaders: [
-			{ test: /\.es6\.js$/, loader: 'babel' }
+			{ test: /\.es6\.js$/, loader: 'babel' },
+			{ test: /\.json$/, loader: 'json' }
 		]
 	}
 };
