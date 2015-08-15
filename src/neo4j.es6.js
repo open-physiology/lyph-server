@@ -1,30 +1,73 @@
-import {GraphDatabase} from 'neo4j';
+import {GraphDatabase, _} from 'neo4j';
+import {promisify} from './util.es6.js';
+
+let {username, password, server, port} = require('../neo4j-credentials.json');
+
+var db = new GraphDatabase(`http://${username}:${password}@${server}:${port}`);
+
+export function createDatabaseNode(type, data) {
+	let node = db.createNode({ type, ...data });
+	return promisify(node, 'save');
+}
+
+export function readDatabaseNode(id) {
+	return promisify(db, 'getNodeById', id);
+}
+
+export function updateDatabaseNode(id, data) {
+	return promisify(db, 'getNodeById', id).then((node) => {
+		Object.assign(node.data, data);
+		return promisify(node, 'save');
+	});
+}
+
+export function deleteDatabaseNode(id) {
+	return promisify(db, 'getNodeById', id).then((node) => {
+		return promisify(node, 'delete');
+	});
+}
+
+export function replaceDatabaseNode(id, data) {
+	return promisify(db, 'getNodeById', id).then((node) => {
+		node.data = data;
+		return promisify(node, 'save');
+	});
+}
 
 
-//let {username, password, server, port} = require('../neo4j-credentials.json');
+
+
+
+
+//replaceDatabaseNode(9, { species: 'Monkey' }).then((doc) => {
+//	console.log("OK: ", doc);
+//}, (err) => {
+//	console.error("ERROR: ", err);
+//});
 //
-//var db = new GraphDatabase(`http://${username}:${password}@${server}:${port}`);
+//deleteDatabaseNode(8).then((doc) => {
+//	console.log("OK: ", doc);
+//}, (err) => {
+//	console.error("ERROR: ", err);
+//});
 //
-////let testNode = db.createNode({
-////	name:    "My Lyph",
-////	species: "Human"
-////});
-////
-////testNode.save((err, result) => {
-////	console.log(result._data.data);
-////
-////	console.log(testNode.toString());
-////});
+//updateDatabaseNode(8, { species: 'Monkey' }).then((doc) => {
+//	console.log("OK: ", doc);
+//}, (err) => {
+//	console.error("ERROR: ", err);
+//});
 //
-//function createLyph(data) {
-//	let node = db.createNode(data);
+//readDatabaseNode(8).then((doc) => {
+//	console.log("OK: ", doc);
+//}, (err) => {
+//	console.error("ERROR: ", err);
+//});
 //
-//	let result = node.save();
-//
-//	console.log(result);
-//}
-//
-//createLyph({
+//createDatabaseNode('lyphs', {
 //	name: "Heart",
 //	species: "Human"
+//}).then((doc) => {
+//	console.log("OK: ", doc);
+//}, (err) => {
+//	console.error("ERROR: ", err);
 //});
