@@ -1,4 +1,4 @@
-import {GraphDatabase, _} from 'neo4j';
+import {GraphDatabase} from 'neo4j';
 import {promisify} from './util.es6.js';
 
 let {username, password, server, port} = require('../neo4j-credentials.json');
@@ -10,7 +10,7 @@ export function createDatabaseNode(type, data) {
 	return promisify(node, 'save');
 }
 
-export function readDatabaseNode(id) {
+export function getDatabaseNode(id) {
 	return promisify(db, 'getNodeById', id);
 }
 
@@ -29,14 +29,22 @@ export function deleteDatabaseNode(id) {
 
 export function replaceDatabaseNode(id, data) {
 	return promisify(db, 'getNodeById', id).then((node) => {
-		node.data = data;
+		node.data = { type: node.data.type, ...data };
 		return promisify(node, 'save');
 	});
 }
 
+export function getAllDatabaseNodes(type) {
+	return promisify(db, 'query', `MATCH (n) WHERE n.type = {type} RETURN n`, {type})
+			.then(res => res.map(node => node.n));
+}
 
 
-
+//getAllDatabaseNodes('lyphs').then((doc) => {
+//	console.log("OK: ", doc);
+//}, (err) => {
+//	console.error(JSON.stringify(err, null, '    '));
+//});
 
 
 //replaceDatabaseNode(9, { species: 'Monkey' }).then((doc) => {
