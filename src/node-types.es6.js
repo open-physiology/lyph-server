@@ -1,46 +1,33 @@
 export default {
-	lyphs:             {
+	lyph:             {
 		singular: "lyph",
 		plural:   "lyphs",
 		schema:   {
 			properties: {
-				name:    { type: 'string' },
-				species: { type: 'string' }
-			},
-			required:   ['name', 'species']
+				name:    { type: 'string', required: true },
+				species: { type: 'string', required: true }
+			}
 		}
 	},
-	layers:            {
+	layer:            {
 		singular: "layer",
 		plural:   "layers",
 		schema:   {
 			properties: {
-				name:      { type: 'string' },
-				thickness: {
-					type:       'object',
-					properties: { min: { type: 'number' }, max: { type: 'number' } },
-					required:   ['min', 'max']
-				}
-			},
-			required:   ['thickness']
+				name: { type: 'string' }
+			}
 		}
 	},
-	lyphTemplates:     {
+	lyphTemplate:     {
 		singular: "lyph template",
 		plural:   "lyph templates",
 		schema:   {
 			properties: {
-				name:      { type: 'string' },
-				thickness: {
-					type:       'object',
-					properties: { min: { type: 'number' }, max: { type: 'number' } },
-					required:   ['min', 'max']
-				}
-			},
-			required:   ['name', 'thickness']
+				name: { type: 'string', required: true }
+			}
 		}
 	},
-	layerTemplates:    {
+	layerTemplate:    {
 		singular: "layer template",
 		plural:   "layer templates",
 		schema:   {
@@ -48,69 +35,68 @@ export default {
 				name:      { type: 'string' },
 				thickness: {
 					type:       'object',
-					properties: { min: { type: 'number' }, max: { type: 'number' } },
-					required:   ['min', 'max']
+					properties: {
+						min: { type: 'number', required: true },
+						max: { type: 'number', required: true }
+					},
+					required: true
 				}
-			},
-			required:   ['thickness']
+			}
 		}
 	},
-	nodes:             {
+	node:             {
 		singular: "node",
 		plural:   "nodes",
 		schema:   {
-			properties: {},
-			required:   []
+			properties: {}
 		}
 	},
-	correlations:      {
+	correlation:      {
 		singular: "correlation",
 		plural:   "correlations",
 		schema:   {
 			properties: {
 				comment: { type: 'string' }
-			},
-			required:   []
+			}
 		}
 	},
-	publications:      {
+	publication:      {
 		singular: "publication",
 		plural:   "publications",
 		schema:   {
 			properties: {
-				uri:   { type: 'string' },
+				uri:   { type: 'string', required: true },
 				title: { type: 'string' }
-			},
-			required:   ['uri']
+			}
 		}
 	},
-	clinicalIndices:   {
+	clinicalIndice:   {
 		singular: "clinical index",
 		plural:   "clinical indices",
 		schema:   {
 			properties: {
-				label: { type: 'string' },
-				index: { type: 'number' }
-			},
-			required:   ['index']
+				index: { type: 'number', required: true },
+				label: { type: 'string' }
+			}
 		}
 	},
-	locatedMeasures:   {
+	locatedMeasure:   {
 		singular: "located measures",
 		plural:   "located measures",
 		schema:   {
 			properties: {
-				quality: { type: 'string' }
-			},
-			required:   ['quality']
+				quality: { type: 'string', required: true }
+			}
 		}
 	},
-	bagsOfPathologies: {
+	bagOfPathologies: {
 		singular: "bag of pathologies",
 		plural:   "bags of pathologies",
 		schema:   {
-			properties: {},
-			required:   []
+			properties: {
+				excludedProcesses:   { type: 'array', items: { type: 'number' }, uniqueItems: true },
+				introducedProcesses: { type: 'array', items: { type: 'number' }, uniqueItems: true }
+			}
 		}
 	}
 };

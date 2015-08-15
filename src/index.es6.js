@@ -14,8 +14,8 @@ import {
 		INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
 
-import NODE_TYPES         from './node-types.es6.js';
-//import RELATIONSHIP_TYPES from './relationship-types.es6.js';
+import NODE_TYPES from './node-types.es6.js';
+import RELATIONSHIP_TYPES from './relationship-types.es6.js';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
