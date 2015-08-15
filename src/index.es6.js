@@ -9,9 +9,13 @@ import {
 		replaceDatabaseNode,
 		getAllDatabaseNodes
 } from './neo4j.es6.js';
-import {NOT_FOUND} from './http-status-codes.es6.js';
+import {
+		NOT_FOUND,
+		INTERNAL_SERVER_ERROR
+} from './http-status-codes.es6.js';
 
-import ENTITIES from './entity-types.json';
+import NODE_TYPES         from './node-types.es6.js';
+//import RELATIONSHIP_TYPES from './relationship-types.es6.js';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,8 +29,28 @@ let app = express();
 app.use(bodyParser.json());
 
 // to implement an API for a specific type of entity (e.g., lyphs)
-function implementEntity(type) {
-	const jsonBody = req => JSON.stringify(req.body, null, '    ');
+function implementNodeREST(type, spec) {
+
+	const errorHandler = (res) => (err) => {
+		if (err.message.startsWith("No node at")) {
+			res.sendStatus(NOT_FOUND);
+			res.send({
+				status: NOT_FOUND,
+				message: `There is no ${spec.singular} with id ${req.params.id}.`,
+				rawError: err
+			});
+		} else {
+			res.sendStatus(INTERNAL_SERVER_ERROR);
+			res.send({
+				status: INTERNAL_SERVER_ERROR,
+				message: `The server encountered an unknown error.`,
+				rawError: err
+			});
+		}
+	};
+
+	const resultResponder = (res) => ({id, data}) => { res.send({ id, ...data }) };
+
 	app.get(`/${type}`, (req, res) => {
 		getAllDatabaseNodes(type).then((nodes) => {
 			let result = nodes.map(({id, data}) => ({ id, ...data }));
@@ -35,113 +59,39 @@ function implementEntity(type) {
 	});
 	app.get(`/${type}/:id`, (req, res) => {
 		getDatabaseNode(req.params.id)
-				.then(({id, data}) => { res.send({ id, ...data }) })
-				.catch((err) => {
-					if (err.message.startsWith("No node at")) {
-						res.sendStatus(NOT_FOUND);
-						res.send({
-							status: NOT_FOUND,
-							message: `There is no ${type} with id ${req.params.id}.`
-						});
-					} else {
-						res.sendStatus(INTERNAL_SERVER_ERROR);
-						res.send({
-							status: INTERNAL_SERVER_ERROR,
-							message: `The server encountered an unknown error.`,
-							rawError: err
-						});
-					}
-				});
+				.then(resultResponder(res))
+				.catch(errorHandler(res));
 	});
 	app.post(`/${type}`, (req, res) => {
 		createDatabaseNode(type, req.body)
-				.then(({id, data}) => { res.send({ id, ...data }) })
-				.catch((err) => {
-					res.sendStatus(INTERNAL_SERVER_ERROR);
-					res.send({
-						status: INTERNAL_SERVER_ERROR,
-						message: `The server encountered an unknown error.`,
-						rawError: err
-					});
-				});
+				.then(resultResponder(res))
+				.catch(errorHandler(res));
 	});
 	app.post(`/${type}/:id`, (req, res) => {
 		updateDatabaseNode(req.params.id, req.body)
-				.then(({id, data}) => { res.send({ id, ...data }) })
-				.catch((err) => {
-					if (err.message.startsWith("No node at")) {
-						res.sendStatus(NOT_FOUND);
-						res.send({
-							status: NOT_FOUND,
-							message: `There is no ${type} with id ${req.params.id}.`
-						});
-					} else {
-						res.sendStatus(INTERNAL_SERVER_ERROR);
-						res.send({
-							status: INTERNAL_SERVER_ERROR,
-							message: `The server encountered an unknown error.`,
-							rawError: err
-						});
-					}
-				});
+				.then(resultResponder(res))
+				.catch(errorHandler(res));
 	});
 	app.put(`/${type}`, (req, res) => {
 		createDatabaseNode(type, req.body)
-				.then(({id, data}) => { res.send({ id, ...data }) })
-				.catch((err) => {
-					res.sendStatus(INTERNAL_SERVER_ERROR);
-					res.send({
-						status: INTERNAL_SERVER_ERROR,
-						message: `The server encountered an unknown error.`,
-						rawError: err
-					});
-				});
+				.then(resultResponder(res))
+				.catch(errorHandler(res));
 	});
 	app.put(`/${type}/:id`, (req, res) => {
 		replaceDatabaseNode(req.params.id, req.body)
-				.then(({id, data}) => { res.send({ id, ...data }) })
-				.catch((err) => {
-					if (err.message.startsWith("No node at")) {
-						res.sendStatus(NOT_FOUND);
-						res.send({
-							status: NOT_FOUND,
-							message: `There is no ${type} with id ${req.params.id}.`
-						});
-					} else {
-						res.sendStatus(INTERNAL_SERVER_ERROR);
-						res.send({
-							status: INTERNAL_SERVER_ERROR,
-							message: `The server encountered an unknown error.`,
-							rawError: err
-						});
-					}
-				});
+				.then(resultResponder(res))
+				.catch(errorHandler(res));
 	});
 	app.delete(`/${type}/:id`, (req, res) => {
 		deleteDatabaseNode(req.params.id)
-				.then(({id, data}) => { res.send({ id, ...data }) })
-				.catch((err) => {
-					if (err.message.startsWith("No node at")) {
-						res.sendStatus(NOT_FOUND);
-						res.send({
-							status: NOT_FOUND,
-							message: `There is no ${type} with id ${req.params.id}.`
-						});
-					} else {
-						res.sendStatus(INTERNAL_SERVER_ERROR);
-						res.send({
-							status: INTERNAL_SERVER_ERROR,
-							message: `The server encountered an unknown error.`,
-							rawError: err
-						});
-					}
-				});
+				.then(resultResponder(res))
+				.catch(errorHandler(res));
 	});
 }
 
 
-// Test stuff
-ENTITIES.forEach(implementEntity);
+// Implement REST interfaces for all node types
+for (let type of Object.keys(NODE_TYPES)) { implementNodeREST(type, NODE_TYPES[type]) }
 
 
 // start listening on port 3000 (temporary)
