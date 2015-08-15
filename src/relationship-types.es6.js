@@ -1,5 +1,5 @@
 export default {
-	processes:      {
+	processes:      { // node --> node
 		singular: "process",
 		plural:   "processes",
 		schema:   {
@@ -9,51 +9,51 @@ export default {
 			}
 		}
 	},
-	instantiates:   {
+	instantiates:   { // lyph --> lyphTemplate, layer --> layerTemplate
 		schema: {
 			properties: {}
 		}
 	},
-	hasLayer:       {
+	hasLayer:       { // lyph --> layer, lyphTemplate --> layerTemplate
 		schema: {
 			properties: {
 				position: { type: 'number', required: true }
 			}
 		}
 	},
-	hasMaterial:    {
+	hasMaterial:    { // layer --> lyph, from layerTemplate, to lyphTemplate
 		schema: {
 			properties: {}
 		}
 	},
-	onBorderOf:     {
+	onBorderOf:     { // node --> layer
 		schema: {
 			properties: {
 				border: { enum: ['plus', 'minus', 'inner', 'outer'], required: true }
 			}
 		}
 	},
-	publishedIn:    {
+	publishedIn:    { // correlation --> publication
 		schema: {
 			properties: {}
 		}
 	},
-	correlates:     {
+	correlates:     { // correlation --> clinicalIndex/locatedMeasure
 		schema: {
 			properties: {}
 		}
 	},
-	sub:            {
+	sub:            { // clinicalIndex --> clinicalIndex
 		schema: {
 			properties: {}
 		}
 	},
-	locatedIn:      {
+	locatedIn:      { // locatedMeasure --> lyph
 		schema: {
 			properties: {}
 		}
 	},
-	associatedWith: {
+	associatedWith: { // bagOfPathologies --> locatedMeasure
 		schema: {
 			properties: {}
 		}
