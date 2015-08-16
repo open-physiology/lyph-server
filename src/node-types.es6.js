@@ -33,7 +33,8 @@ const TYPES = {
 		schema:   {
 			properties: {
 				name:         { type: 'string' },
-				thickness:    { // array of [min, max]
+				thickness:    {
+					// array of [min, max]
 					type:     'array',
 					items:    { type: 'number' },
 					required: true

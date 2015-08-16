@@ -1,19 +1,26 @@
+////////// Imports /////////////////////////////////////////////////////////////////////////////////////////////////////
+
 import _                  from 'lodash';
-import Kefir              from 'kefir';
 import {GraphDatabase}    from 'neo4j';
-import {promisify}        from './util.es6.js';
 import {validate}         from 'revalidator';
+import {promisify}        from './util.es6.js';
 import NODE_TYPES         from './node-types.es6.js';
 import RELATIONSHIP_TYPES from './relationship-types.es6.js';
 
-const EXEC = `WITH 1 AS dummy`; // to separate Cypher queries
+
+////////// Helpful snippets for Cypher Queries /////////////////////////////////////////////////////////////////////////
+
+const THEN = `WITH 1 AS XdummyX`;
+
+
+////////// Get and possibly initialize the database ////////////////////////////////////////////////////////////////////
 
 const {username, password, server, port} = require('../neo4j-credentials.json');
+let db = new GraphDatabase(`http://${username}:${password}@${server}:${port}`);
+promisify(db, 'query', `MERGE (meta:meta) ON CREATE SET meta.newID = 0`, {});
 
-var db = new GraphDatabase(`http://${username}:${password}@${server}:${port}`);
 
-// TODO: We cannot rely on Neo4j ids, so we need to roll our own
-//     : http://neo4j.com/docs/stable/query-match.html#_get_node_or_relationship_by_id
+////////// Validation of data objects through JSON schemas /////////////////////////////////////////////////////////////
 
 function validateObject(object, {required} = { required: true }) {
 	let nodeAndRelationshipTypes = { ...NODE_TYPES, ...RELATIONSHIP_TYPES };
@@ -46,11 +53,21 @@ function validateObject(object, {required} = { required: true }) {
 	return result;
 }
 
+// TODO: check that min thickness is <= max thickness
+
+
+////////// CRUD operations on the database /////////////////////////////////////////////////////////////////////////////
+
 export function createDatabaseNode(type, data) {
 	let validation = validateObject({ type, ...data });
 	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
 	let node = db.createNode({ type, ...data }); // TODO: remove fields with `db: false`
-	return promisify(db, 'query', `CREATE (n:${type} {data}) RETURN n`, { data })
+	return promisify(db, 'query', `
+		MATCH (meta:meta)
+		CREATE (n:${type} {data})
+		SET n.id = meta.newID, meta.newID = meta.newID + 1
+		RETURN n
+	`, { data })
 			.then(arr => arr[0].n)
 			.then((node) => {
 				// Do all ad-hoc stuff related to this creation, and wait for it, then return the new node
@@ -80,8 +97,7 @@ export function updateDatabaseNode(type, id, data) {
 
 export function deleteDatabaseNode(type, id) {
 	return promisify(db, 'query', `
-		MATCH (n)
-		WHERE id(n) = ${id}
+		MATCH (n {id: ${id}})
 		OPTIONAL MATCH (n)-[r]-()
 		DELETE n, r
 	`, {}).then(() => {
@@ -116,17 +132,16 @@ export function createDatabaseRelationship(type, from, to, data) {
 	let validation = validateObject({ type, anchors, sustains, ...data });
 	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
 	return promisify(db, 'query', `
-		MATCH (a), (b)
-		WHERE id(a) = ${from} AND id(b) = ${to}
+		MATCH (a {id: ${from}}), (b {id: ${to}}), (meta:meta)
 		CREATE (a)-[r:${type} {data}]->(b)
+		SET r.id = meta.newID, meta.newID = meta.newID + 1
 		RETURN r
 	`, { data });
 }
 
 export function deleteDatabaseRelationship(from, to) {
 	return promisify(db, 'query', `
-		MATCH (a)-[r]->(b)
-		WHERE id(a) = ${from} AND id(b) = ${to}
+		MATCH (a {id: ${from}}) -[r]-> (b {id: ${to}})
 		DELETE r
 	`, {});
 }
@@ -135,8 +150,7 @@ export function updateDatabaseRelationship(type, from, to, data) {
 	let validation = validateObject({ type, ...data }, { required: false });
 	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
 	return promisify(db, 'query', `
-		MATCH (a)-[r]->(b)
-		WHERE id(a) = ${from} AND id(b) = ${to}
+		MATCH (a {id: ${from}}) -[r]-> (b {id: ${to}})
 		SET r += {data}
 		RETURN r
 	`, { data });
@@ -146,26 +160,22 @@ export function updateDatabaseRelationship(type, from, to, data) {
 // TODO: avoid race conditions when one REST request involves multiple queries executed on the database
 
 
+/////////// Ad-hoc actions after creating/updating/deleting nodes or relationships /////////////////////////////////////
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // When creating a lyph:
 // * link lyph and lyph-template through ':instantiates' relationship
 // * automatically create and link its layers based on the templates
 NODE_TYPES.lyph.onCreate = (data, lyph) => {
 	return promisify(db, 'query', `
-		MATCH  (lyph:lyph), (lyphTemplate:lyphTemplate)
-		WHERE  id(lyph) = ${lyph.id} AND id(lyphTemplate) = ${data.template}
-		CREATE UNIQUE (lyphTemplate) <-[:instantiates]- (lyph)
-		${EXEC}
-		MATCH  (lyph:lyph), (lyphTemplate:lyphTemplate) -[hl:hasLayer]-> (layerTemplate:layerTemplate)
-		WHERE  id(lyph) = ${lyph.id} AND id(lyphTemplate) = ${data.template}
-		CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layer { position: layerTemplate.position }) -[:instantiates]-> (layerTemplate)
+		MATCH         (lyph:lyph {id: ${lyph.data.id}}), (lyphTemplate:lyphTemplate {id: ${data.template}})
+		CREATE UNIQUE (lyph) -[:instantiates]-> (lyphTemplate)
+		${THEN}
+		MATCH         (lyph:lyph {id: ${lyph.data.id}}), (lyphTemplate:lyphTemplate {id: ${data.template}}) -[:hasLayer]-> (layerTemplate:layerTemplate), (meta:meta)
+		CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layer {id: meta.newID, position: layerTemplate.position}) -[:instantiates]-> (layerTemplate)
+		SET           meta.newID = meta.newID + 1
 	`, {});
 };
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // When creating a layerTemplate:
 // * properly position the layerTemplate in its lyphTemplate; if necessary, move subsequent ones
 // * add corresponding layer to all instantiated lyphs
@@ -173,157 +183,164 @@ NODE_TYPES.layerTemplate.onCreate = (data, layerTemplate) => {
 	let handlePositioning;
 	if (typeof data.position === 'undefined') {
 		handlePositioning = `
-			MATCH (lyphTemplate:lyphTemplate) -[:hasLayer]-> (:layerTemplate)
-			WHERE id(lyphTemplate) = ${data.lyphTemplate}
-			WITH count(*) AS newPosition
+			MATCH (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}) -[:hasLayer]-> (:layerTemplate)
+			WITH  count(*) AS newPosition
 		`;
 	} else {
 		handlePositioning = `
-			MATCH (lyphTemplate:lyphTemplate) -[:hasLayer]-> (layerTemplate:layerTemplate) <-[:instantiates]- (layer:layer),
-			WHERE id(lyphTemplate) = ${data.lyphTemplate} AND layerTemplate.position >= ${data.position}
-			SET layerTemplate.position = layerTemplate.position + 1, layer.position = layer.position + 1
-			WITH ${data.position} AS newPosition
+			MATCH (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}) -[:hasLayer]-> (layerTemplate:layerTemplate) <-[:instantiates]- (layer:layer)
+			WHERE layerTemplate.position >= ${data.position}
+			SET   layerTemplate.position = layerTemplate.position + 1, layer.position = layer.position + 1
+			WITH  ${data.position} AS newPosition
 		`;
 	}
 	return promisify(db, 'query', `
 		${handlePositioning}
 		// Set the position on the new layerTemplate
-		MATCH (layerTemplate:layerTemplate)
-		WHERE id(layerTemplate) = ${layerTemplate.id}
+		MATCH (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}})
 		SET   layerTemplate.position = newPosition
-		${EXEC}
+		${THEN}
 		// Add :hasLayer relationship
-		MATCH (lyphTemplate:lyphTemplate), (layerTemplate:layerTemplate)
-		WHERE id(layerTemplate) = ${layerTemplate.id} AND id(lyphTemplate) = ${data.lyphTemplate}
+		MATCH         (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}), (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}})
 		CREATE UNIQUE (lyphTemplate) -[:hasLayer]-> (layerTemplate)
-		${EXEC}
+		${THEN}
 		// Add corresponding layer to all instantiated lyphs
-		MATCH (lyph:lyph) -[:instantiates]-> (lyphTemplate:lyphTemplate), (layerTemplate:layerTemplate)
-		WHERE id(layerTemplate) = ${layerTemplate.id} AND id(lyphTemplate) = ${data.lyphTemplate}
-		CREATE (lyph) -[:hasLayer]-> (layer:layer { position: layerTemplate.position }) -[:instantiates]-> (layerTemplate)
+		MATCH  (lyph:lyph) -[:instantiates]-> (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}), (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}}), (meta:meta)
+		CREATE (lyph) -[:hasLayer]-> (layer:layer { id: meta.newID, position: layerTemplate.position }) -[:instantiates]-> (layerTemplate)
+		SET    meta.newID = meta.newID + 1
 	`, {});
 };
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TODO: check that min thickness is <= max thickness
-
-createDatabaseNode('lyphTemplate', {
-	name: 'first lyph-template'
-}).then((lyphTemplate) => {
-	return createDatabaseNode('layerTemplate', {
-		thickness: [1, 5],
-		lyphTemplate: lyphTemplate.id
-	}).then(() => lyphTemplate);
-}).then((lyphTemplate) => {
-	return createDatabaseNode('layerTemplate', {
-		thickness: [2, 6],
-		lyphTemplate: lyphTemplate.id
-	}).then(() => lyphTemplate);
-}).then((lyphTemplate) => {
-	return createDatabaseNode('layerTemplate', {
-		thickness: [3, 7],
-		lyphTemplate: lyphTemplate.id
-	}).then(() => lyphTemplate);
-}).then((lyphTemplate) => {
-	return createDatabaseNode('lyph', {
-		name: "first lyph!",
-		species: "Human",
-		template: lyphTemplate.id
-	}).then(() => lyphTemplate);
-}).then((res) => {
-	console.log("OK: ", res);
-}, (err) => {
-	console.error("ERR: ", err);
-});
 
 
 
 
 
-//updateDatabaseRelationship('process', 52, 53, { foo: 'bar' }).then((res) => {
-//	console.log("OK: ", res);
-//}, (err) => {
-//	console.error("ERR: ", err);
-//});
+/////////// Test code, and so on ///////////////////////////////////////////////////////////////////////////////////////
 
-//deleteDatabaseRelationship(50, 51).then((res) => {
-//	console.log("OK: ", res);
-//}, (err) => {
-//	console.error("ERR: ", err);
-//});
+setTimeout(() => {
 
-
-//Promise.all([
-//	createDatabaseNode('node', {}),
-//	createDatabaseNode('node', {})
-//]).then(([a, b]) => {
-//	return createDatabaseRelationship('process', a.id, b.id, { class: 'vascular' });
-//}).then((res) => {
-//	console.log("OK: ", res);
-//}, (err) => {
-//	console.error("ERR: ", err);
-//});
-
-
-//deleteDatabaseNode(48).then((res) => {
-//	console.log("OK: ", res);
-//}, (err) => {
-//	console.error("ERR: ", err);
-//});
-
-
-
-
-///// TESTING CODE /////
-
-//Promise.all([
-//	createDatabaseNode('node', {}),
-//	createDatabaseNode('node', {})
-//]).then(([a, b]) => {
-//	return createDatabaseRelationship('process', a, b, {});
-//}).then((doc) => {
-//	console.log("OK: ", doc);
-//}, (err) => {
-//	console.error(err);
-//});
+	createDatabaseNode('lyphTemplate', {
+		name: 'first lyph-template'
+	})
+		.then((lyphTemplate) => {
+			return createDatabaseNode('layerTemplate', {
+				thickness: [1, 5],
+				lyphTemplate: lyphTemplate.data.id
+			}).then(() => lyphTemplate);
+		})
+		.then((lyphTemplate) => {
+			return createDatabaseNode('layerTemplate', {
+				thickness: [2, 6],
+				lyphTemplate: lyphTemplate.data.id
+			}).then(() => lyphTemplate);
+		})
+		.then((lyphTemplate) => {
+			return createDatabaseNode('layerTemplate', {
+				thickness: [3, 7],
+				lyphTemplate: lyphTemplate.data.id
+			}).then(() => lyphTemplate);
+		})
+		.then((lyphTemplate) => {
+			return createDatabaseNode('lyph', {
+				name: "first lyph!",
+				species: "Human",
+				template: lyphTemplate.data.id
+			}).then(() => lyphTemplate);
+		})
+		.then((res) => {
+			console.log("OK: ", res);
+		}, (err) => {
+			console.error("ERR: ", err);
+		});
 
 
-//getAllDatabaseNodes('lyphs').then((doc) => {
-//	console.log("OK: ", doc);
-//}, (err) => {
-//	console.error(JSON.stringify(err, null, '    '));
-//});
+
+	//updateDatabaseRelationship('process', 52, 53, { foo: 'bar' }).then((res) => {
+	//	console.log("OK: ", res);
+	//}, (err) => {
+	//	console.error("ERR: ", err);
+	//});
+
+	//deleteDatabaseRelationship(50, 51).then((res) => {
+	//	console.log("OK: ", res);
+	//}, (err) => {
+	//	console.error("ERR: ", err);
+	//});
 
 
-//replaceDatabaseNode(9, { species: 'Monkey' }).then((doc) => {
-//	console.log("OK: ", doc);
-//}, (err) => {
-//	console.error("ERROR: ", err);
-//});
-//
-//deleteDatabaseNode(8).then((doc) => {
-//	console.log("OK: ", doc);
-//}, (err) => {
-//	console.error("ERROR: ", err);
-//});
-//
-//updateDatabaseNode(8, { species: 'Monkey' }).then((doc) => {
-//	console.log("OK: ", doc);
-//}, (err) => {
-//	console.error("ERROR: ", err);
-//});
-//
-//readDatabaseNode(8).then((doc) => {
-//	console.log("OK: ", doc);
-//}, (err) => {
-//	console.error("ERROR: ", err);
-//});
-//
-//createDatabaseNode('lyphs', {
-//	name: "Heart",
-//	species: "Human"
-//}).then((doc) => {
-//	console.log("OK: ", doc);
-//}, (err) => {
-//	console.error("ERROR: ", err);
-//});
+	//Promise.all([
+	//	createDatabaseNode('node', {}),
+	//	createDatabaseNode('node', {})
+	//]).then(([a, b]) => {
+	//	return createDatabaseRelationship('process', a.data.id, b.data.id, { class: 'vascular' });
+	//}).then((res) => {
+	//	console.log("OK: ", res);
+	//}, (err) => {
+	//	console.error("ERR: ", err);
+	//});
+
+
+	//deleteDatabaseNode(48).then((res) => {
+	//	console.log("OK: ", res);
+	//}, (err) => {
+	//	console.error("ERR: ", err);
+	//});
+
+
+
+
+	///// TESTING CODE /////
+
+	//Promise.all([
+	//	createDatabaseNode('node', {}),
+	//	createDatabaseNode('node', {})
+	//]).then(([a, b]) => {
+	//	return createDatabaseRelationship('process', a, b, {});
+	//}).then((doc) => {
+	//	console.log("OK: ", doc);
+	//}, (err) => {
+	//	console.error(err);
+	//});
+
+
+	//getAllDatabaseNodes('lyphs').then((doc) => {
+	//	console.log("OK: ", doc);
+	//}, (err) => {
+	//	console.error(JSON.stringify(err, null, '    '));
+	//});
+
+
+	//replaceDatabaseNode(9, { species: 'Monkey' }).then((doc) => {
+	//	console.log("OK: ", doc);
+	//}, (err) => {
+	//	console.error("ERROR: ", err);
+	//});
+	//
+	//deleteDatabaseNode(8).then((doc) => {
+	//	console.log("OK: ", doc);
+	//}, (err) => {
+	//	console.error("ERROR: ", err);
+	//});
+	//
+	//updateDatabaseNode(8, { species: 'Monkey' }).then((doc) => {
+	//	console.log("OK: ", doc);
+	//}, (err) => {
+	//	console.error("ERROR: ", err);
+	//});
+	//
+	//readDatabaseNode(8).then((doc) => {
+	//	console.log("OK: ", doc);
+	//}, (err) => {
+	//	console.error("ERROR: ", err);
+	//});
+	//
+	//createDatabaseNode('lyphs', {
+	//	name: "Heart",
+	//	species: "Human"
+	//}).then((doc) => {
+	//	console.log("OK: ", doc);
+	//}, (err) => {
+	//	console.error("ERROR: ", err);
+	//});
+
+}, 1000);
