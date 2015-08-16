@@ -1,11 +1,14 @@
-export default {
+import Kefir from 'kefir';
+
+const TYPES = {
 	lyph:             {
 		singular: "lyph",
 		plural:   "lyphs",
 		schema:   {
 			properties: {
-				name:    { type: 'string', required: true },
-				species: { type: 'string', required: true }
+				name:     { type: 'string',  required: true },
+				species:  { type: 'string',  required: true },
+				template: { type: 'integer', required: true, db: false }
 			}
 		}
 	},
@@ -13,9 +16,7 @@ export default {
 		singular: "layer",
 		plural:   "layers",
 		schema:   {
-			properties: {
-				name: { type: 'string' }
-			}
+			properties: {}
 		}
 	},
 	lyphTemplate:     {
@@ -39,8 +40,9 @@ export default {
 						min: { type: 'number', required: true },
 						max: { type: 'number', required: true }
 					},
-					required: true
-				}
+					required:   true
+				},
+				position:  { type: 'integer', db: false }
 			}
 		}
 	},
@@ -100,3 +102,12 @@ export default {
 		}
 	}
 };
+
+for (let key of Object.keys(TYPES)) {
+	let type = TYPES[key];
+	type.onCreate = Kefir.pool();
+	type.onUpdate = Kefir.pool();
+	type.onDelete = Kefir.pool();
+}
+
+export default TYPES;

@@ -11,6 +11,7 @@ import {
 } from './neo4j.es6.js';
 import {
 		NOT_FOUND,
+		PRECONDITION_FAILED,
 		INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
 
@@ -28,29 +29,37 @@ let app = express();
 // middleware
 app.use(bodyParser.json());
 
+// sending error responses
+const errorHandler = (spec, res) => (err) => {
+	if (err.message.startsWith("No node at")) {
+		res.sendStatus(NOT_FOUND);
+		res.send({
+			status: NOT_FOUND,
+			message: `There is no ${spec.singular} with id ${req.params.id}.`,
+			rawError: err
+		});
+	} else if (err.type === 'json-schema-validation') {
+		res.sendStatus(PRECONDITION_FAILED);
+		res.send({
+			status: PRECONDITION_FAILED,
+			message: `The submitted entity violates the data-type constraints.`,
+			rawError: err
+		});
+	} else {
+		res.sendStatus(INTERNAL_SERVER_ERROR);
+		res.send({
+			status: INTERNAL_SERVER_ERROR,
+			message: `The server encountered an unknown error.`,
+			rawError: err
+		});
+	}
+};
+
+// sending result response
+const resultResponder = (res) => ({id, data}) => { res.send({ id, ...data }) };
+
 // to implement an API for a specific type of entity (e.g., lyphs)
 function implementNodeREST(type, spec) {
-
-	const errorHandler = (res) => (err) => {
-		if (err.message.startsWith("No node at")) {
-			res.sendStatus(NOT_FOUND);
-			res.send({
-				status: NOT_FOUND,
-				message: `There is no ${spec.singular} with id ${req.params.id}.`,
-				rawError: err
-			});
-		} else {
-			res.sendStatus(INTERNAL_SERVER_ERROR);
-			res.send({
-				status: INTERNAL_SERVER_ERROR,
-				message: `The server encountered an unknown error.`,
-				rawError: err
-			});
-		}
-	};
-
-	const resultResponder = (res) => ({id, data}) => { res.send({ id, ...data }) };
-
 	app.get(`/${type}`, (req, res) => {
 		getAllDatabaseNodes(type).then((nodes) => {
 			let result = nodes.map(({id, data}) => ({ id, ...data }));
@@ -58,34 +67,74 @@ function implementNodeREST(type, spec) {
 		});
 	});
 	app.get(`/${type}/:id`, (req, res) => {
-		getDatabaseNode(req.params.id)
+		getDatabaseNode(type, req.params.id)
 				.then(resultResponder(res))
-				.catch(errorHandler(res));
+				.catch(errorHandler(spec, res));
 	});
 	app.post(`/${type}`, (req, res) => {
 		createDatabaseNode(type, req.body)
 				.then(resultResponder(res))
-				.catch(errorHandler(res));
+				.catch(errorHandler(spec, res));
 	});
 	app.post(`/${type}/:id`, (req, res) => {
-		updateDatabaseNode(req.params.id, req.body)
+		updateDatabaseNode(type, req.params.id, req.body)
 				.then(resultResponder(res))
-				.catch(errorHandler(res));
+				.catch(errorHandler(spec, res));
 	});
 	app.put(`/${type}`, (req, res) => {
 		createDatabaseNode(type, req.body)
 				.then(resultResponder(res))
-				.catch(errorHandler(res));
+				.catch(errorHandler(spec, res));
 	});
 	app.put(`/${type}/:id`, (req, res) => {
-		replaceDatabaseNode(req.params.id, req.body)
+		replaceDatabaseNode(type, req.params.id, req.body)
 				.then(resultResponder(res))
-				.catch(errorHandler(res));
+				.catch(errorHandler(spec, res));
 	});
 	app.delete(`/${type}/:id`, (req, res) => {
-		deleteDatabaseNode(req.params.id)
+		deleteDatabaseNode(type, req.params.id)
 				.then(resultResponder(res))
-				.catch(errorHandler(res));
+				.catch(errorHandler(spec, res));
+	});
+}
+
+// to implement an API for a specific type of entity (e.g., lyphs)
+function implementRelationshipREST(type, spec) {
+	app.get(`/${type}`, (req, res) => {
+		getAllDatabaseRelationships(type).then((nodes) => {
+			let result = nodes.map(({id, data}) => ({ id, ...data }));
+			res.send(result);
+		});
+	});
+	app.get(`/${type}/:id`, (req, res) => {
+		getDatabaseRelationship(req.params.id)
+				.then(resultResponder(res))
+				.catch(errorHandler(spec, res));
+	});
+	app.post(`/${type}`, (req, res) => {
+		createDatabaseRelationship(type, req.body)
+				.then(resultResponder(res))
+				.catch(errorHandler(spec, res));
+	});
+	app.post(`/${type}/:id`, (req, res) => {
+		updateDatabaseRelationship(req.params.id, req.body)
+				.then(resultResponder(res))
+				.catch(errorHandler(spec, res));
+	});
+	app.put(`/${type}`, (req, res) => {
+		createDatabaseRelationship(type, req.body)
+				.then(resultResponder(res))
+				.catch(errorHandler(spec, res));
+	});
+	app.put(`/${type}/:id`, (req, res) => {
+		replaceDatabaseRelationship(req.params.id, req.body)
+				.then(resultResponder(res))
+				.catch(errorHandler(spec, res));
+	});
+	app.delete(`/${type}/:id`, (req, res) => {
+		deleteDatabaseRelationship(req.params.id)
+				.then(resultResponder(res))
+				.catch(errorHandler(spec, res));
 	});
 }
 
