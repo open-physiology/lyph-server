@@ -1,23 +1,22 @@
-import Kefir from 'kefir';
-
 const TYPES = {
 	lyph:             {
 		singular: "lyph",
 		plural:   "lyphs",
 		schema:   {
 			properties: {
-				name:     { type: 'string',  required: true },
-				species:  { type: 'string',  required: true },
+				name:     { type: 'string', required: true },
+				species:  { type: 'string', required: true },
 				template: { type: 'integer', required: true, db: false }
 			}
 		}
 	},
 	layer:            {
-		singular: "layer",
-		plural:   "layers",
-		schema:   {
+		singular:   "layer",
+		plural:     "layers",
+		schema:     {
 			properties: {}
-		}
+		},
+		noRestCrud: true
 	},
 	lyphTemplate:     {
 		singular: "lyph template",
@@ -33,16 +32,14 @@ const TYPES = {
 		plural:   "layer templates",
 		schema:   {
 			properties: {
-				name:      { type: 'string' },
-				thickness: {
-					type:       'object',
-					properties: {
-						min: { type: 'number', required: true },
-						max: { type: 'number', required: true }
-					},
-					required:   true
+				name:         { type: 'string' },
+				thickness:    { // array of [min, max]
+					type:     'array',
+					items:    { type: 'number' },
+					required: true
 				},
-				position:  { type: 'integer', db: false }
+				lyphTemplate: { type: 'integer', required: true, db: false },
+				position:     { type: 'integer' }
 			}
 		}
 	},
@@ -72,7 +69,7 @@ const TYPES = {
 			}
 		}
 	},
-	clinicalIndice:   {
+	clinicalIndex:    {
 		singular: "clinical index",
 		plural:   "clinical indices",
 		schema:   {
@@ -102,12 +99,5 @@ const TYPES = {
 		}
 	}
 };
-
-for (let key of Object.keys(TYPES)) {
-	let type = TYPES[key];
-	type.onCreate = Kefir.pool();
-	type.onUpdate = Kefir.pool();
-	type.onDelete = Kefir.pool();
-}
 
 export default TYPES;

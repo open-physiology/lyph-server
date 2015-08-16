@@ -17,9 +17,7 @@ export default {
 	},
 	hasLayer:       { // lyph --> layer, lyphTemplate --> layerTemplate
 		schema: {
-			properties: {
-				position: { type: 'number', required: true }
-			}
+			properties: {}
 		},
 		sustains: true // lyph(Template) [sustains] layer(Template)
 	},

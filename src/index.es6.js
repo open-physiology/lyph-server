@@ -60,6 +60,7 @@ const resultResponder = (res) => ({id, data}) => { res.send({ id, ...data }) };
 
 // to implement an API for a specific type of entity (e.g., lyphs)
 function implementNodeREST(type, spec) {
+	if (NODE_TYPES[type].noRestCrud) { return }
 	app.get(`/${type}`, (req, res) => {
 		getAllDatabaseNodes(type).then((nodes) => {
 			let result = nodes.map(({id, data}) => ({ id, ...data }));
