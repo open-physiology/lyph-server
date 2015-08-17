@@ -28,9 +28,9 @@ const {username, password, server, port} = require('../neo4j-credentials.json');
 let db = new GraphDatabase(`http://${username}:${password}@${server}:${port}`);
 
 
-////////// Convenience function for queries ////////////////////////////////////////////////////////////////////////////
+////////// Convenience function to run queries /////////////////////////////////////////////////////////////////////////
 
-
+const query = (query, params = {}) => promisify(db, 'query', query, params);
 
 
 ////////// Validation of data objects through JSON schemas /////////////////////////////////////////////////////////////
@@ -81,23 +81,23 @@ export function createDatabaseNode(type, data) {
 	data = _.omit(originalData, (__, prop) => NODE_TYPES[type].schema.properties[prop].skipDB);
 
 	// add the new node to the database
-	return promisify(db, 'query', `
+	return query(`
 		${NEW_ID('newID')}
 		CREATE (n:${type} {data})
 		SET n.id = newID
 		RETURN n
-	`, { data })
-			.then(arr => arr[0].n)
-			.then((node) => {
-				// Do all ad-hoc stuff related to this creation, and wait for it, then return the new node
-				return NODE_TYPES[type].onCreate ?
-				       NODE_TYPES[type].onCreate(originalData, node).then(() => node) :
-				       node;
-			});
+	`, { data }).then(([{n}]) => {
+		// Do all ad-hoc stuff related to this creation, and wait for it, then return the new node
+		return NODE_TYPES[type].onCreate ?
+		       NODE_TYPES[type].onCreate(originalData, n).then(() => n) :
+		       n;
+	});
 }
 
 export function getDatabaseNode(type, id) {
-	return promisify(db, 'getNodeById', id);
+	return query(`MATCH (n:${type} {id:${id}}) RETURN n`).then(([{n}]) => n);
+	// TODO: remove old code below after above code is tested
+	//return promisify(db, 'getNodeById', id);
 }
 
 export function updateDatabaseNode(type, id, data) {
@@ -110,28 +110,37 @@ export function updateDatabaseNode(type, id, data) {
 	data = _.omit(originalData, (__, prop) => NODE_TYPES[type].schema.properties[prop].skipDB);
 
 	// update the node in the database
-	return promisify(db, 'getNodeById', id).then((node) => {
-		Object.assign(node.data, data);
-		return promisify(node, 'save');
-	}).then((node) => {
-		// Do all ad-hoc stuff related to this update, and wait for it, then return the new node
+	return query(`
+		MATCH (n:${type} {id:${id}})
+		SET n += {data}
+		RETURN n
+	`, { data }).then(([{n}]) => {
 		return NODE_TYPES[type].onUpdate ?
-		       NODE_TYPES[type].onUpdate(originalData, node).then(() => node) :
-		       node;
+		       NODE_TYPES[type].onUpdate(originalData, n).then(() => n) :
+		       n;
 	});
+	// TODO: remove old code below after above code is tested
+	//return promisify(db, 'getNodeById', id).then((node) => {
+	//	Object.assign(node.data, data);
+	//	return promisify(node, 'save');
+	//}).then((node) => {
+	//	// Do all ad-hoc stuff related to this update, and wait for it, then return the new node
+	//	return NODE_TYPES[type].onUpdate ?
+	//	       NODE_TYPES[type].onUpdate(originalData, node).then(() => node) :
+	//	       node;
+	//});
 }
 
 export function deleteDatabaseNode(type, id) {
-	return promisify(db, 'query', `
-		MATCH (n {id: ${id}})
+	return query(`
+		MATCH (n {id:${id}})
 		OPTIONAL MATCH (n)-[r]-()
 		DELETE n, r
 	`, {}).then(() => {
 		// Do all ad-hoc stuff related to this update, and wait for it, then return the new node
 		return NODE_TYPES[type].onDelete && NODE_TYPES[type].onDelete();
 	});
-	// TODO: for some types of nodes, we don't want to auto-delete relationships,
-	//     : also, make use of 'sustains' and 'anchors' properties on relationships
+	// TODO: make use of 'sustains' and 'anchors' properties on relationships
 }
 
 export function replaceDatabaseNode(type, id, data) {
@@ -144,22 +153,35 @@ export function replaceDatabaseNode(type, id, data) {
 	data = _.omit(originalData, (__, prop) => NODE_TYPES[type].schema.properties[prop].skipDB);
 
 	// update the node in the database
-	return promisify(db, 'getNodeById', id).then((node) => {
-		node.data = { type: node.data.type, ...data };
-		return promisify(node, 'save');
-	}).then((node) => {
+	return query(`
+		MATCH (n:${type} {id:${id}})
+		SET n = {data}
+		RETURN n
+	`, { data }).then(([{n}]) => {
 		// Do all ad-hoc stuff related to this update, and wait for it, then return the new node
 		return NODE_TYPES[type].onUpdate ?
-		       NODE_TYPES[type].onUpdate(originalData, node).then(() => node) :
-		       node;
+		       NODE_TYPES[type].onUpdate(originalData, n).then(() => n) :
+		       n;
 	});
+	// TODO: remove old code below after above code is tested
+	//return promisify(db, 'getNodeById', id).then((node) => {
+	//	node.data = { type: node.data.type, ...data };
+	//	return promisify(node, 'save');
+	//}).then((node) => {
+	//	// Do all ad-hoc stuff related to this update, and wait for it, then return the new node
+	//	return NODE_TYPES[type].onUpdate ?
+	//	       NODE_TYPES[type].onUpdate(originalData, node).then(() => node) :
+	//	       node;
+	//});
 }
 
 export function getAllDatabaseNodes(type) {
-	return promisify(db, 'query', `MATCH (n) WHERE n.type = {type} RETURN n`, { type })
-			.then(res => res.map(node => node.n));
+	return query(`MATCH (n:${type}) RETURN n`)
+			.then(res => res.map(({n}) => n));
 }
 
+
+// TODO: remove these 'create database relationship' functions if they're not used
 //export function createDatabaseRelationship(type, from, to, data) {
 //	let {anchors, sustains} = RELATIONSHIP_TYPES[type];
 //
@@ -171,7 +193,7 @@ export function getAllDatabaseNodes(type) {
 //	let originalData = data;
 //	data = _.omit(originalData, (__, prop) => RELATIONSHIP_TYPES[type].schema.properties[prop].skipDB);
 //
-//	return promisify(db, 'query', `
+//	return query(`
 //		MATCH (a {id: ${from}}), (b {id: ${to}}), (meta:meta)
 //		CREATE (a)-[r:${type} {data}]->(b)
 //		SET r.id = meta.newID, meta.newID = meta.newID + 1
@@ -180,7 +202,7 @@ export function getAllDatabaseNodes(type) {
 //}
 //
 //export function deleteDatabaseRelationship(from, to) {
-//	return promisify(db, 'query', `
+//	return query(`
 //		MATCH (a {id: ${from}}) -[r]-> (b {id: ${to}})
 //		DELETE r
 //	`, {});
@@ -189,7 +211,7 @@ export function getAllDatabaseNodes(type) {
 //export function updateDatabaseRelationship(type, from, to, data) {
 //	let validation = validateObject({ type, ...data }, { required: false });
 //	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
-//	return promisify(db, 'query', `
+//	return query(`
 //		MATCH (a {id: ${from}}) -[r]-> (b {id: ${to}})
 //		SET r += {data}
 //		RETURN r
@@ -203,12 +225,13 @@ export function getAllDatabaseNodes(type) {
 /////////// Ad-hoc actions after creating/updating/deleting nodes or relationships /////////////////////////////////////
 
 // When creating a lyph:
+//
 NODE_TYPES.lyphs.onCreate = (data, lyph) => {
-	return promisify(db, 'query', `
+	return query(`
 		MATCH (lyphTemplate:lyphTemplates {id: ${data.template}}) -[:hasLayer]-> (layerTemplate:layerTemplates)
 		RETURN layerTemplate
 	`).then((layerTemplates) => {
-		return promisify(db, 'query', `
+		return query(`
 			MATCH         (lyph:lyphs {id: ${lyph.data.id}}), (lyphTemplate:lyphTemplates {id: ${data.template}})
 			CREATE UNIQUE (lyph) -[:instantiates]-> (lyphTemplate)
 			${THEN}
@@ -221,8 +244,9 @@ NODE_TYPES.lyphs.onCreate = (data, lyph) => {
 };
 
 // When creating a layerTemplate:
+//
 NODE_TYPES.layerTemplates.onCreate = (data, layerTemplate) => {
-	return promisify(db, 'query', `
+	return query(`
 		MATCH  (lyph:lyphs) -[:instantiates]-> (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}})
 		RETURN lyph
 	`).then((lyphs) => {
@@ -243,7 +267,7 @@ NODE_TYPES.layerTemplates.onCreate = (data, layerTemplate) => {
 				WITH  ${data.position} AS newPosition
 			`;
 		}
-		return promisify(db, 'query', `
+		return query(`
 			${handlePositioning}
 			// Set the position on the new layerTemplate
 			MATCH (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
@@ -263,8 +287,9 @@ NODE_TYPES.layerTemplates.onCreate = (data, layerTemplate) => {
 };
 
 // When creating a node:
+//
 NODE_TYPES.nodes.onCreate = (data, node) => {
-	return promisify(db, 'query', data.attachments.map(attachment => `
+	return query(data.attachments.map(attachment => `
 		MATCH         (node:nodes {id:${node.data.id}}), (layer:layers {id:${attachment.layer}})
 		CREATE UNIQUE (layer) -[:hasOnBorder {border: '${attachment.border}'}]-> (node)
 	`).join(THEN));
@@ -275,59 +300,59 @@ NODE_TYPES.nodes.onCreate = (data, node) => {
 
 setTimeout(() => {
 
-	createDatabaseNode('lyphTemplates', {
-		name: 'first lyph-template'
-	}).then((lyphTemplate) => {
 
-		return createDatabaseNode('lyphs', {
-			name:     "first lyph!",
-			species:  "Human",
-			template: lyphTemplate.data.id
-		})
-				.then(() => {
-					return createDatabaseNode('layerTemplates', {
-						name:         "First (should get position 0)",
-						thickness:    [1, 5],
-						lyphTemplate: lyphTemplate.data.id
-					}).then((layerTemplate) => [layerTemplate]);
-				})
-				.then((layerTemplates) => {
-					return createDatabaseNode('layerTemplates', {
-						name:         "Second (should get position 2)",
-						thickness:    [2, 6],
-						lyphTemplate: lyphTemplate.data.id
-					}).then((layerTemplate) => [...layerTemplates, layerTemplate]);
-				})
-				.then((layerTemplates) => {
-					return createDatabaseNode('layerTemplates', {
-						name:         "Third (should get position 1)",
-						position:     1,
-						thickness:    [3, 7],
-						lyphTemplate: lyphTemplate.data.id
-					}).then((layerTemplate) => [...layerTemplates, layerTemplate]);
-				})
-				.then(([lt1, lt2, lt3]) => {
-					return promisify(db, 'query', `
-						MATCH (layer:layers) -[:instantiates]-> (layerTemplate:layerTemplates {id: ${lt1.data.id}})
-						RETURN layer
-					`);
-				})
-				.then(([{layer}]) => {
-					return createDatabaseNode('nodes', {
-						attachments: [
-							{ layer: layer.data.id, border: 'plus' },
-							{ layer: layer.data.id, border: 'minus' }
-						]
-					});
-				});
-
-
-	}).then((res) => {
-		console.log("OK: ", res);
-	}, (err) => {
-		console.error("ERR: ", err);
-	});
-
+	//createDatabaseNode('lyphTemplates', {
+	//	name: 'first lyph-template'
+	//}).then((lyphTemplate) => {
+	//
+	//	return createDatabaseNode('lyphs', {
+	//		name:     "first lyph!",
+	//		species:  "Human",
+	//		template: lyphTemplate.data.id
+	//	})
+	//			.then(() => {
+	//				return createDatabaseNode('layerTemplates', {
+	//					name:         "First (should get position 0)",
+	//					thickness:    [1, 5],
+	//					lyphTemplate: lyphTemplate.data.id
+	//				}).then((layerTemplate) => [layerTemplate]);
+	//			})
+	//			.then((layerTemplates) => {
+	//				return createDatabaseNode('layerTemplates', {
+	//					name:         "Second (should get position 2)",
+	//					thickness:    [2, 6],
+	//					lyphTemplate: lyphTemplate.data.id
+	//				}).then((layerTemplate) => [...layerTemplates, layerTemplate]);
+	//			})
+	//			.then((layerTemplates) => {
+	//				return createDatabaseNode('layerTemplates', {
+	//					name:         "Third (should get position 1)",
+	//					position:     1,
+	//					thickness:    [3, 7],
+	//					lyphTemplate: lyphTemplate.data.id
+	//				}).then((layerTemplate) => [...layerTemplates, layerTemplate]);
+	//			})
+	//			.then(([lt1, lt2, lt3]) => {
+	//				return query(`
+	//					MATCH (layer:layers) -[:instantiates]-> (layerTemplate:layerTemplates {id: ${lt1.data.id}})
+	//					RETURN layer
+	//				`);
+	//			})
+	//			.then(([{layer}]) => {
+	//				return createDatabaseNode('nodes', {
+	//					attachments: [
+	//						{ layer: layer.data.id, border: 'plus' },
+	//						{ layer: layer.data.id, border: 'minus' }
+	//					]
+	//				});
+	//			});
+	//
+	//
+	//}).then((res) => {
+	//	console.log("OK: ", res);
+	//}, (err) => {
+	//	console.error("ERR: ", err);
+	//});
 
 
 	//updateDatabaseRelationship('process', 52, 53, { foo: 'bar' }).then((res) => {
@@ -335,6 +360,7 @@ setTimeout(() => {
 	//}, (err) => {
 	//	console.error("ERR: ", err);
 	//});
+
 
 	//deleteDatabaseRelationship(50, 51).then((res) => {
 	//	console.log("OK: ", res);
@@ -353,7 +379,6 @@ setTimeout(() => {
 	//}, (err) => {
 	//	console.error("ERR: ", err);
 	//});
-
 
 
 }, 1000);
