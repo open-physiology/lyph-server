@@ -13,28 +13,49 @@
     "/lyph/{id}": {
 
     },
+//    "/lyph/{id}/layers": {
+//
+//    },
+//    "/lyph/{id}/locatedMeasures": {
+//
+//    },
     "/layer": {
 
     },
     "/layer/{id}": {
 
     },
+//    "/layer/{id}/materials": {
+//
+//    },
+//    "/layer/{id}/nodes": { // with border-specification
+//
+//    },
     "/lyphTemplate": {
 
     },
     "/lyphTemplate/{id}": {
 
     },
+//    "/lyphTemplate/{id}/layerTemplates": {
+//
+//    },
     "/layerTemplate": {
 
     },
     "/layerTemplate/{id}": {
 
     },
+//    "/layerTemplate/{id}/lyphTemplates": {
+//
+//    },
     "/node": {
 
     },
     "/node/{id}": {
+
+    },
+    "/node/{id}/attachments": {
 
     },
     "/correlation": {
@@ -43,37 +64,68 @@
     "/correlation/{id}": {
 
     },
+    "/correlation/{id}/clinicalIndices": {
+
+    },
+    "/correlation/{id}/locatedMeasures": {
+
+    },
     "/publication": {
 
     },
     "/publication/{id}": {
 
     },
+//    "/publication/{id}/correlations": {
+//
+//    },
     "/clinicalIndex": {
 
     },
     "/clinicalIndex/{id}": {
 
     },
+//    "/clinicalIndex/{id}/correlations": {
+//
+//    },
     "/locatedMeasure": {
 
     },
     "/locatedMeasure/{id}": {
 
     },
+//    "/locatedMeasure/{id}/correlations": {
+//
+//    },
+//    "/locatedMeasure/{id}/bagsOfPathologies": {
+//
+//    },
     "/bagOfPathologies": {
 
     },
     "/bagOfPathologies/{id}": {
 
     },
-    "/process": {
+    "/bagOfPathologies/{id}/locatedMeasures": {
+
+    },
+    "/bagOfPathologies/{id}/removedProcesses": {
+
+    },
+    "/bagOfPathologies/{id}/addedProcesses": { // {from, to} objects, but no href
+
+    },
+    "/process": { // from, to
 
     },
     "/process/{id}": {
 
     }
+//    "/process/{id}/removedByBagsOfPathologies": {
+//
+//    }
   },
   "definitions": {
+
   }
 }

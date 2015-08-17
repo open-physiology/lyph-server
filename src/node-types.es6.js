@@ -6,7 +6,8 @@ const TYPES = {
 			properties: {
 				name:     { type: 'string', required: true },
 				species:  { type: 'string', required: true },
-				template: { type: 'integer', required: true, skipDB: true }
+				template: { type: 'integer', required: true, skipDB: true },
+				location: { type: 'integer', skipDB: true } // a layer, or nothing
 			}
 		}
 	},
@@ -49,7 +50,7 @@ const TYPES = {
 		plural:   "nodes",
 		schema:   {
 			properties: {
-				attachedTo: {
+				attachments: {
 					type:     'array',
 					items:    {
 						type:       'object',

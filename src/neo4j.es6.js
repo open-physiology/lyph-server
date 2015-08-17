@@ -260,9 +260,9 @@ NODE_TYPES.layerTemplate.onCreate = (data, layerTemplate) => {
 
 // When creating a node:
 NODE_TYPES.node.onCreate = (data, node) => {
-	return promisify(db, 'query', data.attachedTo.map(attachedTo => `
-		MATCH         (node:node {id:${node.data.id}}), (layer:layer {id:${attachedTo.layer}})
-		CREATE UNIQUE (layer) -[:hasOnBorder {border: '${attachedTo.border}'}]-> (node)
+	return promisify(db, 'query', data.attachments.map(attachments => `
+		MATCH         (node:node {id:${node.data.id}}), (layer:layer {id:${attachments.layer}})
+		CREATE UNIQUE (layer) -[:hasOnBorder {border: '${attachments.border}'}]-> (node)
 	`).join(THEN));
 };
 
