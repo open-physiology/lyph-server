@@ -1,5 +1,6 @@
 const TYPES = {
-	lyph:             {
+	lyphs:             {
+		singularKey: "lyph",
 		singular: "lyph",
 		plural:   "lyphs",
 		schema:   {
@@ -11,7 +12,7 @@ const TYPES = {
 			}
 		}
 	},
-	layer:            {
+	layers:            {
 		singular:   "layer",
 		plural:     "layers",
 		schema:     {
@@ -19,7 +20,7 @@ const TYPES = {
 		},
 		noRestCrud: true
 	},
-	lyphTemplate:     {
+	lyphTemplates:     {
 		singular: "lyph template",
 		plural:   "lyph templates",
 		schema:   {
@@ -28,7 +29,7 @@ const TYPES = {
 			}
 		}
 	},
-	layerTemplate:    {
+	layerTemplates:    {
 		singular: "layer template",
 		plural:   "layer templates",
 		schema:   {
@@ -45,7 +46,7 @@ const TYPES = {
 			}
 		}
 	},
-	node:             {
+	nodes:             {
 		singular: "node",
 		plural:   "nodes",
 		schema:   {
@@ -66,7 +67,7 @@ const TYPES = {
 			}
 		}
 	},
-	correlation:      {
+	correlations:      {
 		singular: "correlation",
 		plural:   "correlations",
 		schema:   {
@@ -75,7 +76,7 @@ const TYPES = {
 			}
 		}
 	},
-	publication:      {
+	publications:      {
 		singular: "publication",
 		plural:   "publications",
 		schema:   {
@@ -85,7 +86,7 @@ const TYPES = {
 			}
 		}
 	},
-	clinicalIndex:    {
+	clinicalIndices:    {
 		singular: "clinical index",
 		plural:   "clinical indices",
 		schema:   {
@@ -95,7 +96,7 @@ const TYPES = {
 			}
 		}
 	},
-	locatedMeasure:   {
+	locatedMeasures:   {
 		singular: "located measures",
 		plural:   "located measures",
 		schema:   {
@@ -104,7 +105,7 @@ const TYPES = {
 			}
 		}
 	},
-	bagOfPathologies: {
+	bagsOfPathologies: {
 		singular: "bag of pathologies",
 		plural:   "bags of pathologies",
 		schema:   {
