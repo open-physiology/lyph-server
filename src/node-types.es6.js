@@ -6,7 +6,7 @@ const TYPES = {
 			properties: {
 				name:     { type: 'string', required: true },
 				species:  { type: 'string', required: true },
-				template: { type: 'integer', required: true, db: false }
+				template: { type: 'integer', required: true, skipDB: true }
 			}
 		}
 	},
@@ -39,7 +39,7 @@ const TYPES = {
 					items:    { type: 'number' },
 					required: true
 				},
-				lyphTemplate: { type: 'integer', required: true, db: false },
+				lyphTemplate: { type: 'integer', required: true, skipDB: true },
 				position:     { type: 'integer' }
 			}
 		}
@@ -48,7 +48,21 @@ const TYPES = {
 		singular: "node",
 		plural:   "nodes",
 		schema:   {
-			properties: {}
+			properties: {
+				attachedTo: {
+					type:     'array',
+					items:    {
+						type:       'object',
+						properties: {
+							layer:  { type: 'integer', required: true },
+							border: { enum: ['plus', 'minus', 'inner', 'outer'], required: true }
+						}
+					},
+					minItems: 1,
+					required: true,
+					skipDB:   true
+				}
+			}
 		}
 	},
 	correlation:      {

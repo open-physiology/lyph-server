@@ -11,7 +11,7 @@ import RELATIONSHIP_TYPES from './relationship-types.es6.js';
 ////////// Helpful snippets for Cypher Queries /////////////////////////////////////////////////////////////////////////
 
 const THEN = `WITH 1 AS XdummyX`;
-const END  = `RETURN 0`;
+const END = `RETURN 0`;
 const NEW_ID = (id) => {
 	return `
 		MERGE (meta:meta)
@@ -68,9 +68,15 @@ function validateObject(object, {required} = { required: true }) {
 ////////// CRUD operations on the database /////////////////////////////////////////////////////////////////////////////
 
 export function createDatabaseNode(type, data) {
+	// validate the incoming data
 	let validation = validateObject({ type, ...data });
 	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
-	let node = db.createNode({ type, ...data }); // TODO: remove fields with `db: false`
+
+	// extract the data that actually goes into the database
+	let originalData = data;
+	data = _.omit(originalData, (__, prop) => NODE_TYPES[type].schema.properties[prop].skipDB);
+
+	// add the new node to the database
 	return promisify(db, 'query', `
 		${NEW_ID('newID')}
 		CREATE (n:${type} {data})
@@ -81,7 +87,7 @@ export function createDatabaseNode(type, data) {
 			.then((node) => {
 				// Do all ad-hoc stuff related to this creation, and wait for it, then return the new node
 				return NODE_TYPES[type].onCreate ?
-				       NODE_TYPES[type].onCreate(data, node).then(() => node) :
+				       NODE_TYPES[type].onCreate(originalData, node).then(() => node) :
 				       node;
 			});
 }
@@ -91,15 +97,22 @@ export function getDatabaseNode(type, id) {
 }
 
 export function updateDatabaseNode(type, id, data) {
+	// validate the incoming data
 	let validation = validateObject({ type, ...data }, { required: false });
 	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
+
+	// extract the data that actually goes into the database
+	let originalData = data;
+	data = _.omit(originalData, (__, prop) => NODE_TYPES[type].schema.properties[prop].skipDB);
+
+	// update the node in the database
 	return promisify(db, 'getNodeById', id).then((node) => {
 		Object.assign(node.data, data);
 		return promisify(node, 'save');
 	}).then((node) => {
 		// Do all ad-hoc stuff related to this update, and wait for it, then return the new node
 		return NODE_TYPES[type].onUpdate ?
-		       NODE_TYPES[type].onUpdate(data, node).then(() => node) :
+		       NODE_TYPES[type].onUpdate(originalData, node).then(() => node) :
 		       node;
 	});
 }
@@ -118,15 +131,22 @@ export function deleteDatabaseNode(type, id) {
 }
 
 export function replaceDatabaseNode(type, id, data) {
+	// validate the incoming data
 	let validation = validateObject({ type, ...data });
 	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
+
+	// extract the data that actually goes into the database
+	let originalData = data;
+	data = _.omit(originalData, (__, prop) => NODE_TYPES[type].schema.properties[prop].skipDB);
+
+	// update the node in the database
 	return promisify(db, 'getNodeById', id).then((node) => {
 		node.data = { type: node.data.type, ...data };
 		return promisify(node, 'save');
 	}).then((node) => {
 		// Do all ad-hoc stuff related to this update, and wait for it, then return the new node
 		return NODE_TYPES[type].onUpdate ?
-		       NODE_TYPES[type].onUpdate(data, node).then(() => node) :
+		       NODE_TYPES[type].onUpdate(originalData, node).then(() => node) :
 		       node;
 	});
 }
@@ -136,34 +156,41 @@ export function getAllDatabaseNodes(type) {
 			.then(res => res.map(node => node.n));
 }
 
-export function createDatabaseRelationship(type, from, to, data) {
-	let {anchors, sustains} = RELATIONSHIP_TYPES[type];
-	let validation = validateObject({ type, anchors, sustains, ...data });
-	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
-	return promisify(db, 'query', `
-		MATCH (a {id: ${from}}), (b {id: ${to}}), (meta:meta)
-		CREATE (a)-[r:${type} {data}]->(b)
-		SET r.id = meta.newID, meta.newID = meta.newID + 1
-		RETURN r
-	`, { data });
-}
-
-export function deleteDatabaseRelationship(from, to) {
-	return promisify(db, 'query', `
-		MATCH (a {id: ${from}}) -[r]-> (b {id: ${to}})
-		DELETE r
-	`, {});
-}
-
-export function updateDatabaseRelationship(type, from, to, data) {
-	let validation = validateObject({ type, ...data }, { required: false });
-	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
-	return promisify(db, 'query', `
-		MATCH (a {id: ${from}}) -[r]-> (b {id: ${to}})
-		SET r += {data}
-		RETURN r
-	`, { data });
-}
+//export function createDatabaseRelationship(type, from, to, data) {
+//	let {anchors, sustains} = RELATIONSHIP_TYPES[type];
+//
+//	// validate the incoming data
+//	let validation = validateObject({ type, anchors, sustains, ...data });
+//	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
+//
+//	// extract the data that actually goes into the database
+//	let originalData = data;
+//	data = _.omit(originalData, (__, prop) => RELATIONSHIP_TYPES[type].schema.properties[prop].skipDB);
+//
+//	return promisify(db, 'query', `
+//		MATCH (a {id: ${from}}), (b {id: ${to}}), (meta:meta)
+//		CREATE (a)-[r:${type} {data}]->(b)
+//		SET r.id = meta.newID, meta.newID = meta.newID + 1
+//		RETURN r
+//	`, { data }); // TODO: ad hoc things?
+//}
+//
+//export function deleteDatabaseRelationship(from, to) {
+//	return promisify(db, 'query', `
+//		MATCH (a {id: ${from}}) -[r]-> (b {id: ${to}})
+//		DELETE r
+//	`, {});
+//}
+//
+//export function updateDatabaseRelationship(type, from, to, data) {
+//	let validation = validateObject({ type, ...data }, { required: false });
+//	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
+//	return promisify(db, 'query', `
+//		MATCH (a {id: ${from}}) -[r]-> (b {id: ${to}})
+//		SET r += {data}
+//		RETURN r
+//	`, { data });
+//}
 
 
 // TODO: avoid race conditions when one REST request involves multiple queries executed on the database
@@ -231,8 +258,13 @@ NODE_TYPES.layerTemplate.onCreate = (data, layerTemplate) => {
 	});
 };
 
-
-
+// When creating a node:
+NODE_TYPES.node.onCreate = (data, node) => {
+	return promisify(db, 'query', data.attachedTo.map(attachedTo => `
+		MATCH         (node:node {id:${node.data.id}}), (layer:layer {id:${attachedTo.layer}})
+		CREATE UNIQUE (layer) -[:hasOnBorder {border: '${attachedTo.border}'}]-> (node)
+	`).join(THEN));
+};
 
 
 /////////// Test code, and so on ///////////////////////////////////////////////////////////////////////////////////////
@@ -241,41 +273,56 @@ setTimeout(() => {
 
 	//createDatabaseNode('lyphTemplate', {
 	//	name: 'first lyph-template'
-	//})
-	//	.then((lyphTemplate) => {
-	//		return createDatabaseNode('layerTemplate', {
-	//			name: "First (should get position 0)",
-	//			thickness: [1, 5],
-	//			lyphTemplate: lyphTemplate.data.id
-	//		}).then(() => lyphTemplate);
+	//}).then((lyphTemplate) => {
+	//
+	//	return createDatabaseNode('lyph', {
+	//		name:     "first lyph!",
+	//		species:  "Human",
+	//		template: lyphTemplate.data.id
 	//	})
-	//	.then((lyphTemplate) => {
-	//		return createDatabaseNode('layerTemplate', {
-	//			name: "Second (should get position 2)",
-	//			thickness: [2, 6],
-	//			lyphTemplate: lyphTemplate.data.id
-	//		}).then(() => lyphTemplate);
-	//	})
-	//	.then((lyphTemplate) => {
-	//		return createDatabaseNode('layerTemplate', {
-	//			name: "Third (should get position 1)",
-	//			position: 1,
-	//			thickness: [3, 7],
-	//			lyphTemplate: lyphTemplate.data.id
-	//		}).then(() => lyphTemplate);
-	//	})
-	//		.then((lyphTemplate) => {
-	//			return createDatabaseNode('lyph', {
-	//				name: "first lyph!",
-	//				species: "Human",
-	//				template: lyphTemplate.data.id
-	//			}).then(() => lyphTemplate);
-	//		})
-	//	.then((res) => {
-	//		console.log("OK: ", res);
-	//	}, (err) => {
-	//		console.error("ERR: ", err);
-	//	});
+	//			.then(() => {
+	//				return createDatabaseNode('layerTemplate', {
+	//					name:         "First (should get position 0)",
+	//					thickness:    [1, 5],
+	//					lyphTemplate: lyphTemplate.data.id
+	//				}).then((layerTemplate) => [layerTemplate]);
+	//			})
+	//			.then((layerTemplates) => {
+	//				return createDatabaseNode('layerTemplate', {
+	//					name:         "Second (should get position 2)",
+	//					thickness:    [2, 6],
+	//					lyphTemplate: lyphTemplate.data.id
+	//				}).then((layerTemplate) => [...layerTemplates, layerTemplate]);
+	//			})
+	//			.then((layerTemplates) => {
+	//				return createDatabaseNode('layerTemplate', {
+	//					name:         "Third (should get position 1)",
+	//					position:     1,
+	//					thickness:    [3, 7],
+	//					lyphTemplate: lyphTemplate.data.id
+	//				}).then((layerTemplate) => [...layerTemplates, layerTemplate]);
+	//			})
+	//			.then(([lt1, lt2, lt3]) => {
+	//				return promisify(db, 'query', `
+	//					MATCH (layer:layer) -[:instantiates]-> (layerTemplate:layerTemplate {id: ${lt1.data.id}})
+	//					RETURN layer
+	//				`);
+	//			})
+	//			.then(([{layer}]) => {
+	//				return createDatabaseNode('node', {
+	//					attachedTo: [
+	//						{ layer: layer.data.id, border: 'plus' },
+	//						{ layer: layer.data.id, border: 'minus' }
+	//					]
+	//				});
+	//			});
+	//
+	//
+	//}).then((res) => {
+	//	console.log("OK: ", res);
+	//}, (err) => {
+	//	console.error("ERR: ", err);
+	//});
 
 
 
