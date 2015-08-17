@@ -9,11 +9,7 @@ import {
 		replaceDatabaseNode,
 		getAllDatabaseNodes
 } from './neo4j.es6.js';
-import {
-		NOT_FOUND,
-		PRECONDITION_FAILED,
-		INTERNAL_SERVER_ERROR
-} from './http-status-codes.es6.js';
+import './http-status-codes.es6.js';
 
 import NODE_TYPES from './node-types.es6.js';
 import RELATIONSHIP_TYPES from './relationship-types.es6.js';
