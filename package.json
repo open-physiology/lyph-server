@@ -18,7 +18,6 @@
     "body-parser": "~1",
     "express": "~4",
     "lodash": "~3",
-    "mongodb": "~2",
     "neo4j": "~1",
     "revalidator": "~0.3"
   },
