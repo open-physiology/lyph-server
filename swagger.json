@@ -7,125 +7,443 @@
   "consumes": ["application/json"],
   "produces": ["application/json"],
   "paths": {
-    "/lyph": {
-
+    "/lyphs": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
     },
-    "/lyph/{id}": {
-
+    "/lyphs/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
     },
-//    "/lyph/{id}/layers": {
-//
+//    "/lyphs/{id}/layers": {
+//    "get": {}
 //    },
-//    "/lyph/{id}/locatedMeasures": {
-//
+//    "/lyphs/{id}/layers/{id2}": { // NEVER ENABLE; layers are kept in sync with layerTemplates
 //    },
-    "/layer": {
-
-    },
-    "/layer/{id}": {
-
-    },
-//    "/layer/{id}/materials": {
-//
+//    "/lyphs/{id}/locatedMeasures": {
+//    "get": {},
+//    "put": {},
+//    "post": {}
 //    },
-//    "/layer/{id}/nodes": { // with border-specification
-//
+//    "/lyphs/{id}/locatedMeasures/{id2}": {
+//    "delete": {}
 //    },
-    "/lyphTemplate": {
-
+    "/layers": { // GET ONLY; layers are kept in sync with layerTemplates
+      "get": {
+        "summary": ""
+      }
     },
-    "/lyphTemplate/{id}": {
-
+    "/layers/{id}": { // GET ONLY; layers are kept in sync with layerTemplates
+      "get": {
+        "summary": ""
+      }
     },
-//    "/lyphTemplate/{id}/layerTemplates": {
-//
+//    "/layers/{id}/materials": { // GET ONLY; layers are kept in sync with layerTemplates
+//    "get": {},
 //    },
-    "/layerTemplate": {
-
-    },
-    "/layerTemplate/{id}": {
-
-    },
-//    "/layerTemplate/{id}/lyphTemplates": {
-//
+//    "/layers/{id}/materials/{id2}": { // NEVER ENABLE; layers are kept in sync with layerTemplates
 //    },
-    "/node": {
-
-    },
-    "/node/{id}": {
-
-    },
-    "/node/{id}/attachments": {
-
-    },
-    "/correlation": {
-
-    },
-    "/correlation/{id}": {
-
-    },
-    "/correlation/{id}/clinicalIndices": {
-
-    },
-    "/correlation/{id}/locatedMeasures": {
-
-    },
-    "/publication": {
-
-    },
-    "/publication/{id}": {
-
-    },
-//    "/publication/{id}/correlations": {
-//
+//    "/layers/{id}/nodes": { // with border-specification
+//    "get": {},
+//    "put": {},
+//    "post": {}
 //    },
-    "/clinicalIndex": {
-
-    },
-    "/clinicalIndex/{id}": {
-
-    },
-//    "/clinicalIndex/{id}/correlations": {
-//
+//    "/layers/{id}/nodes/{id2}": { // with border-specification
+//    "delete": {}
 //    },
-    "/locatedMeasure": {
-
+    "/lyphTemplates": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
     },
-    "/locatedMeasure/{id}": {
-
+    "/lyphTemplates/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
     },
-//    "/locatedMeasure/{id}/correlations": {
-//
+//    "/lyphTemplates/{id}/layerTemplates": {
+//    "get": {},
+//    "put": {},
+//    "post": {}
 //    },
-//    "/locatedMeasure/{id}/bagsOfPathologies": {
-//
+//    "/lyphTemplates/{id}/layerTemplates/{id2}": {
+//    "delete": {}
 //    },
-    "/bagOfPathologies": {
-
+    "/layerTemplates": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
     },
-    "/bagOfPathologies/{id}": {
-
+    "/layerTemplates/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
     },
-    "/bagOfPathologies/{id}/locatedMeasures": {
-
+//    "/layerTemplates/{id}/lyphTemplates": {
+//    "get": {},
+//    "put": {},
+//    "post": {}
+//    },
+//    "/layerTemplates/{id}/lyphTemplates/{id2}": {
+//    "delete": {}
+//    },
+    "/nodes": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
     },
-    "/bagOfPathologies/{id}/removedProcesses": {
-
+    "/nodes/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
     },
-    "/bagOfPathologies/{id}/addedProcesses": { // {from, to} objects, but no href
-
+    "/nodes/{id}/attachments": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
     },
-    "/process": { // from, to
-
+    "/nodes/{id}/attachments/{id2}": {
+      "delete": {
+        "summary": ""
+      }
     },
-    "/process/{id}": {
-
+    "/correlations": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/correlations/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
+    },
+    "/correlations/{id}/clinicalIndices": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/correlations/{id}/clinicalIndices/{id2}": {
+      "delete": {
+        "summary": ""
+      }
+    },
+    "/correlations/{id}/locatedMeasures": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/correlations/{id}/locatedMeasures/{id2}": {
+      "delete": {
+        "summary": ""
+      }
+    },
+    "/publications": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/publications/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
+    },
+//    "/publications/{id}/correlations": {
+//    "get": {},
+//    "put": {},
+//    "post": {}
+//    },
+//    "/publications/{id}/correlations/{id2}": {
+//    "delete": {}
+//    },
+    "/clinicalIndices": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/clinicalIndices/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
+    },
+//    "/clinicalIndices/{id}/correlations": {
+//    "get": {},
+//    "put": {},
+//    "post": {}
+//    },
+//    "/clinicalIndices/{id}/correlations/{id2}": {
+//    "delete": {}
+//    },
+    "/locatedMeasures": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/locatedMeasures/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
+    },
+//    "/locatedMeasures/{id}/correlations": {
+//    "get": {},
+//    "put": {},
+//    "post": {}
+//    },
+//    "/locatedMeasures/{id}/correlations/{id2}": {
+//    "delete": {}
+//    },
+//    "/locatedMeasures/{id}/bagsOfPathologies": {
+//    "get": {},
+//    "put": {},
+//    "post": {}
+//    },
+//    "/locatedMeasures/{id}/bagsOfPathologies/{id2}": {
+//    "delete": {}
+//    },
+    "/bagsOfPathologies": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/bagsOfPathologies/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
+    },
+    "/bagsOfPathologies/{id}/locatedMeasures": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/bagsOfPathologies/{id}/locatedMeasures/{id2}": {
+      "delete": {
+        "summary": ""
+      }
+    },
+    "/bagsOfPathologies/{id}/removedProcesses": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/bagsOfPathologies/{id}/removedProcesses/{id2}": { // {from, to} objects, but no href
+      "delete": {
+        "summary": ""
+      }
+    },
+    "/bagsOfPathologies/{id}/addedProcesses": { // {from, to} objects, but no href
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/bagsOfPathologies/{id}/addedProcesses/{id2}": { // {from, to} objects, but no href
+      "delete": {
+        "summary": ""
+      }
+    },
+    "/processes": { // from, to
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      }
+    },
+    "/processes/{id}": {
+      "get": {
+        "summary": ""
+      },
+      "put": {
+        "summary": ""
+      },
+      "post": {
+        "summary": ""
+      },
+      "delete": {
+        "summary": ""
+      }
     }
-//    "/process/{id}/removedByBagsOfPathologies": {
-//
+//    "/processes/{id}/removedByBagsOfPathologies": {
+//    "get": {},
+//    "put": {},
+//    "post": {}
 //    }
-  },
-  "definitions": {
-
+//    "/processes/{id}/removedByBagsOfPathologies/{id2}": {
+//    "delete": {}
+//    }
   }
 }
