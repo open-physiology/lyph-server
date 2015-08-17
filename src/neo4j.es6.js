@@ -11,6 +11,15 @@ import RELATIONSHIP_TYPES from './relationship-types.es6.js';
 ////////// Helpful snippets for Cypher Queries /////////////////////////////////////////////////////////////////////////
 
 const THEN = `WITH 1 AS XdummyX`;
+const END  = `RETURN 0`;
+const NEW_ID = (id) => {
+	return `
+		MERGE (meta:meta)
+		ON CREATE SET meta.newID = 0
+		ON MATCH  SET meta.newID = meta.newID + 1
+		WITH meta.newID AS ${id}
+	`;
+};
 
 
 ////////// Get and possibly initialize the database ////////////////////////////////////////////////////////////////////
@@ -63,9 +72,9 @@ export function createDatabaseNode(type, data) {
 	if (!validation.valid) { return new Promise((__, reject) => { reject(validation.error) }) }
 	let node = db.createNode({ type, ...data }); // TODO: remove fields with `db: false`
 	return promisify(db, 'query', `
-		MATCH (meta:meta)
+		${NEW_ID('newID')}
 		CREATE (n:${type} {data})
-		SET n.id = meta.newID, meta.newID = meta.newID + 1
+		SET n.id = newID
 		RETURN n
 	`, { data })
 			.then(arr => arr[0].n)
@@ -163,52 +172,63 @@ export function updateDatabaseRelationship(type, from, to, data) {
 /////////// Ad-hoc actions after creating/updating/deleting nodes or relationships /////////////////////////////////////
 
 // When creating a lyph:
-// * link lyph and lyph-template through ':instantiates' relationship
-// * automatically create and link its layers based on the templates
 NODE_TYPES.lyph.onCreate = (data, lyph) => {
 	return promisify(db, 'query', `
-		MATCH         (lyph:lyph {id: ${lyph.data.id}}), (lyphTemplate:lyphTemplate {id: ${data.template}})
-		CREATE UNIQUE (lyph) -[:instantiates]-> (lyphTemplate)
-		${THEN}
-		MATCH         (lyph:lyph {id: ${lyph.data.id}}), (lyphTemplate:lyphTemplate {id: ${data.template}}) -[:hasLayer]-> (layerTemplate:layerTemplate), (meta:meta)
-		CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layer {id: meta.newID, position: layerTemplate.position}) -[:instantiates]-> (layerTemplate)
-		SET           meta.newID = meta.newID + 1
-	`, {});
+		MATCH (lyphTemplate:lyphTemplate {id: ${data.template}}) -[:hasLayer]-> (layerTemplate:layerTemplate)
+		RETURN layerTemplate
+	`).then((layerTemplates) => {
+		return promisify(db, 'query', `
+			MATCH         (lyph:lyph {id: ${lyph.data.id}}), (lyphTemplate:lyphTemplate {id: ${data.template}})
+			CREATE UNIQUE (lyph) -[:instantiates]-> (lyphTemplate)
+			${THEN}
+		` + layerTemplates.map(({layerTemplate}) => `
+			${NEW_ID('nid')}
+			MATCH         (lyph:lyph {id: ${lyph.data.id}}), (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}})
+			CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layer {id: nid, position: layerTemplate.position}) -[:instantiates]-> (layerTemplate)
+		`).join(THEN) + END);
+	});
 };
 
 // When creating a layerTemplate:
-// * properly position the layerTemplate in its lyphTemplate; if necessary, move subsequent ones
-// * add corresponding layer to all instantiated lyphs
 NODE_TYPES.layerTemplate.onCreate = (data, layerTemplate) => {
-	let handlePositioning;
-	if (typeof data.position === 'undefined') {
-		handlePositioning = `
-			MATCH (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}) -[:hasLayer]-> (:layerTemplate)
-			WITH  count(*) AS newPosition
-		`;
-	} else {
-		handlePositioning = `
-			MATCH (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}) -[:hasLayer]-> (layerTemplate:layerTemplate) <-[:instantiates]- (layer:layer)
-			WHERE layerTemplate.position >= ${data.position}
-			SET   layerTemplate.position = layerTemplate.position + 1, layer.position = layer.position + 1
-			WITH  ${data.position} AS newPosition
-		`;
-	}
 	return promisify(db, 'query', `
-		${handlePositioning}
-		// Set the position on the new layerTemplate
-		MATCH (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}})
-		SET   layerTemplate.position = newPosition
-		${THEN}
-		// Add :hasLayer relationship
-		MATCH         (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}), (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}})
-		CREATE UNIQUE (lyphTemplate) -[:hasLayer]-> (layerTemplate)
-		${THEN}
-		// Add corresponding layer to all instantiated lyphs
-		MATCH  (lyph:lyph) -[:instantiates]-> (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}), (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}}), (meta:meta)
-		CREATE (lyph) -[:hasLayer]-> (layer:layer { id: meta.newID, position: layerTemplate.position }) -[:instantiates]-> (layerTemplate)
-		SET    meta.newID = meta.newID + 1
-	`, {});
+		MATCH  (lyph:lyph) -[:instantiates]-> (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}})
+		RETURN lyph
+	`).then((lyphs) => {
+		let handlePositioning;
+		if (typeof data.position === 'undefined') {
+			handlePositioning = `
+				MATCH (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}) -[:hasLayer]-> (:layerTemplate)
+				WITH  count(*) AS newPosition
+			`;
+		} else {
+			handlePositioning = `
+				MATCH (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}) -[:hasLayer]-> (layerTemplate:layerTemplate)
+				WHERE layerTemplate.position >= ${data.position}
+				OPTIONAL MATCH (layerTemplate) <-[:instantiates]- (layer:layer)
+				WHERE layer.position >= ${data.position}
+				SET   layerTemplate.position = layerTemplate.position + 1
+				SET   layer.position = layer.position + 1
+				WITH  ${data.position} AS newPosition
+			`;
+		}
+		return promisify(db, 'query', `
+			${handlePositioning}
+			// Set the position on the new layerTemplate
+			MATCH (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}})
+			SET   layerTemplate.position = newPosition
+			${THEN}
+			// Add :hasLayer relationship
+			MATCH         (lyphTemplate:lyphTemplate {id: ${data.lyphTemplate}}), (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}})
+			CREATE UNIQUE (lyphTemplate) -[:hasLayer]-> (layerTemplate)
+			${THEN}
+		` + lyphs.map(({lyph}) => `
+			// Add corresponding layer to all instantiated lyphs
+			${NEW_ID('nid')}
+			MATCH         (lyph:lyph {id: ${lyph.data.id}}), (layerTemplate:layerTemplate {id: ${layerTemplate.data.id}})
+			CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layer { id: nid, position: layerTemplate.position }) -[:instantiates]-> (layerTemplate)
+		`).join(THEN) + END);
+	});
 };
 
 
@@ -219,39 +239,43 @@ NODE_TYPES.layerTemplate.onCreate = (data, layerTemplate) => {
 
 setTimeout(() => {
 
-	createDatabaseNode('lyphTemplate', {
-		name: 'first lyph-template'
-	})
-		.then((lyphTemplate) => {
-			return createDatabaseNode('layerTemplate', {
-				thickness: [1, 5],
-				lyphTemplate: lyphTemplate.data.id
-			}).then(() => lyphTemplate);
-		})
-		.then((lyphTemplate) => {
-			return createDatabaseNode('layerTemplate', {
-				thickness: [2, 6],
-				lyphTemplate: lyphTemplate.data.id
-			}).then(() => lyphTemplate);
-		})
-		.then((lyphTemplate) => {
-			return createDatabaseNode('layerTemplate', {
-				thickness: [3, 7],
-				lyphTemplate: lyphTemplate.data.id
-			}).then(() => lyphTemplate);
-		})
-		.then((lyphTemplate) => {
-			return createDatabaseNode('lyph', {
-				name: "first lyph!",
-				species: "Human",
-				template: lyphTemplate.data.id
-			}).then(() => lyphTemplate);
-		})
-		.then((res) => {
-			console.log("OK: ", res);
-		}, (err) => {
-			console.error("ERR: ", err);
-		});
+	//createDatabaseNode('lyphTemplate', {
+	//	name: 'first lyph-template'
+	//})
+	//	.then((lyphTemplate) => {
+	//		return createDatabaseNode('layerTemplate', {
+	//			name: "First (should get position 0)",
+	//			thickness: [1, 5],
+	//			lyphTemplate: lyphTemplate.data.id
+	//		}).then(() => lyphTemplate);
+	//	})
+	//	.then((lyphTemplate) => {
+	//		return createDatabaseNode('layerTemplate', {
+	//			name: "Second (should get position 2)",
+	//			thickness: [2, 6],
+	//			lyphTemplate: lyphTemplate.data.id
+	//		}).then(() => lyphTemplate);
+	//	})
+	//	.then((lyphTemplate) => {
+	//		return createDatabaseNode('layerTemplate', {
+	//			name: "Third (should get position 1)",
+	//			position: 1,
+	//			thickness: [3, 7],
+	//			lyphTemplate: lyphTemplate.data.id
+	//		}).then(() => lyphTemplate);
+	//	})
+	//		.then((lyphTemplate) => {
+	//			return createDatabaseNode('lyph', {
+	//				name: "first lyph!",
+	//				species: "Human",
+	//				template: lyphTemplate.data.id
+	//			}).then(() => lyphTemplate);
+	//		})
+	//	.then((res) => {
+	//		console.log("OK: ", res);
+	//	}, (err) => {
+	//		console.error("ERR: ", err);
+	//	});
 
 
 
