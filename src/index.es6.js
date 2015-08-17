@@ -21,8 +21,6 @@ import RELATIONSHIP_TYPES from './relationship-types.es6.js';
 
 // the express application
 let app = express();
-
-// middleware
 app.use(bodyParser.json());
 
 // sending error responses
