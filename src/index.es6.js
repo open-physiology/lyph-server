@@ -97,46 +97,7 @@ function implementNodeREST(type, spec) {
 	});
 }
 
-// to implement an API for a specific type of entity (e.g., lyphs)
-function implementRelationshipREST(type, spec) {
-	app.get(`/${type}`, (req, res) => {
-		getAllDatabaseRelationships(type).then((nodes) => {
-			let result = nodes.map(({id, data}) => ({ id, ...data }));
-			res.send(result);
-		});
-	});
-	app.get(`/${type}/:id`, (req, res) => {
-		getDatabaseRelationship(req.params.id)
-				.then(resultResponder(res))
-				.catch(errorHandler(spec, res));
-	});
-	app.post(`/${type}`, (req, res) => {
-		createDatabaseRelationship(type, req.body)
-				.then(resultResponder(res))
-				.catch(errorHandler(spec, res));
-	});
-	app.post(`/${type}/:id`, (req, res) => {
-		updateDatabaseRelationship(req.params.id, req.body)
-				.then(resultResponder(res))
-				.catch(errorHandler(spec, res));
-	});
-	app.put(`/${type}`, (req, res) => {
-		createDatabaseRelationship(type, req.body)
-				.then(resultResponder(res))
-				.catch(errorHandler(spec, res));
-	});
-	app.put(`/${type}/:id`, (req, res) => {
-		replaceDatabaseRelationship(req.params.id, req.body)
-				.then(resultResponder(res))
-				.catch(errorHandler(spec, res));
-	});
-	app.delete(`/${type}/:id`, (req, res) => {
-		deleteDatabaseRelationship(req.params.id)
-				.then(resultResponder(res))
-				.catch(errorHandler(spec, res));
-	});
-}
-
+// TODO: REST API for 'process' relationship
 
 // Implement REST interfaces for all node types
 for (let type of Object.keys(NODE_TYPES)) { implementNodeREST(type, NODE_TYPES[type]) }

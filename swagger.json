@@ -1,0 +1,79 @@
+{
+  "swagger": "2.0",
+  "info": {
+
+  },
+  "host": "http://localhost:3000",
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "paths": {
+    "/lyph": {
+
+    },
+    "/lyph/{id}": {
+
+    },
+    "/layer": {
+
+    },
+    "/layer/{id}": {
+
+    },
+    "/lyphTemplate": {
+
+    },
+    "/lyphTemplate/{id}": {
+
+    },
+    "/layerTemplate": {
+
+    },
+    "/layerTemplate/{id}": {
+
+    },
+    "/node": {
+
+    },
+    "/node/{id}": {
+
+    },
+    "/correlation": {
+
+    },
+    "/correlation/{id}": {
+
+    },
+    "/publication": {
+
+    },
+    "/publication/{id}": {
+
+    },
+    "/clinicalIndex": {
+
+    },
+    "/clinicalIndex/{id}": {
+
+    },
+    "/locatedMeasure": {
+
+    },
+    "/locatedMeasure/{id}": {
+
+    },
+    "/bagOfPathologies": {
+
+    },
+    "/bagOfPathologies/{id}": {
+
+    },
+    "/process": {
+
+    },
+    "/process/{id}": {
+
+    }
+  },
+  "definitions": {
+  }
+}
