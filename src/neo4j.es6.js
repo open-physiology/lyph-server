@@ -78,7 +78,10 @@ export function createDatabaseNode(type, data) {
 
 	// extract the data that actually goes into the database
 	let originalData = data;
-	data = _.omit(originalData, (__, prop) => NODE_TYPES[type].schema.properties[prop].skipDB);
+	data = _.omit(originalData, (__, prop) =>
+		(typeof NODE_TYPES[type].schema.properties[prop] !== 'undefined') &&
+		(NODE_TYPES[type].schema.properties[prop].skipDB)
+	);
 
 	// add the new node to the database
 	return query(`
