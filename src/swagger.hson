@@ -8,140 +8,7 @@
 	produces: ["application/json"],
 	paths: {
 
-		"/lyphs": { // field: template
-			get: {
-				summary: "find all lyphs",
-				responses: {
-
-				}
-			},
-			put: {
-				summary: "",
-				responses: {
-
-				}
-			},
-			post: {
-				summary: "",
-				responses: {
-
-				}
-			}
-		},
-
-		"/lyphs/{id}": {
-			get: {
-				summary: "find lyphs by id",
-				responses: {
-
-				}
-			},
-			put: {
-				summary: "",
-				responses: {
-
-				}
-			},
-			post: {
-				summary: "",
-				responses: {
-
-				}
-			},
-			delete: {
-				summary: "",
-				responses: {
-
-				}
-			}
-		},
-
-		"/lyphs/{id}/layers": {
-			get: {}
-			// intentionally no other verbs (layers sync through templates)
-		},
-
-		// intentionally no "/lyphs/{id}/layers/{id2}" (layers sync through templates)
-
-		"/lyphs/{id}/locatedMeasures": {
-			get: {},
-			put: {},
-			post: {}
-		},
-
-		"/lyphs/{id}/locatedMeasures/{id2}": {
-			delete: {}
-		},
-
-		"/lyphs/{id}/inCompartments": {
-			get: {},
-			put: {},
-			post: {}
-		},
-
-		"/lyphs/{id}/inCompartments/{id2}": {
-			delete: {}
-		},
-
-		"/lyphs/{id}/inLayers": { // only in more than one layer in case of coalescence (TODO: enforce)
-			get: {},
-			put: {},
-			post: {}
-		},
-
-		"/lyphs/{id}/inLayers/{id2}": { // only in more than one layer in case of coalescence (TODO: enforce)
-			delete: {}
-		},
-
-		"/compartments/{id}/lyphs": {
-			get: {},
-			put: {},
-			post: {}
-		},
-
-		"/compartments/{id}/lyphs/{id2}": {
-			delete: {}
-		},
-
-		"/layers": { // fields: template
-			get: {
-				summary: "find all lyph-layers",
-				responses: {
-
-				}
-			}
-			// intentionally no other verbs (layers sync through templates)
-		},
-
-		"/layers/{id}": {
-			get: {
-				summary: "find lyph-layers by id",
-				responses: {
-
-				}
-			}
-			// intentionally no other verbs (layers sync through templates)
-		},
-
-		"/layers/{id}/lyphs": {
-			get: {},
-			put: {},
-			post: {}
-		},
-
-		"/layers/{id}/lyphs/{id2}": {
-			delete: {}
-		},
-
-		"/layers/{id}/nodes": { // with border-specification
-			get: {},
-			put: {},
-			post: {}
-		},
-
-		"/layers/{id}/nodes/{id2}": { // with border-specification
-			delete: {}
-		},
+		// TODO: enforce that name/uri-ish fields are not empty strings
 
 		"/lyphTemplates": {
 			get: {
@@ -353,6 +220,163 @@
 
 		// intentionally no "/layerTemplates/{id}/instantiations/{id2}" (instantiation has 1 template from creation)
 
+		"/lyphs": {
+			// fields: template, closedAt (0 or more of ['plus', 'minus'])
+			get: {
+				summary: "find all lyphs",
+				responses: {
+
+				}
+			},
+			put: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			post: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		"/lyphs/{id}": {
+			get: {
+				summary: "find lyphs by id",
+				responses: {
+
+				}
+			},
+			put: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			post: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			delete: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		"/lyphs/{id}/layers": {
+			get: {}
+			// intentionally no other verbs (layers sync through templates)
+		},
+
+		// intentionally no "/lyphs/{id}/layers/{id2}" (layers sync through templates)
+
+		"/lyphs/{id}/locatedMeasures": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/lyphs/{id}/locatedMeasures/{id2}": {
+			delete: {}
+		},
+
+		"/lyphs/{id}/inCompartments": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/lyphs/{id}/inCompartments/{id2}": {
+			delete: {}
+		},
+
+		"/lyphs/{id}/inLayers": {
+			// TODO: enforce that if a lyph is in more than 1 layer, that all those layers coalesce
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/lyphs/{id}/inLayers/{id2}": {
+			delete: {}
+		},
+
+		"/layers": { // fields: template
+			get: {
+				summary: "find all lyph-layers",
+				responses: {
+
+				}
+			}
+			// intentionally no other verbs (layers sync through templates)
+		},
+
+		"/layers/{id}": {
+			get: {
+				summary: "find lyph-layers by id",
+				responses: {
+
+				}
+			}
+			// intentionally no other verbs (layers sync through templates)
+		},
+
+		"/layers/{id}/lyphs": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/layers/{id}/lyphs/{id2}": {
+			delete: {}
+		},
+
+		"/layers/{id}/nodes": { // with border-specification
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/layers/{id}/nodes/{id2}": { // with border-specification
+			delete: {}
+		},
+
+		"/layers/{id}/coalescesWith": { // set of other layers
+			// TODO: enforce symmetry of coalescence
+			// TODO: enforce that the layer is the outermost layer of a lyph
+			// TODO: enforce that all layers have the same layer template
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/layers/{id}/coalescesWith/{id2}": { // set of other layers
+			delete: {}
+		},
+
+		// TODO: avoid loops in "/layerTemplates/{id}/materials" + "/lyphTemplates/{id}/layers" relationships
+		// TODO: avoid loops in "/lyphs/{id}/layers"             + "/layers/{id}/lyphs"         relationships
+		// TODO: enforce that the positions of layers start at 0 and are sequential / without gaps
+
+		// enforce that layers of instantiated lyphs correspond to the layer(Template)s of the lyph template
+		// DONE: by syncing from layerTemplates to layers
+
+		"/compartments/{id}/lyphs": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/compartments/{id}/lyphs/{id2}": {
+			delete: {}
+		},
+
 		"/nodes": {
 			get: {
 				summary: "find all nodes",
@@ -430,6 +454,17 @@
 				}
 			}
 		},
+
+
+		// TODO: enforce that a node is not on the inner border of layer 0 (the axis)
+		// TODO: enforce that a node cannot be on more than one border of the same layer
+		// TODO: enforce that when a node is placed 'between' layers, it is registered on both (inner, outer)
+		// TODO: enforce node placement w.r.t. coalescence
+		// TODO: if a node is on plus/minus of lyphA(layer i), and on outer/inner of lyphB(layer j),
+		//     : then lyphA is inside of lyphB(layer j +/- 1)
+		//     : (unless it's the outer border of the outer layer of lyphB; then it's not necessary)
+		//     : IN OTHER WORDS: orthogonal placement of lyph inside housing layer
+
 
 		"/correlations": { // field: publication
 			get: {
@@ -539,6 +574,8 @@
 			}
 		},
 
+		// TODO: enforce that a correlation has >= 2 variables associated with it
+
 		"/publications": {
 			get: {
 				summary: "find all publications",
@@ -588,6 +625,7 @@
 		},
 
 		"/publications/{id}/correlations": {
+			// fields: uri (e.g., pubmed)
 			get: {},
 			put: {},
 			post: {}
@@ -596,6 +634,8 @@
 		"/publications/{id}/correlations/{id2}": {
 			delete: {}
 		},
+
+		// TODO: enforce that no two publications have the same 'pubmed uri'
 
 		"/clinicalIndices": {
 			get: {
@@ -862,6 +902,8 @@
 			}
 		},
 
+		// TODO: enforce that a bag of pathologies has at least one 'thing' in it
+
 		"/potentialProcesses": { // fields: from, to (nodes)
 			get: {
 				summary: "find all potential processes",
@@ -957,6 +999,8 @@
 				}
 			}
 		},
+
+		// TODO: enforce that a process does not go from x to y, when x and y are on the same border
 
 		"/processes/{id}/removedByBagsOfPathologies": {
 			get: {},
