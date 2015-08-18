@@ -1,15 +1,14 @@
 {
 	swagger: "2.0",
 	info: {
-		
+
 	},
 	host: "http://localhost:3000",
 	consumes: ["application/json"],
 	produces: ["application/json"],
 	paths: {
 
-
-		"/lyphs": {
+		"/lyphs": { // field: template
 			get: {
 				summary: "find all lyphs",
 				responses: {
@@ -19,798 +18,902 @@
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/lyphs/{id}": {
 			get: {
 				summary: "find lyphs by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
 
+		"/lyphs/{id}/layers": {
+			get: {}
+			// intentionally no other verbs (layers sync through templates)
+		},
 
-		"/layers": {
-			// only GET; layers are kept in sync with layerTemplates
+		// intentionally no "/lyphs/{id}/layers/{id2}" (layers sync through templates)
+
+		"/lyphs/{id}/locatedMeasures": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/lyphs/{id}/locatedMeasures/{id2}": {
+			delete: {}
+		},
+
+		"/lyphs/{id}/compartments": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/lyphs/{id}/compartments/{id2}": {
+			delete: {}
+		},
+
+		"/compartments/{id}/lyphs": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/compartments/{id}/lyphs/{id2}": {
+			delete: {}
+		},
+
+		"/layers": { // fields: template
 			get: {
 				summary: "find all lyph-layers",
 				responses: {
-					
+
 				}
 			}
+			// intentionally no other verbs (layers sync through templates)
 		},
 
-
 		"/layers/{id}": {
-			// only GET; layers are kept in sync with layerTemplates
 			get: {
 				summary: "find lyph-layers by id",
 				responses: {
-					
+
 				}
 			}
+			// intentionally no other verbs (layers sync through templates)
 		},
 
+		"/layers/{id}/lyphs": { // = set of lyphs
+			get: {}
+			// intentionally no other verbs (materials sync through templates)
+		},
+
+		"/layers/{id}/materials": { // = set of lyphs
+			get: {}
+			// intentionally no other verbs (materials sync through templates)
+		},
+
+		// intentionally no "/layers/{id}/materials/{id2}" (layers sync through templates)
+
+		"/layers/{id}/nodes": { // with border-specification
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/layers/{id}/nodes/{id2}": { // with border-specification
+			delete: {}
+		},
 
 		"/lyphTemplates": {
 			get: {
 				summary: "find all lyph templates",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/lyphTemplates/{id}": {
 			get: {
 				summary: "find lyph templates by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
 
-
-		"/layerTemplates": {
+		"/lyphTemplates/{id}/layers": {
 			get: {
-				summary: "find all lyph-layer templates",
+				summary: "",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
 
+		"/lyphTemplates/{id}/layers/{id2}": {
+			delete: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		"/lyphTemplates/{id}/inLayers": {
+			get: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			put: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			post: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		"/lyphTemplates/{id}/inLayers/{id2}": {
+			delete: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		"/lyphTemplates/{id}/instantiations": {
+			get: {
+				summary: "",
+				responses: {
+
+				}
+			}
+			// intentionally no other verbs (instantiation has 1 template from creation)
+		},
+
+		// intentionally no "/lyphTemplates/{id}/instantiatedLyphs/{id2}" (instantiation has 1 template from creation)
+
+		"/layerTemplates": { // field: lyphTemplate
+			get: {
+				summary: "find all lyph-layer templates",
+				responses: {
+
+				}
+			},
+			put: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			post: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
 
 		"/layerTemplates/{id}": {
 			get: {
 				summary: "find lyph-layer templates by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
 
+		"/layerTemplates/{id}/materials": { // = set of lyphTemplates
+			get: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			put: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			post: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		"/layerTemplates/{id}/materials/{id2}": {
+			delete: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		"/layerTemplates/{id}/instantiations": {
+			get: {
+				summary: "",
+				responses: {
+
+				}
+			}
+			// intentionally no other verbs (instantiation has 1 template from creation)
+		},
+
+		// intentionally no "/layerTemplates/{id}/materials/{id2}" (instantiation has 1 template from creation)
 
 		"/nodes": {
 			get: {
 				summary: "find all nodes",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/nodes/{id}": {
 			get: {
 				summary: "find nodes by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/nodes/{id}/attachments": {
 			get: {
 				summary: "find all borders attached to a specific node",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/nodes/{id}/attachments/{id2}": {
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/correlations": {
 			get: {
 				summary: "find all correlations",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/correlations/{id}": {
 			get: {
 				summary: "find correlations by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/correlations/{id}/clinicalIndices": {
 			get: {
 				summary: "find all clinical indices involved in a specific correlation",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/correlations/{id}/clinicalIndices/{id2}": {
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/correlations/{id}/locatedMeasures": {
 			get: {
 				summary: "find all located measures involved in a specific correlation",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/correlations/{id}/locatedMeasures/{id2}": {
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/publications": {
 			get: {
 				summary: "find all publications",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/publications/{id}": {
 			get: {
 				summary: "find publications by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
 
+		"/publications/{id}/correlations": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/publications/{id}/correlations/{id2}": {
+			delete: {}
+		},
 
 		"/clinicalIndices": {
 			get: {
 				summary: "find all clinical indices",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/clinicalIndices/{id}": {
 			get: {
 				summary: "find clinical indices by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
 
+		"/clinicalIndices/{id}/correlations": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/clinicalIndices/{id}/correlations/{id2}": {
+			delete: {}
+		},
 
 		"/locatedMeasures": {
 			get: {
 				summary: "find all located measures",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/locatedMeasures/{id}": {
 			get: {
 				summary: "find located measures by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
 
+		"/locatedMeasures/{id}/correlations": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/locatedMeasures/{id}/correlations/{id2}": {
+			delete: {}
+		},
+
+		"/locatedMeasures/{id}/bagsOfPathologies": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/locatedMeasures/{id}/bagsOfPathologies/{id2}": {
+			delete: {}
+		},
 
 		"/bagsOfPathologies": {
 			get: {
 				summary: "find all bags of pathologies",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/bagsOfPathologies/{id}": {
 			get: {
 				summary: "find bags of pathologies by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/bagsOfPathologies/{id}/locatedMeasures": {
 			get: {
 				summary: "find all located measures associated with a specific bag of pathologies",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/bagsOfPathologies/{id}/locatedMeasures/{id2}": {
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/bagsOfPathologies/{id}/removedProcesses": {
 			get: {
 				summary: "find all processes removed by a specific bag of pathologies",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/bagsOfPathologies/{id}/removedProcesses/{id2}": {
 			// {from, to} objects, but no href
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/bagsOfPathologies/{id}/addedProcesses": {
 			// {from, to} objects, but no href
 			get: {
 				summary: "find all processes added by a specific bag of pathologies",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/bagsOfPathologies/{id}/addedProcesses/{id2}": {
 			// {from, to} objects, but no href
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/processes": {
 			get: {
 				summary: "find all processes",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
 		},
-
 
 		"/processes/{id}": {
 			get: {
 				summary: "find processes by id",
 				responses: {
-					
+
 				}
 			},
 			put: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			post: {
 				summary: "",
 				responses: {
-					
+
 				}
 			},
 			delete: {
 				summary: "",
 				responses: {
-					
+
 				}
 			}
-		}
+		},
 
+		"/processes/{id}/removedByBagsOfPathologies": {
+			get: {},
+			put: {},
+			post: {}
+		},
+
+		"/processes/{id}/removedByBagsOfPathologies/{id2}": {
+			delete: {}
+		}
 
 	}
 }
 
-
-//    "/lyphs/{id}/layers": {
-//      get: {}
-//    },
-//    "/lyphs/{id}/layers/{id2}": { // only GET; layers are kept in sync with layerTemplates
-//      get: {}
-//    },
-//    "/lyphs/{id}/locatedMeasures": {
-//      get: {},
-//      put: {},
-//      post: {}
-//    },
-//    "/lyphs/{id}/locatedMeasures/{id2}": {
-//      delete: {}
-//    },
-//    "/layers/{id}/materials": { // only GET; layers are kept in sync with layerTemplates
-//    get: {}
-//    },
-//    "/layers/{id}/materials/{id2}": { // only GET: layers are kept in sync with layerTemplates
-//    get: {}
-//    },
-//    "/layers/{id}/nodes": { // with border-specification
-//    get: {},
-//    put: {},
-//    post: {}
-//    },
-//    "/layers/{id}/nodes/{id2}": { // with border-specification
-//    delete: {}
-//    },
-//    "/lyphTemplates/{id}/layerTemplates": {
-//    get: {},
-//    put: {},
-//    post: {}
-//    },
-//    "/lyphTemplates/{id}/layerTemplates/{id2}": {
-//    delete: {}
-//    },
-//    "/layerTemplates/{id}/lyphTemplates": {
-//    get: {},
-//    put: {},
-//    post: {}
-//    },
-//    "/layerTemplates/{id}/lyphTemplates/{id2}": {
-//    delete: {}
-//    },
-//    "/publications/{id}/correlations": {
-//    get: {},
-//    put: {},
-//    post: {}
-//    },
-//    "/publications/{id}/correlations/{id2}": {
-//    delete: {}
-//    },
-//    "/clinicalIndices/{id}/correlations": {
-//    get: {},
-//    put: {},
-//    post: {}
-//    },
-//    "/clinicalIndices/{id}/correlations/{id2}": {
-//    delete: {}
-//    },
-//    "/locatedMeasures/{id}/correlations": {
-//    get: {},
-//    put: {},
-//    post: {}
-//    },
-//    "/locatedMeasures/{id}/correlations/{id2}": {
-//    delete: {}
-//    },
-//    "/locatedMeasures/{id}/bagsOfPathologies": {
-//    get: {},
-//    put: {},
-//    post: {}
-//    },
-//    "/locatedMeasures/{id}/bagsOfPathologies/{id2}": {
-//    delete: {}
-//    },
-//    "/processes/{id}/removedByBagsOfPathologies": {
-//    get: {},
-//    put: {},
-//    post: {}
-//    }
-//    "/processes/{id}/removedByBagsOfPathologies/{id2}": {
-//    delete: {}
-//    }
