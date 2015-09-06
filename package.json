@@ -4,7 +4,7 @@
 	"description": "the lyph server",
 	"main": "dist/index.js",
 	"scripts": {
-		"build": "webpack; hanson src/swagger.hson dist/swagger.json"
+		"build": "webpack; node dist/tools/buildSwaggerJSON.js"
 	},
 	"keywords": [
 		"lyph"

@@ -11,52 +11,222 @@
 
 		////////////////////////////////////////
 
-		Key: {
+		key: {
 			type: 'object',
-			properties: { type: 'string' },
-			required: true,
-			'x-skipDB': true
+			properties: {
+				href: { type: 'string', required: true }
+			},
+			'x-skip-db': true
 		},
 
-		KeyList: {
+		mandatoryKey: {
+			allOf: [
+				{ $ref: '#/definitions/key' },
+				{ required: true            }
+			]
+		},
+
+		keyList: {
 			type: 'array',
-			items: { $ref: '#/definitions/Key' },
-			'x-skipDB': true
+			items: { $ref: '#/definitions/key' },
+			'x-skip-db': true
+		},
+
+		uri: {
+			type: 'string'
+		},
+
+		border: {
+			type: 'string',
+			enum: ['plus', 'minus', 'inner', 'outer']
+		},
+
+		polarity: {
+			type: 'string',
+			enum: ['plus', 'minus']
 		},
 
 		////////////////////////////////////////
 
 		LyphTemplate: {
+			'x-singular': "lyph template",
+			'x-plural':   "lyph templates",
 			type: 'object',
 			properties: {
-				name:   { type: 'string', required: true },
-				layers: { $ref: '#/definitions/KeyList' }
+				name:           { type: 'string', required: true },
+				layers:         { $ref: '#/definitions/keyList'  },
+				materialIn:     { $ref: '#/definitions/keyList'  },
+				instantiations: { $ref: '#/definitions/keyList'  }
 			}
 		},
 
 		LayerTemplate: {
+			'x-singular': "layer template",
+			'x-plural':   "layer templates",
 			type: 'object',
 			properties: {
-				name:         { type: 'string' },
-				lyphTemplate: { $ref: '#/definitions/Key' },
+				name:         { type: 'string'              },
+				lyphTemplate: { $ref: '#/definitions/key'   },
 				position:     { type: 'integer', minimum: 0 },
 				thickness:    {
-					// array of [min, max]
-					type: 'array',
+					type: 'array', // [min, max]
 					items: { type: 'number', minimum: 0 },
 					minItems: 2,
 					maxItems: 2,
 					required: true
+				},
+				materials:      { $ref: '#/definitions/keyList'  },
+				instantiations: { $ref: '#/definitions/keyList'  }
+			}
+		},
+
+		Lyph: {
+			'x-singular': "lyph",
+			'x-plural':   "lyphs",
+			type: 'object',
+			properties: {
+				name:            { type: 'string',  required: true    },
+				species:         { type: 'string',  required: true    },
+				template:        { $ref: '#/definitions/mandatoryKey' },
+				location:        { $ref: '#/definitions/key'          },
+				layers:          { $ref: '#/definitions/keyList'      },
+				locatedMeasures: { $ref: '#/definitions/keyList'      },
+				inCompartments:  { $ref: '#/definitions/keyList'      },
+				inLayers:        { $ref: '#/definitions/keyList'      },
+				closedAt: {
+					type: 'array',
+					items: { $ref: '#/definitions/polarity'  },
+					uniqueItems: true,
+					maxItems:    2
 				}
+			}
+		},
+
+		Layer: {
+			'x-singular': "layer",
+			'x-plural':   "layers",
+			type: 'object',
+			properties: {
+				template:      { $ref: '#/definitions/mandatoryKey' },
+				lyph:          { $ref: '#/definitions/mandatoryKey' },
+				lyphs:         { $ref: '#/definitions/keyList'      },
+				coalescesWith: { $ref: '#/definitions/keyList'      },
+				'plus':        { $ref: '#/definitions/keyList'      },
+				'minus':       { $ref: '#/definitions/keyList'      },
+				'inner':       { $ref: '#/definitions/keyList'      },
+				'outer':       { $ref: '#/definitions/keyList'      }
+			}
+		},
+
+		Compartment: {
+			'x-singular': "compartment",
+			'x-plural':   "compartments",
+			properties: {
+				lyphs: { $ref: '#/definitions/keyList' }
+			}
+		},
+
+		Node: {
+			'x-singular': "node",
+			'x-plural':   "nodes",
+			type: 'object',
+			properties: {
+				attachments: {
+					type: 'array',
+					items: {
+						type: 'object',
+						properties: {
+							layer:  { type: 'integer', minValue: 0,               required: true    },
+							border: { allOf: [{ $ref: '#/definitions/border' }, { required: true }] }
+						}
+					},
+					minItems:    1,
+					required:    true,
+					'x-skip-db': true
+				}
+			}
+		},
+
+		Correlation: {
+			'x-singular': "correlation",
+			'x-plural':   "correlations",
+			type: 'object',
+			properties: {
+				publication:     { $ref: '#/definitions/mandatoryKey' },
+				comment:         { type: 'string'                     },
+				clinicalIndices: { $ref: '#/definitions/keyList'      },
+				locatedMeasures: { $ref: '#/definitions/keyList'      }
+			}
+		},
+
+		Publication: {
+			'x-singular': "publication",
+			'x-plural':   "publications",
+			type: 'object',
+			properties: {
+				uri:          { allOf: [{ $ref: '#/definitions/uri' }, { required: true }] },
+				title:        { type: 'string'                                             },
+				correlations: { $ref: '#/definitions/keyList'                              }
+			}
+		},
+
+		ClinicalIndex: {
+			'x-singular': "clinical index",
+			'x-plural':   "clinical indices",
+			type: 'object',
+			properties: {
+				uri:          { allOf: [{ $ref: '#/definitions/uri' }, { required: true }] },
+				title:        { type: 'string'                                             },
+				correlations: { $ref: '#/definitions/keyList'                              }
+			}
+		},
+
+		LocatedMeasure: {
+			'x-singular': "located measure",
+			'x-plural':   "located measures",
+			type: 'object',
+			properties: {
+				quality:           { type: 'string', required: true },
+				lyph:              { $ref: '#/definitions/key'      },
+				correlations:      { $ref: '#/definitions/keyList'  },
+				bagsOfPathologies: { $ref: '#/definitions/keyList'  }
+			}
+		},
+
+		BagOfPathologies: {
+			'x-singular': "bag of pathologies",
+			'x-plural':   "bags of pathologies",
+			type: 'object',
+			properties: {
+				locatedMeasures:  { $ref: '#/definitions/keyList' },
+				removedProcesses: { $ref: '#/definitions/keyList' },
+				addedProcesses:   { $ref: '#/definitions/keyList' }
+			}
+		},
+
+		Process: {
+			'x-singular': "process",
+			'x-plural':   "processes",
+			type: 'object',
+			properties: {
+				source:                     { $ref: '#/definitions/mandatoryKey' },
+				target:                     { $ref: '#/definitions/mandatoryKey' },
+				removedByBagsOfPathologies: { $ref: '#/definitions/keyList'      }
+			}
+		},
+
+		PotentialProcess: {
+			'x-singular': "potential process",
+			'x-plural':   "potential processes",
+			type: 'object',
+			properties: {
+				source:                   { $ref: '#/definitions/mandatoryKey' },
+				target:                   { $ref: '#/definitions/mandatoryKey' },
+				addedByBagsOfPathologies: { $ref: '#/definitions/keyList'      }
 			}
 		}
 
-		// TODO: finish data-types
-
 		////////////////////////////////////////
-
-
-
 
 	},
 	paths: {
@@ -67,7 +237,10 @@
 			get: {
 				summary: "find all lyph templates",
 				responses: {
-
+					200: {
+						description: "the list of requested lyph templates",
+						schema: { type: 'array', items: { $ref: '#/definitions/LyphTemplate' } }
+					}
 				}
 			},
 			post: {
@@ -78,11 +251,14 @@
 			}
 		},
 
-		'/lyphTemplates/{id}': {
+		'/lyphTemplates/{lyphTemplate}': {
 			get: {
 				summary: "find lyph templates by id",
 				responses: {
-
+					200: {
+						description: "the list of requested lyph templates",
+						schema: { type: 'array', items: { $ref: '#/definitions/LyphTemplate' } }
+					}
 				}
 			},
 			put: {
@@ -105,11 +281,14 @@
 			}
 		},
 
-		'/lyphTemplates/{id}/layers': {
+		'/lyphTemplates/{lyphTemplate}/layers': {
 			get: {
 				summary: "find all the layers of a particular lyph template",
 				responses: {
-
+					200: {
+						description: "the list of requested layer templates",
+						schema: { type: 'array', items: { $ref: '#/definitions/LayerTemplate' } }
+					}
 				}
 			},
 			post: {
@@ -120,7 +299,7 @@
 			}
 		},
 
-		'/lyphTemplates/{id}/layers/{id2}': {
+		'/lyphTemplates/{lyphTemplate}/layers/{layer}': {
 			put: {
 				summary: "add a particular layer to a particular lyph template",
 				responses: {
@@ -135,16 +314,19 @@
 			}
 		},
 
-		'/lyphTemplates/{id}/materialIn': {
+		'/lyphTemplates/{lyphTemplate}/materialIn': {
 			get: {
 				summary: "find the layer templates in which a particular lyph is a material",
 				responses: {
-
+					200: {
+						description: "the list of requested layer templates",
+						schema: { type: 'array', items: { $ref: '#/definitions/LayerTemplate' } }
+					}
 				}
 			}
 		},
 
-		'/lyphTemplates/{id}/materialIn/{id2}': {
+		'/lyphTemplates/{lyphTemplate}/materialIn/{layer}': {
 			put: {
 				summary: "",
 				responses: {
@@ -159,11 +341,14 @@
 			}
 		},
 
-		'/lyphTemplates/{id}/instantiations': {
+		'/lyphTemplates/{lyphTemplate}/instantiations': {
 			get: {
-				summary: "find all layers instantiated from a particular lyph template",
+				summary: "find all lyphs instantiated from a particular lyph template",
 				responses: {
-
+					200: {
+						description: "the list of requested lyphs",
+						schema: { type: 'array', items: { $ref: '#/definitions/LyphTemplate' } }
+					}
 				}
 			}
 			// intentionally no other verbs (instantiation has 1 template from creation)
@@ -171,11 +356,15 @@
 
 		// intentionally no "/lyphTemplates/{id}/instantiatedLyphs/{id2}" (instantiation has 1 template from creation)
 
-		'/layerTemplates': { // field: lyphTemplate
+		'/layerTemplates': {
+			// field: lyphTemplate
 			get: {
-				summary: "find all lyph-layer templates",
+				summary: "find all layer templates",
 				responses: {
-
+					200: {
+						description: "the list of requested layer templates",
+						schema: { type: 'array', items: { $ref: '#/definitions/LayerTemplate' } }
+					}
 				}
 			},
 			post: {
@@ -186,11 +375,14 @@
 			}
 		},
 
-		'/layerTemplates/{id}': {
+		'/layerTemplates/{layerTemplate}': {
 			get: {
-				summary: "find lyph-layer templates by id",
+				summary: "find layer templates by id",
 				responses: {
-
+					200: {
+						description: "the list of requested layer templates",
+						schema: { type: 'array', items: { $ref: '#/definitions/LayerTemplate' } }
+					}
 				}
 			},
 			put: {
@@ -213,17 +405,19 @@
 			}
 		},
 
-		'/layerTemplates/{id}/materials': {
-			// = set of lyphTemplates
+		'/layerTemplates/{layerTemplate}/materials': {
 			get: {
 				summary: "find all lyph templates acting as materials in a particular layer template",
 				responses: {
-
+					200: {
+						description: "the list of requested lyph templates",
+						schema: { type: 'array', items: { $ref: '#/definitions/LyphTemplate' } }
+					}
 				}
 			}
 		},
 
-		'/layerTemplates/{id}/materials/{id2}': {
+		'/layerTemplates/{layerTemplate}/materials/{lyphTemplate}': {
 			put: {
 				summary: "",
 				responses: {
@@ -238,11 +432,14 @@
 			},
 		},
 
-		'/layerTemplates/{id}/instantiations': {
+		'/layerTemplates/{layerTemplate}/instantiations': {
 			get: {
 				summary: "find all layers instantiated from a particular layer template",
 				responses: {
-
+					200: {
+						description: "the list of requested layers",
+						schema: { type: 'array', items: { $ref: '#/definitions/Layer' } }
+					}
 				}
 			}
 			// intentionally no other verbs (instantiation has 1 template from creation)
@@ -251,11 +448,13 @@
 		// intentionally no "/layerTemplates/{id}/instantiations/{id2}" (instantiation has 1 template from creation)
 
 		'/lyphs': {
-			// fields: template, closedAt (0 or more of ['plus', 'minus'])
 			get: {
 				summary: "find all lyphs",
 				responses: {
-
+					200: {
+						description: "the list of requested lyphs",
+						schema: { type: 'array', items: { $ref: '#/definitions/Lyph' } }
+					}
 				}
 			},
 			post: {
@@ -266,11 +465,14 @@
 			}
 		},
 
-		'/lyphs/{id}': {
+		'/lyphs/{lyph}': {
 			get: {
 				summary: "find lyphs by id",
 				responses: {
-
+					200: {
+						description: "the list of requested lyphs",
+						schema: { type: 'array', items: { $ref: '#/definitions/Lyph' } }
+					}
 				}
 			},
 			put: {
@@ -293,11 +495,14 @@
 			}
 		},
 
-		'/lyphs/{id}/layers': {
+		'/lyphs/{lyph}/layers': {
 			get: {
 				summary: "find all the layers of a particular lyph",
 				responses: {
-
+					200: {
+						description: "the list of requested layers",
+						schema: { type: 'array', items: { $ref: '#/definitions/Layer' } }
+					}
 				}
 			}
 			// intentionally no other verbs (layers sync through templates)
@@ -305,16 +510,19 @@
 
 		// intentionally no "/lyphs/{id}/layers/{id2}" (layers sync through templates)
 
-		'/lyphs/{id}/locatedMeasures': {
+		'/lyphs/{lyph}/locatedMeasures': {
 			get: {
 				summary: "find all located measures located in a particular lyph",
 				responses: {
-
+					200: {
+						description: "the list of requested located measures",
+						schema: { type: 'array', items: { $ref: '#/definitions/LocatedMeasure' } }
+					}
 				}
 			}
 		},
 
-		'/lyphs/{id}/locatedMeasures/{id2}': {
+		'/lyphs/{lyph}/locatedMeasures/{locatedMeasure}': {
 			put: {
 				summary: "",
 				responses: {
@@ -329,7 +537,7 @@
 			}
 		},
 
-		'/lyphs/{id}/inCompartments': {
+		'/lyphs/{lyph}/inCompartments': {
 			get: {
 				summary: "find all compartments in which a particular lyph is a member",
 				responses: {
@@ -338,7 +546,7 @@
 			}
 		},
 
-		'/lyphs/{id}/inCompartments/{id2}': {
+		'/lyphs/{lyph}/inCompartments/{compartment}': {
 			put: {
 				summary: "",
 				responses: {
@@ -353,7 +561,7 @@
 			}
 		},
 
-		'/lyphs/{id}/inLayers': {
+		'/lyphs/{lyph}/inLayers': {
 			// TODO: enforce that if a lyph is in more than 1 layer, that all those layers coalesce
 			get: {
 				summary: "find the layer(s) in which a particular lyph is located",
@@ -363,7 +571,7 @@
 			}
 		},
 
-		'/lyphs/{id}/inLayers/{id2}': {
+		'/lyphs/{lyph}/inLayers/{layer}': {
 			put: {
 				summary: "",
 				responses: {
@@ -379,7 +587,6 @@
 		},
 
 		'/layers': {
-			// fields: template
 			get: {
 				summary: "find all lyph-layers",
 				responses: {
@@ -389,7 +596,7 @@
 			// intentionally no other verbs (layers sync through templates)
 		},
 
-		'/layers/{id}': {
+		'/layers/{layer}': {
 			get: {
 				summary: "find lyph-layers by id",
 				responses: {
@@ -399,7 +606,7 @@
 			// intentionally no other verbs (layers sync through templates)
 		},
 
-		'/layers/{id}/lyphs': {
+		'/layers/{layer}/lyphs': {
 			get: {
 				summary: "find all lyphs that are located in a particular layer",
 				responses: {
@@ -408,7 +615,7 @@
 			}
 		},
 
-		'/layers/{id}/lyphs/{id2}': {
+		'/layers/{layer}/lyphs/{lyph}': {
 			put: {
 				summary: "",
 				responses: {
@@ -423,44 +630,31 @@
 			}
 		},
 
-
-
-		//////////////////////////////////////// TODO: NODES IN LAYERS NEED A DECISION MADE:
-		////////////////////////////////////////     : http://stackoverflow.com/q/32340071/681588
-		//
-		'/layers/{id}/nodes': {
+		'/layers/{layer}/{border}/nodes': {
 			get: {
-				// returns a list of objects { border, node }
-				summary: "find all nodes that are located on the borders of a particular layer",
+				summary: "find all nodes that are located on a particular border of a particular layer",
 				responses: {
 
 				}
 			}
 		},
 
-		'/layers/{id}/nodes/{id2}': {
+		'/layers/{layer}/{border}/nodes/{node}': {
 			put: {
-				// expects an object { border }
 				summary: "",
 				responses: {
 
 				}
 			},
 			delete: {
-				// expects an object { border }
 				summary: "",
 				responses: {
 
 				}
 			}
 		},
-		//
-		////////////////////////////////////////
 
-
-
-		'/layers/{id}/coalescesWith': {
-			// set of other layers
+		'/layers/{layer}/coalescesWith': {
 			// TODO: enforce symmetry of coalescence
 			// TODO: enforce that each coalescing layer is the outermost layer of its lyph
 			// TODO: enforce that all coalescing layers have the same layer template
@@ -472,8 +666,7 @@
 			}
 		},
 
-		'/layers/{id}/coalescesWith/{id2}': {
-			// set of other layers
+		'/layers/{layer}/coalescesWith/{layer2}': {
 			put: {
 				summary: "",
 				responses: {
@@ -495,7 +688,7 @@
 		// DONE: enforce that layers of instantiated lyphs correspond to the layer(Template)s of the lyph template
 		// done by auto-syncing from layerTemplates to layers
 
-		'/compartments/{id}/lyphs': {
+		'/compartments/{compartment}/lyphs': {
 			get: {
 				summary: "find all lyphs that are members of a particular compartment",
 				responses: {
@@ -504,7 +697,7 @@
 			}
 		},
 
-		'/compartments/{id}/lyphs/{id2}': {
+		'/compartments/{compartment}/lyphs/{lyph}': {
 			put: {
 				summary: "",
 				responses: {
@@ -534,7 +727,7 @@
 			}
 		},
 
-		'/nodes/{id}': {
+		'/nodes/{node}': {
 			get: {
 				summary: "find nodes by id",
 				responses: {
@@ -561,29 +754,22 @@
 			}
 		},
 
-
-
-		//////////////////////////////////////// TODO: NODES IN LAYERS NEED A DECISION MADE:
-		////////////////////////////////////////     : http://stackoverflow.com/q/32340071/681588
-		//
-		'/nodes/{id}/attachments': {
-			// with border-specification
+		'/nodes/{node}/attachments': {
 			get: {
 				summary: "find all borders attached to a specific node",
-				responses: {
-
-				}
-			},
-			post: {
-				summary: "",
 				responses: {
 
 				}
 			}
 		},
 
-		'/nodes/{id}/attachments/{id2}': {
-			// with border-specification
+		'/nodes/{node}/attachments/{layer}/{border}': {
+			put: {
+				summary: "",
+				responses: {
+
+				}
+			},
 			delete: {
 				summary: "",
 				responses: {
@@ -591,10 +777,6 @@
 				}
 			}
 		},
-		//
-		////////////////////////////////////////
-
-
 
 		// TODO: enforce that a node is not on the inner border of layer 0 (the axis)
 		// TODO: enforce that a node cannot be on more than one border of the same layer
@@ -604,7 +786,6 @@
 		//     : then lyphA is inside of lyphB(layer j +/- 1)
 		//     : (unless it's the outer border of the outer layer of lyphB; then it's not necessary)
 		//     : IN OTHER WORDS: orthogonal placement of lyph inside housing layer
-
 
 		'/correlations': {
 			// field: publication
@@ -622,7 +803,7 @@
 			}
 		},
 
-		'/correlations/{id}': {
+		'/correlations/{correlation}': {
 			get: {
 				summary: "find correlations by id",
 				responses: {
@@ -649,7 +830,7 @@
 			}
 		},
 
-		'/correlations/{id}/clinicalIndices': {
+		'/correlations/{correlation}/clinicalIndices': {
 			get: {
 				summary: "find all clinical indices involved in a specific correlation",
 				responses: {
@@ -658,7 +839,7 @@
 			}
 		},
 
-		'/correlations/{id}/clinicalIndices/{id2}': {
+		'/correlations/{correlation}/clinicalIndices/{clinicalIndex}': {
 			put: {
 				summary: "",
 				responses: {
@@ -673,7 +854,7 @@
 			}
 		},
 
-		'/correlations/{id}/locatedMeasures': {
+		'/correlations/{correlation}/locatedMeasures': {
 			get: {
 				summary: "find all located measures involved in a specific correlation",
 				responses: {
@@ -682,7 +863,7 @@
 			}
 		},
 
-		'/correlations/{id}/locatedMeasures/{id2}': {
+		'/correlations/{correlation}/locatedMeasures/{locatedMeasure}': {
 			put: {
 				summary: "",
 				responses: {
@@ -714,7 +895,7 @@
 			}
 		},
 
-		'/publications/{id}': {
+		'/publications/{publication}': {
 			// fields: uri (e.g., pubmed)
 			get: {
 				summary: "find publications by id",
@@ -742,7 +923,7 @@
 			}
 		},
 
-		'/publications/{id}/correlations': {
+		'/publications/{publication}/correlations': {
 			get: {
 				summary: "find all correlations described in a particular publication",
 				responses: {
@@ -751,7 +932,7 @@
 			}
 		},
 
-		'/publications/{id}/correlations/{id2}': {
+		'/publications/{publication}/correlations/{correlation}': {
 			put: {
 				summary: "",
 				responses: {
@@ -783,7 +964,7 @@
 			}
 		},
 
-		'/clinicalIndices/{id}': {
+		'/clinicalIndices/{clinicalIndex}': {
 			get: {
 				summary: "find clinical indices by id",
 				responses: {
@@ -810,7 +991,7 @@
 			}
 		},
 
-		'/clinicalIndices/{id}/correlations': {
+		'/clinicalIndices/{clinicalIndex}/correlations': {
 			get: {
 				summary: "find all correlations in which a particular clinical index is involved",
 				responses: {
@@ -819,7 +1000,7 @@
 			}
 		},
 
-		'/clinicalIndices/{id}/correlations/{id2}': {
+		'/clinicalIndices/{clinicalIndex}/correlations/{correlation}': {
 			put: {
 				summary: "",
 				responses: {
@@ -849,8 +1030,7 @@
 			}
 		},
 
-		'/locatedMeasures/{id}': {
-			// field: lyph
+		'/locatedMeasures/{locatedMeasure}': {
 			get: {
 				summary: "find located measures by id",
 				responses: {
@@ -877,7 +1057,7 @@
 			}
 		},
 
-		'/locatedMeasures/{id}/correlations': {
+		'/locatedMeasures/{locatedMeasure}/correlations': {
 			get: {
 				summary: "find all correlations in which a particular located measure is involved",
 				responses: {
@@ -886,7 +1066,7 @@
 			}
 		},
 
-		'/locatedMeasures/{id}/correlations/{id2}': {
+		'/locatedMeasures/{locatedMeasure}/correlations/{correlation}': {
 			put: {
 				summary: "",
 				responses: {
@@ -901,7 +1081,7 @@
 			}
 		},
 
-		'/locatedMeasures/{id}/bagsOfPathologies': {
+		'/locatedMeasures/{locatedMeasure}/bagsOfPathologies': {
 			get: {
 				summary: "find all bags of pathologies in which a particular located measure is involved",
 				responses: {
@@ -910,7 +1090,7 @@
 			}
 		},
 
-		'/locatedMeasures/{id}/bagsOfPathologies/{id2}': {
+		'/locatedMeasures/{locatedMeasure}/bagsOfPathologies/{bagOfPathologies}': {
 			put: {
 				summary: "",
 				responses: {
@@ -940,7 +1120,7 @@
 			}
 		},
 
-		'/bagsOfPathologies/{id}': {
+		'/bagsOfPathologies/{bagOfPathologies}': {
 			get: {
 				summary: "find bags of pathologies by id",
 				responses: {
@@ -967,7 +1147,7 @@
 			}
 		},
 
-		'/bagsOfPathologies/{id}/locatedMeasures': {
+		'/bagsOfPathologies/{bagOfPathologies}/locatedMeasures': {
 			get: {
 				summary: "find all located measures associated with a specific bag of pathologies",
 				responses: {
@@ -976,7 +1156,7 @@
 			}
 		},
 
-		'/bagsOfPathologies/{id}/locatedMeasures/{id2}': {
+		'/bagsOfPathologies/{bagOfPathologies}/locatedMeasures/{locatedMeasure}': {
 			put: {
 				summary: "",
 				responses: {
@@ -991,7 +1171,7 @@
 			}
 		},
 
-		'/bagsOfPathologies/{id}/removedProcesses': {
+		'/bagsOfPathologies/{bagOfPathologies}/removedProcesses': {
 			get: {
 				summary: "find all processes removed by a specific bag of pathologies",
 				responses: {
@@ -1000,7 +1180,7 @@
 			}
 		},
 
-		'/bagsOfPathologies/{id}/removedProcesses/{id2}': {
+		'/bagsOfPathologies/{bagOfPathologies}/removedProcesses/{process}': {
 			put: {
 				summary: "",
 				responses: {
@@ -1015,7 +1195,7 @@
 			}
 		},
 
-		'/bagsOfPathologies/{id}/addedProcesses': {
+		'/bagsOfPathologies/{bagOfPathologies}/addedProcesses': {
 			get: {
 				summary: "find all potential processes added by a specific bag of pathologies",
 				responses: {
@@ -1024,7 +1204,75 @@
 			}
 		},
 
-		'/bagsOfPathologies/{id}/addedProcesses/{id2}': {
+		'/bagsOfPathologies/{bagOfPathologies}/addedProcesses/{potentialProcess}': {
+			put: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			delete: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		'/processes': {
+			get: {
+				summary: "find all processes",
+				responses: {
+
+				}
+			},
+			post: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		'/processes/{process}': {
+			get: {
+				summary: "find processes by id",
+				responses: {
+
+				}
+			},
+			put: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			post: {
+				summary: "",
+				responses: {
+
+				}
+			},
+			delete: {
+				summary: "",
+				responses: {
+
+				}
+			}
+		},
+
+		// TODO: enforce that a process does not go from x to y, when x and y are on the same border
+
+		'/processes/{process}/removedByBagsOfPathologies': {
+			get: {
+				summary: "find all bags of pathologies that remove a particular process",
+				responses: {
+
+				}
+			}
+		},
+
+		'/processes/{process}/removedByBagsOfPathologies/{bagOfPathologies}': {
 			put: {
 				summary: "",
 				responses: {
@@ -1057,7 +1305,7 @@
 			}
 		},
 
-		'/potentialProcesses/{id}': {
+		'/potentialProcesses/{potentialProcess}': {
 			get: {
 				summary: "find potential processes by id",
 				responses: {
@@ -1084,7 +1332,7 @@
 			}
 		},
 
-		'/potentialProcesses/{id}/addedByBagsOfPathologies': {
+		'/potentialProcesses/{potentialProcess}/addedByBagsOfPathologies': {
 			get: {
 				summary: "find all bags of pathologies that add a particular potential process",
 				responses: {
@@ -1093,76 +1341,7 @@
 			}
 		},
 
-		'/potentialProcesses/{id}/addedByBagsOfPathologies/{id2}': {
-			put: {
-				summary: "",
-				responses: {
-
-				}
-			},
-			delete: {
-				summary: "",
-				responses: {
-
-				}
-			}
-		},
-
-		'/processes': {
-			// fields: from, to (nodes)
-			get: {
-				summary: "find all processes",
-				responses: {
-
-				}
-			},
-			post: {
-				summary: "",
-				responses: {
-
-				}
-			}
-		},
-
-		'/processes/{id}': {
-			get: {
-				summary: "find processes by id",
-				responses: {
-
-				}
-			},
-			put: {
-				summary: "",
-				responses: {
-
-				}
-			},
-			post: {
-				summary: "",
-				responses: {
-
-				}
-			},
-			delete: {
-				summary: "",
-				responses: {
-
-				}
-			}
-		},
-
-		// TODO: enforce that a process does not go from x to y, when x and y are on the same border
-
-		'/processes/{id}/removedByBagsOfPathologies': {
-			get: {
-				summary: "find all bags of pathologies that remove a particular process",
-				responses: {
-
-				}
-			}
-		},
-
-		'/processes/{id}/removedByBagsOfPathologies/{id2}': {
+		'/potentialProcesses/{potentialProcess}/addedByBagsOfPathologies/{bagOfPathologies}': {
 			put: {
 				summary: "",
 				responses: {
