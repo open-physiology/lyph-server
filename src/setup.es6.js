@@ -2,479 +2,192 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import {toCamelCase, a} from './util.es6';
+import _ from 'lodash';
+
+import {toCamelCase, a}                                     from './util.es6';
+import {simpleDataTypes}                                    from './simpleDataTypes.es6.js';
+import {resources     as specifiedResources}                from './resources.es6.js';
+import {relationships as specifiedRelationships, ONE, MANY} from './relationships.es6.js';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// utility functions for constructing certain JSON constructs                                                         //
+// processing resources                                                                                               //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const $allOf = (...objs) => ({ allOf: objs });
-const $ref   = (name)    => ({ $ref: `#/definitions/${name}` });
-const $list  = (items)   => ({ type: 'array', items });
+export let resources = _.cloneDeep(specifiedResources);
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// simple data types                                                                                                  //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export let simpleDataTypes = {
-
-	key: {
-		type: 'object',
-		properties: {
-			href: { type: 'string' }
-		},
-		required: ['href'],
-		'x-skip-db': true
-	},
-
-	uri: {
-		type: 'string'
-	},
-
-	side: {
-		type: 'string',
-		enum: ['plus', 'minus', 'inner', 'outer']
-	},
-
-	polarity: {
-		type: 'string',
-		enum: ['plus', 'minus']
-	}
-
-};
+for (let resName of Object.keys(resources)) {
+	resources[resName].name = resName;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// resource types                                                                                                     //
+// processing relationships                                                                                           //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export let resourceTypes = {
+export let relationships = [];
 
-	LyphTemplate: {
-		'x-singular': "lyph template",
-		'x-plural':   "lyph templates",
-		type: 'object',
-		properties: {
-			name: { type: 'string' }
-		},
-		required: ['name']
-	},
-
-	LayerTemplate: {
-		'x-singular': "layer template",
-		'x-plural':   "layer templates",
-		type: 'object',
-		properties: {
-			name:      { type: 'string' },
-			thickness: {
-				type: 'array', // [min, max]
-				items: { type: 'number', minimum: 0 },
-				minItems: 2,
-				maxItems: 2
-			}
-		}
-	},
-
-	Lyph: {
-		'x-singular': "lyph",
-		'x-plural':   "lyphs",
-		type: 'object',
-		properties: {
-			name:     { type: 'string' },
-			species:  { type: 'string' },
-			length:   { type: 'number', minimum: 0 },
-			closedAt: {
-				type: 'array',
-				items: $ref('polarity'),
-				uniqueItems: true,
-				maxItems:    2
-			}
-		},
-		required: ['name', 'species']
-		//required: ['name', 'species', 'template']
-	},
-
-	Layer: {
-		'x-singular': "layer",
-		'x-plural':   "layers",
-		type: 'object',
-		properties: {}
-		//required: ['template', 'lyph']
-	},
-
-	Compartment: {
-		'x-singular': "compartment",
-		'x-plural':   "compartments",
-		properties: {}
-	},
-
-	Border: {
-		'x-singular': "border",
-		'x-plural':   "borders",
-		type: 'object',
-		properties: {}
-		//required: ['layer', 'side']
-	},
-
-	Node: {
-		'x-singular': "node",
-		'x-plural':   "nodes",
-		type: 'object',
-		properties: {}
-	},
-
-	Correlation: {
-		'x-singular': "correlation",
-		'x-plural':   "correlations",
-		type: 'object',
-		properties: {
-			comment: { type: 'string' }
-		}
-		//required: ['publication']
-	},
-
-	Publication: {
-		'x-singular': "publication",
-		'x-plural':   "publications",
-		type: 'object',
-		properties: {
-			uri:          $ref('uri'),
-			title:        { type: 'string' }
-		},
-		required: ['uri']
-	},
-
-	ClinicalIndex: {
-		'x-singular': "clinical index",
-		'x-plural':   "clinical indices",
-		type: 'object',
-		properties: {
-			uri:   $ref('uri'),
-			title: { type: 'string' }
-		},
-		required: ['uri']
-	},
-
-	LocatedMeasure: {
-		'x-singular': "located measure",
-		'x-plural':   "located measures",
-		type: 'object',
-		properties: {
-			quality: { type: 'string' }
-		},
-		required: ['quality']
-	},
-
-	BagOfPathologies: {
-		'x-singular': "bag of pathologies",
-		'x-plural':   "bags of pathologies",
-		type: 'object',
-		properties: {}
-	},
-
-	Process: {
-		'x-singular': "process",
-		'x-plural':   "processes",
-		type: 'object',
-		properties: {}
-		//required: ['source', 'target']
-	},
-
-	PotentialProcess: {
-		'x-singular': "potential process",
-		'x-plural':   "potential processes",
-		type: 'object',
-		properties: {}
-		//required: ['source', 'target']
-	}
-};
-
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// resource relationships                                                                                             //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export let resourceRelationships = [];
-
-export const ONE  = Symbol('many');
-export const MANY = Symbol('many');
-function addRelationship(c1, TypeName1, fieldName1, c2, options1, TypeName2, fieldName2, options2, options = {}) {
+for (let [
+	cardinality1, typeName1, fieldName1, options1,
+	cardinality2, typeName2, fieldName2, options2,
+	options
+] of specifiedRelationships) {
+	/* cleaning up the relationship object */
+	if (!options1) { options1 = {} }
+	if (!options2) { options2 = {} }
+	if (!options)  { options  = {} }
 	let rel = {
 		1: {
-			cardinality: c1 === 1 ? ONE : c1,
-			TypeName:    TypeName1,
+			cardinality: cardinality1,
+			type:        resources[typeName1],
 			fieldName:   fieldName1,
 			...options,
 			...options1
 		},
 		2: {
-			cardinality: c2 === 1 ? ONE : c2,
-			TypeName:    TypeName2,
+			cardinality: cardinality2,
+			type:        resources[typeName1],
 			fieldName:   fieldName2,
 			...options,
 			...options2
 		},
 		...options
 	};
-	resourceRelationships.push(rel);
+	relationships.push(rel);
 
-	// TODO: put the following changes into the abstract resource representation, not directly in the swagger thing
+	/* supplementing the resource object(s) */
 	for (let i of [1, 2]) {
 		if (rel[i].cardinality === ONE) {
-			resourceTypes[rel[i].TypeName].properties[rel[i].fieldName] = $ref('key');
-			a(resourceTypes[rel[i].TypeName], 'required').push(rel[i].fieldName);
+			rel[i].type.properties[rel[i].fieldName] = simpleDataTypes.uri;
+			a(rel[i].type, 'required').push(rel[i].fieldName);
 		}
 
 		if (rel[i].cardinality === MANY && rel[i].indexFieldName) {
-			resourceTypes[rel[i].TypeName].properties[rel[i].indexFieldName] = $ref('key');
-			a(resourceTypes[rel[i].TypeName], 'required').push(rel[i].indexFieldName);
+			rel[i].type.properties[rel[i].indexFieldName] = simpleDataTypes.uri;
+			a(rel[i].type, 'required').push(rel[i].indexFieldName);
 		}
 
 		if (rel[i].setFields) {
 			for (let fieldName of Object.keys(rel[i].setFields)) {
-				resourceTypes[rel[i].TypeName].properties[fieldName] = $ref('key');
+				rel[i].type.properties[fieldName] = simpleDataTypes.uri;
 			}
 		}
 	}
 }
 
-const $ = MANY;
-addRelationship(
-	1, 'LyphTemplate',  'layers',       {},
-	$, 'LayerTemplate', 'lyphTemplate', { indexFieldName: 'position' }
-);
-addRelationship(
-	$, 'LayerTemplate', 'materials',  {
-		getSummary:    "find all lyph templates acting as materials in a given layer template",
-		putSummary:    "add a given lyph template to a given layer template as a material",
-		deleteSummary: "remove a given lyph template from a given layer template as material"
-	},
-	$, 'LyphTemplate',  'materialIn', {
-		getSummary:    "find the layer templates in which a given lyph template is a material",
-		putSummary:    "add a given lyph template to a given layer template as a material",
-		deleteSummary: "remove a given lyph template from a given layer template as material"
-	}
-);
-addRelationship(
-	1, 'LyphTemplate',  'instantiations', {
-		getSummary: "find all lyphs instantiated from a given lyph template"
-	},
-	$, 'Lyph',          'template',       {},
-	{
-		readOnly: true // instantiation has 1 template from creation
-	}
-);
-addRelationship(
-	1, 'LayerTemplate', 'instantiations', {
-		getSummary: "find all layers instantiated from a given layer template"
-	},
-	$, 'Layer',         'template',       {},
-	{
-		readOnly: true // instantiation has 1 template from creation
-	}
-);
-addRelationship(
-	1, 'Lyph',  'layers', {},
-	$, 'Layer', 'lyph',   {},
-	{
-		readOnly: true // layers sync through templates
-	}
-);
-addRelationship(
-	$, 'Layer', 'childLyphs', {
-		getSummary:    "find all lyphs that are located in a given layer",
-		putSummary:    "add a given lyph into a given layer",
-		deleteSummary: "remove a given lyph from inside a given layer"
-	},
-	$, 'Lyph',  'inLayers',   {
-		getSummary:    "find the layer(s) in which a given lyph is located",
-		putSummary:    "add a given lyph to a given layer location",
-		deleteSummary: "remove a given lyph from a given layer location"
-	}
-);
-addRelationship(
-	$, 'Layer', 'coalescesWith', {},
-	$, 'Layer', 'coalescesWith', {},
-	{
-		symmetric:     true,
-		antiReflexive: true,
-		getSummary:    "find all layers that coalesce with a given layer",
-		putSummary:    "make two given layers coalesce",
-		deleteSummary: "make two coalescing layers not coalesce"
-	}
-);
-addRelationship(
-	$, 'Lyph',        'inCompartments', {
-		getSummary:    "find all compartments in which a given lyph is a member",
-		putSummary:    "add a given lyph to a given compartment as a member",
-		deleteSummary: "remove a given lyph from a given compartment as a member"
-	},
-	$, 'Compartment', 'lyphs',          {}
-);
-addRelationship(
-	1, 'Lyph',           'locatedMeasures', {
-		getSummary:    "find all located measures associated with a given lyph",
-		putSummary:    "associate a given located measure with a given lyph",
-		deleteSummary: "remove a given located measure associated with a given lyph"
-	},
-	$, 'LocatedMeasure', 'lyph',            {}
-);
-for (let side of simpleDataTypes.side.enum) {
-	addRelationship(
-		1, 'Border', 'layer', {
-			setFields: {
-				side: { value: side }
-			}
-		},
-		1, 'Layer',   side,   {}
-	);
-}
-addRelationship(
-	$, 'Border', 'nodes',   {},
-	$, 'Node',   'borders', {}
-);
-for (let [edgeEnd, direction] of [['source', 'outgoing'], ['target', 'incoming']]) {
-	addRelationship(
-			1, 'Node',    direction+'Processes', {},
-			$, 'Process', edgeEnd,               {}
-	);
-}
-for (let [edgeEnd, direction] of [['source', 'outgoing'], ['target', 'incoming']]) {
-	addRelationship(
-		1, 'Node',             direction+'PotentialProcesses', {},
-		$, 'PotentialProcess', edgeEnd,                        {}
-	);
-}
-addRelationship(
-	$, 'Correlation', 'publication',   {},
-	1, 'Publication', 'correlations',  {}
-);
-addRelationship(
-	$, 'Correlation',    'locatedMeasures', {},
-	$, 'LocatedMeasure', 'correlations',    {}
-);
-addRelationship(
-	$, 'Correlation',   'clinicalIndices', {},
-	$, 'ClinicalIndex', 'correlations',    {}
-);
-addRelationship(
-	$, 'LocatedMeasure',   'bagsOfPathologies', {},
-	$, 'BagOfPathologies', 'locatedMeasures',   {}
-);
-addRelationship(
-	$, 'LocatedMeasure', 'removedProcesses',           {
-		getSummary:    "find all processes 'removed' by a given bag of pathologies",
-		putSummary:    "make a given bag of pathologies 'remove' a given process",
-		deleteSummary: "stop a given bag of pathologies from 'removing' a given process"
-	},
-	$, 'Process',        'removedByBagsOfPathologies', {
-		getSummary:    "find all bags of pathologies that 'remove' a given process",
-		putSummary:    "make a given bag of pathologies 'remove' a given process",
-		deleteSummary: "stop a given bag of pathologies from 'removing' a given process"
-	}
-);
-addRelationship(
-	$, 'LocatedMeasure',   'addedProcesses',           {
-		getSummary:    "find all potential processes 'added' by a given bag of pathologies",
-		putSummary:    "make a given bag of pathologies 'add' a given potential process",
-		deleteSummary: "stop a given bag of pathologies from 'adding' a given potential process"
-	},
-	$, 'PotentialProcess', 'addedByBagsOfPathologies', {
-		getSummary:    "find all bags of pathologies that 'add' a given potential process",
-		putSummary:    "make a given bag of pathologies 'add' a given potential process",
-		deleteSummary: "stop a given bag of pathologies from 'adding' a given potential process"
-	}
-);
-
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// response templates                                                                                                 //
+// swagger data types                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const respondWithListOf = (DataType) => ({
-	description: `the list of requested ${resourceTypes[DataType]['x-plural']}`,
-	schema: { type: 'array', items: { $ref: `#/definitions/${DataType}` } }
-});
+let swaggerDataTypes = {};
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// resource templates                                                                                                 //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-function basicRestResource(TypeName, {readOnly} = {}) {
-	const Type     = resourceTypes[TypeName];
-	const plural   = Type['x-plural'];
-	const singular = Type['x-singular'];
-	return {
-		[`/${toCamelCase(plural)}`]: Object.assign({
-			get: {
-				summary: `find all ${plural}`,
-				responses: {
-					200: respondWithListOf(TypeName)
-				}
-			}
-		}, readOnly ? {} : {
-			post: {
-				summary: `create a new ${singular}`,
-				responses: {
-					201: respondWithListOf(TypeName)
-				}
-			}
-		}),
-		[`/${toCamelCase(plural)}/{${toCamelCase(singular)}}`]: Object.assign({
-			get: {
-				summary: `find ${plural} by id`,
-				responses: {
-					200: respondWithListOf(TypeName)
-				}
-			}
-		}, readOnly ? {} : {
-			put: {
-				summary: `replace a given ${singular}`,
-				responses: {
-					200: respondWithListOf(TypeName)
-				}
-			},
-			post: {
-				summary: `update a given ${singular}`,
-				responses: {
-					200: respondWithListOf(TypeName)
-				}
-			},
-			delete: {
-				summary: `delete a given ${singular}`,
-				responses: {
-					204: {
-						description: `successfully deleted the ${singular}`
-					}
-				}
-			}
-		})
+for (let resName of Object.keys(resources)) {
+	let res = resources[resName];
+	swaggerDataTypes[resName] = {
+		type:       'object',
+		properties: _.cloneDeep(res.properties),
+		required:   res.required && _.uniq(res.required)
 	};
 }
 
-function basicRestRelation(TypeName1, relName, TypeName2, {getSummary, putSummary, deleteSummary, readOnly} = {}) {
-	const Type1     = resourceTypes[TypeName1];
-	const plural1   = Type1['x-plural'];
-	const singular1 = Type1['x-singular'];
-	const Type2     = resourceTypes[TypeName2];
-	const plural2   = Type2['x-plural'];
-	const singular2 = (TypeName1 === TypeName2 ? "other " : "") + Type2['x-singular'];
-	return Object.assign({
-		[`/${toCamelCase(plural1)}/{${toCamelCase(singular1)}}/${relName}`]: {
-			get: {
-				summary: getSummary || `find all the ${plural2} of a given ${singular1}`,
-				responses: {
-					200: respondWithListOf(TypeName2)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// resource endpoints                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+let resourceEndpoints = {};
+
+const $ref = (name) => ({ $ref: `#/definitions/${name}` });
+
+const respondWithListOf = (Type) => ({
+	description: `the list of requested ${Type.plural}`,
+	schema: { type: 'array', items: $ref(Type.name) }
+});
+
+function addResourceEndpoint(Type) {
+
+	const singular = Type.singular;
+	const plural   = Type.plural;
+	const readOnly = Type.readOnly;
+
+	resourceEndpoints[`/${toCamelCase(plural)}`] = Object.assign({
+		get: {
+			summary: `find all ${plural}`,
+			responses: {
+				200: respondWithListOf(Type)
+			}
+		}
+	}, readOnly || {
+		post: {
+			summary: `create a new ${singular}`,
+			responses: {
+				201: respondWithListOf(Type)
+			}
+		}
+	});
+
+	resourceEndpoints[`/${toCamelCase(plural)}/{${toCamelCase(singular)}}`] = Object.assign({
+		get: {
+			summary: `find ${plural} by id`,
+			responses: {
+				200: respondWithListOf(Type)
+			}
+		}
+	}, readOnly || {
+		put: {
+			summary: `replace a given ${singular}`,
+			responses: {
+				200: respondWithListOf(Type)
+			}
+		},
+		post: {
+			summary: `update a given ${singular}`,
+			responses: {
+				200: respondWithListOf(Type)
+			}
+		},
+		delete: {
+			summary: `delete a given ${singular}`,
+			responses: {
+				204: {
+					description: `successfully deleted the ${singular}`
 				}
 			}
 		}
-	}, readOnly ? {} : {
-		[`/${toCamelCase(plural1)}/{${toCamelCase(singular1)}}/${relName}/{${toCamelCase(singular2)}}`]: {
+	});
+}
+
+for (let resourceName of Object.keys(resources)) {
+	addResourceEndpoint(resources[resourceName]);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// creating swagger resource relation endpoints                                                                       //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+let relationshipEndpoints = {};
+
+function addRelationshipEndpoints(rel1, rel2) {
+
+	const plural1   = rel1.type.plural;
+	const singular1 = rel1.type.singular;
+	const plural2   = rel2.type.plural;
+	const singular2 = (rel1.type === rel2.type ? "other " : "") + rel2.type.singular;
+	const {getSummary, putSummary, deleteSummary, readOnly} = rel1;
+
+	relationshipEndpoints[`/${toCamelCase(plural1)}/{${toCamelCase(singular1)}}/${rel1.fieldName}`] = {
+		get: {
+			summary: getSummary || `find all the ${plural2} of a given ${singular1}`,
+			responses: {
+				200: respondWithListOf(rel2.type)
+			}
+		}
+	};
+
+	if (!readOnly) {
+		relationshipEndpoints[`/${toCamelCase(plural1)}/{${toCamelCase(singular1)}}/${rel1.fieldName}/{${toCamelCase(singular2)}}`] = {
 			put: {
 				summary: putSummary || `add a given ${plural2} to a given ${singular1}`,
 				responses: {
@@ -492,39 +205,12 @@ function basicRestRelation(TypeName1, relName, TypeName2, {getSummary, putSummar
 				}
 			}
 		}
-	});
+	}
 }
 
-function layerBorderRestRelation() {
-	return {
-		'/layers/{layer}/{side}': {
-			get: {
-				summary: "find the border on a given side of a given layer",
-				responses: {
-					200: respondWithListOf('Border')
-				}
-			}
-		}
-		// borders are accessed by layer+side, and are automatically (lazily) created when requested
-	};
-}
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// creating swagger 'paths' for the resource relations                                                                //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-let resourceRelationshipsPaths = {};
-
-for (let rel of resourceRelationships) {
-	if (rel[1].cardinality === MANY) {
-		Object.assign(resourceRelationships,
-			basicRestRelation(rel[1].TypeName, rel[1].fieldName, rel[2].TypeName, rel[1].options));
-	}
-	if (rel[2].cardinality === MANY) {
-		Object.assign(resourceRelationships,
-			basicRestRelation(rel[2].TypeName, rel[2].fieldName, rel[1].TypeName, rel[2].options));
-	}
+for (let rel of relationships) {
+	if (rel[1].cardinality === MANY) { addRelationshipEndpoints(rel[2], rel[1]) }
+	if (rel[2].cardinality === MANY) { addRelationshipEndpoints(rel[1], rel[2]) }
 }
 
 
@@ -561,7 +247,7 @@ for (let rel of resourceRelationships) {
 // final Swagger spec                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export let swagger = {
+export const swagger = {
 	swagger: '2.0',
 	info: {
 		title: "Open Physiology Lyph System",
@@ -573,27 +259,10 @@ export let swagger = {
 	produces: ['application/json'],
 	definitions: {
 		...simpleDataTypes,
-		...resourceTypes
+		...swaggerDataTypes
 	},
-	paths: Object.assign(
-
-		resourceRelationships,
-
-		basicRestResource('LyphTemplate'),
-		basicRestResource('LayerTemplate'),
-		basicRestResource('Lyph'),
-		basicRestResource('Compartment'),
-		basicRestResource('Layer', { readOnly: true /* layers sync through templates */ }),
-		//layerBorderRestRelation(),
-		basicRestResource('Border'),
-		basicRestResource('Node'),
-		basicRestResource('Process'),
-		basicRestResource('PotentialProcess'),
-		basicRestResource('Correlation'),
-		basicRestResource('Publication'),
-		basicRestResource('ClinicalIndex'),
-		basicRestResource('LocatedMeasure'),
-		basicRestResource('BagOfPathologies')
-
-	)
+	paths: {
+		...resourceEndpoints,
+		...relationshipEndpoints
+	}
 };
