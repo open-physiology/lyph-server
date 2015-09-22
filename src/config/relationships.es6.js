@@ -1,4 +1,4 @@
-import {simpleDataTypes} from './simpleDataTypes.es6.js';
+import {simpleDataTypes} from '../simpleDataTypes.es6.js';
 
 
 /* cardinalities */
@@ -93,8 +93,8 @@ export const relationships = [[
 	1, 'Node',    direction+'Processes', {},
 	$, 'Process', edgeEnd,               {}
 ])), ...([['source', 'outgoing'], ['target', 'incoming']].map(([edgeEnd, direction]) => [
-	1, 'Node',             direction+'Processes', {},
-	$, 'PotentialProcess', edgeEnd,               {}
+	1, 'Node',             direction+'PotentialProcesses', {},
+	$, 'PotentialProcess', edgeEnd,                        {}
 ])), [
 	$, 'Correlation', 'publication',   {},
 	1, 'Publication', 'correlations',  {}

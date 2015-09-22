@@ -1,6 +1,6 @@
 var webpack = require('webpack');
-var path = require('path');
-var fs = require('fs');
+var path    = require('path');
+var fs      = require('fs');
 
 var nodeModules = {};
 fs.readdirSync('node_modules')
@@ -25,7 +25,7 @@ module.exports = {
 	target: 'node',
 	node: {
 		__filename: true,
-		__dirname: true
+		__dirname:  true
 	},
 	externals: nodeModules,
 	module: {

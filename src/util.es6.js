@@ -7,9 +7,9 @@ export function promisify(obj, method, ...args) {
 
 export function toCamelCase(str) {
 	return str
-			.replace(/\s(.)/g, (l) => l.toUpperCase())
-			.replace(/\s/g, '')
-			.replace(/^(.)/,   (l) => l.toLowerCase());
+			.replace(/\s(.)/g, l => l.toUpperCase())
+			.replace(/\s/g,    ''                  )
+			.replace(/^(.)/,   l => l.toLowerCase());
 }
 
 export function def(object, field, defaultValue) {

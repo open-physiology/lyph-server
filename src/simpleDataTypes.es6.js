@@ -10,7 +10,8 @@ export const simpleDataTypes = {
 	},
 
 	uri: {
-		type: 'string'
+		type: 'string',
+		format: 'uri'
 	},
 
 	side: {
