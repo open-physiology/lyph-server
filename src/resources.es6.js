@@ -33,8 +33,8 @@ for (let resName of Object.keys(resources)) {
 export let relationships = [];
 
 for (let [
-	cardinality1, typeName1, fieldName1, options1,
-	cardinality2, typeName2, fieldName2, options2,
+	typeName1, fieldCardinality1, fieldName1, options1,
+	typeName2, fieldCardinality2, fieldName2, options2,
 	options
 ] of specifiedRelationships) {
 	/* cleaning up the relationship object */
@@ -43,16 +43,16 @@ for (let [
 	if (!options)  { options  = {} }
 	let rel = {
 		1: {
-			cardinality: cardinality1,
-			type:        resources[typeName1],
-			fieldName:   fieldName1,
+			type:             resources[typeName1],
+			fieldCardinality: fieldCardinality1,
+			fieldName:        fieldName1,
 			...options,
 			...options1
 		},
 		2: {
-			cardinality: cardinality2,
-			type:        resources[typeName2],
-			fieldName:   fieldName2,
+			type:             resources[typeName2],
+			fieldCardinality: fieldCardinality2,
+			fieldName:        fieldName2,
 			...options,
 			...options2
 		},
@@ -63,17 +63,15 @@ for (let [
 	/* supplementing the resource object(s) */
 	for (let i of [1, 2]) {
 		/* a field pointing to the related entity|-ies */
-		if (rel[3-i].cardinality === ONE) {
-			rel[i].type.properties[rel[i].fieldName] = simpleDataTypes.uri;
+		if (rel[i].fieldCardinality === ONE) {
+			rel[i].type.properties[rel[i].fieldName] = { ...simpleDataTypes.uri, 'x-required': true };
 		} else {
-			rel[i].type.properties[rel[i].fieldName] = { type: 'array', items: simpleDataTypes.uri };
+			rel[i].type.properties[rel[i].fieldName] = { type: 'array', items: simpleDataTypes.uri, 'x-required': true };
 		}
-		a(rel[i].type, 'required').push(rel[i].fieldName);
 
 		/* a field containing the index this entity occupies in the related entity */
-		if (rel[i].cardinality === MANY && rel[3-i].cardinality === ONE && rel[i].indexFieldName) {
-			rel[i].type.properties[rel[i].indexFieldName] = { type: 'integer', minimum: 0 };
-			a(rel[i].type, 'required').push(rel[i].indexFieldName);
+		if (rel[i].fieldCardinality === ONE && rel[i==1?2:1].fieldCardinality === MANY && rel[i].indexFieldName) {
+			rel[i].type.properties[rel[i].indexFieldName] = { type: 'integer', minimum: 0, 'x-required': true };
 		}
 
 		/* other fields that should be set */

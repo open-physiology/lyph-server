@@ -1,31 +1,32 @@
 {
-	"name": "lyph-server",
-	"version": "0.1.0",
-	"description": "the lyph server",
-	"main": "dist/index.js",
-	"scripts": {
-		"build": "webpack; node dist/tools/buildSwaggerJSON.js"
-	},
-	"keywords": [
-		"lyph"
-	],
-	"authors": [
-		"Michiel Helvensteijn <mhelvens@gmail.com>",
-		"Samuel Alexander <rmhiale@ucl.ac.uk>"
-	],
-	"dependencies": {
-		"body-parser": "~1",
-		"express": "~4",
-		"lodash": "~3",
-		"neo4j": "~1",
-		"revalidator": "~0.3"
-	},
-	"devDependencies": {
-		"babel": "~5",
-		"babel-core": "~5",
-		"babel-loader": "~5",
-		"hanson": "~1",
-		"json-loader": "~0.5",
-		"webpack": "~1"
-	}
+  "name": "lyph-server",
+  "version": "0.1.0",
+  "description": "the lyph server",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "webpack; node dist/tools/buildSwaggerJSON.js"
+  },
+  "keywords": [
+    "lyph"
+  ],
+  "authors": [
+    "Michiel Helvensteijn <mhelvens@gmail.com>",
+    "Samuel Alexander <rmhiale@ucl.ac.uk>"
+  ],
+  "dependencies": {
+    "body-parser": "~1",
+    "express": "~4",
+    "lodash": "~3",
+    "neo4j": "~1",
+    "revalidator": "~0.3",
+    "swagger-express-middleware": "^0.4.7"
+  },
+  "devDependencies": {
+    "babel": "~5",
+    "babel-core": "~5",
+    "babel-loader": "~5",
+    "hanson": "~1",
+    "json-loader": "~0.5",
+    "webpack": "~1"
+  }
 }

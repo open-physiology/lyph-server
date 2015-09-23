@@ -6,9 +6,8 @@ export const resources = {
 		singular: "lyph template",
 		plural:   "lyph templates",
 		properties: {
-			name: { type: 'string' }
-		},
-		required: ['name']
+			name: { type: 'string', 'x-required': true }
+		}
 	},
 
 	LayerTemplate: {
@@ -29,8 +28,8 @@ export const resources = {
 		singular: "lyph",
 		plural:   "lyphs",
 		properties: {
-			name:     { type: 'string' },
-			species:  { type: 'string' },
+			name:     { type: 'string', 'x-required': true },
+			species:  { type: 'string', 'x-required': true },
 			length:   { type: 'number', minimum: 0 },
 			closedAt: {
 				type:        'array',
@@ -38,8 +37,7 @@ export const resources = {
 				uniqueItems: true,
 				maxItems:    2
 			}
-		},
-		required: ['name', 'species']
+		}
 	},
 
 	Layer: {
@@ -79,29 +77,26 @@ export const resources = {
 		singular: "publication",
 		plural:   "publications",
 		properties: {
-			uri:   simpleDataTypes.uri,
+			uri:   { ...simpleDataTypes.uri, 'x-required': true },
 			title: { type: 'string' }
-		},
-		required: ['uri']
+		}
 	},
 
 	ClinicalIndex: {
 		singular: "clinical index",
 		plural:   "clinical indices",
 		properties: {
-			uri:   simpleDataTypes.uri,
+			uri:   { ...simpleDataTypes.uri, 'x-required': true },
 			title: { type: 'string' }
-		},
-		required: ['uri']
+		}
 	},
 
 	LocatedMeasure: {
 		singular: "located measure",
 		plural:   "located measures",
 		properties: {
-			quality: { type: 'string' }
-		},
-		required: ['quality']
+			quality: { type: 'string', 'x-required': true }
+		}
 	},
 
 	BagOfPathologies: {
@@ -123,5 +118,5 @@ export const resources = {
 	}
 };
 
-// TODO: for swagger, set "type: 'object'" on each of these
-// TODO: for swagger, put singular / plural / etc as "x-<property>"
+// TODO: LyphMap     (a sort of superclass of LyphTemplate, which also knows about thickness distributions of layers)
+//     : LyphFactory (a superclass of LyphMap, which also has outside thickness distribution)

@@ -15,6 +15,7 @@ module.exports = {
 	devtool: 'source-map',
 	entry: {
 		'index':                  ['babel/polyfill', './src/index.es6.js'],
+		'server/index':           ['babel/polyfill', './src/server/index.es6.js'],
 		'tools/buildSwaggerJSON': ['babel/polyfill', './src/tools/buildSwaggerJSON.es6.js']
 	},
 	output: {
