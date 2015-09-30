@@ -81,7 +81,6 @@ const requestHandler = {
 				WITH n, { ${objectMembers.join(', ')} } AS relationships
 				RETURN n, relationships
 			`).then((result) => {
-				console.log(JSON.stringify(result, null, 4));
 				let [{n, relationships}] = result;
 				return Object.assign(n, relationships);
 			}).then((nodes) => {
