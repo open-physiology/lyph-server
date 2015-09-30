@@ -4,7 +4,9 @@
   "description": "the lyph server",
   "main": "dist/index.js",
   "scripts": {
-    "build": "webpack; node dist/tools/buildSwaggerJSON.js"
+    "build-server": "webpack; node dist/tools/buildSwaggerJSON.js",
+    "build-client": "webpack --config ./webpack-client.config.js",
+    "build": "npm run build-server; npm run build-client"
   },
   "keywords": [
     "lyph"
@@ -18,8 +20,10 @@
     "express": "~4",
     "lodash": "~3",
     "neo4j": "~1",
+    "node-rest-client": "^1.5.1",
     "revalidator": "~0.3",
-    "swagger-express-middleware": "^0.4.7"
+    "swagger-express-middleware": "^0.4.7",
+    "swagger-ui": "^2.1.3"
   },
   "devDependencies": {
     "babel": "~5",

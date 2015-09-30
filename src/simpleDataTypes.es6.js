@@ -1,27 +1,27 @@
-export const simpleDataTypes = {
-
-	key: {
-		type: 'object',
-		properties: {
-			href: { type: 'string' }
-		},
-		required: ['href'],
-		'x-skip-db': true
+export const keySchema = {
+	type: 'object',
+	properties: {
+		href: { type: 'string' }
 	},
+	required: ['href'],
+	'x-skip-db': true
+};
 
-	uri: {
-		type: 'string',
-		format: 'uri'
-	},
+export const uriSchema = {
+	type: 'string',
+	format: 'uri'
+};
 
-	side: {
-		type: 'string',
-		enum: ['plus', 'minus', 'inner', 'outer']
-	},
+export const idSchema = {
+	type: 'integer'
+};
 
-	polarity: {
-		type: 'string',
-		enum: ['plus', 'minus']
-	}
+export const sideSchema = {
+	type: 'string',
+	enum: ['plus', 'minus', 'inner', 'outer']
+};
 
+export const polaritySchema = {
+	type: 'string',
+	enum: ['plus', 'minus']
 };

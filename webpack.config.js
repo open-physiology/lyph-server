@@ -1,4 +1,3 @@
-var webpack = require('webpack');
 var path    = require('path');
 var fs      = require('fs');
 
@@ -14,8 +13,7 @@ fs.readdirSync('node_modules')
 module.exports = {
 	devtool: 'source-map',
 	entry: {
-		'index':                  ['babel/polyfill', './src/index.es6.js'],
-		'server/index':           ['babel/polyfill', './src/server/index.es6.js'],
+		'server/server':          ['babel/polyfill', './src/server/server.es6.js'],
 		'tools/buildSwaggerJSON': ['babel/polyfill', './src/tools/buildSwaggerJSON.es6.js']
 	},
 	output: {

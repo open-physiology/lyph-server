@@ -7,9 +7,9 @@ import _ from 'lodash';
 
 /* local stuff */
 import {toCamelCase, a}                                     from './util.es6';
-import {simpleDataTypes}                                    from './simpleDataTypes.es6.js';
 import {resources     as specifiedResources}                from './config/resources.es6.js';
 import {relationships as specifiedRelationships, ONE, MANY} from './config/relationships.es6.js';
+import {idSchema}                                           from './simpleDataTypes.es6.js';
 
 /* direct exports */
 export {ONE, MANY};
@@ -30,54 +30,83 @@ for (let resName of Object.keys(resources)) {
 // processing relationships                                                                                           //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export let relationships = [];
+export let relationships = {};
 
-for (let [
-	typeName1, fieldCardinality1, fieldName1, options1,
-	typeName2, fieldCardinality2, fieldName2, options2,
-	options
-] of specifiedRelationships) {
-	/* cleaning up the relationship object */
+for (let relName of Object.keys(specifiedRelationships)) {
+	/* unpacking the relationship data */
+	let [
+		typeName1, fieldCardinality1, fieldName1, options1,
+		typeName2, fieldCardinality2, fieldName2, options2,
+		options
+	] = specifiedRelationships[relName];
+
+	/* creating the relationship object */
 	if (!options1) { options1 = {} }
 	if (!options2) { options2 = {} }
 	if (!options)  { options  = {} }
 	let rel = {
+		...options,
+		name: relName,
 		1: {
+			...options,
+			...options1,
 			type:             resources[typeName1],
 			fieldCardinality: fieldCardinality1,
 			fieldName:        fieldName1,
-			...options,
-			...options1
+			side:             1
 		},
 		2: {
+			...options,
+			...options2,
 			type:             resources[typeName2],
 			fieldCardinality: fieldCardinality2,
 			fieldName:        fieldName2,
-			...options,
-			...options2
-		},
-		...options
+			side:             2
+		}
 	};
-	relationships.push(rel);
+	rel[1].relationship = rel;
+	rel[2].relationship = rel;
+	rel[1].otherSide = rel[2];
+	rel[2].otherSide = rel[1];
+	relationships[relName] = rel;
 
-	/* supplementing the resource object(s) */
+	/* supplementing the resource type object(s) */
 	for (let i of [1, 2]) {
+		/* ordered pair of pointers to the sides of this relationship */
+		if (!rel[i].type.relationships) { rel[i].type.relationships = [] }
+		rel[i].type.relationships.push([ rel[i], rel[i==1?2:1] ]);
+
 		/* a field pointing to the related entity|-ies */
 		if (rel[i].fieldCardinality === ONE) {
-			rel[i].type.properties[rel[i].fieldName] = { ...simpleDataTypes.uri, 'x-required': true };
+			rel[i].type.schema.properties[rel[i].fieldName] = {
+				...idSchema,
+				'x-skip-db':  true,
+				'x-required': true
+			};
 		} else {
-			rel[i].type.properties[rel[i].fieldName] = { type: 'array', items: simpleDataTypes.uri, 'x-required': true };
+			rel[i].type.schema.properties[rel[i].fieldName] = {
+				type: 'array',
+				items: idSchema,
+				'x-skip-db':  true,
+				'x-required': true
+			};
 		}
 
 		/* a field containing the index this entity occupies in the related entity */
 		if (rel[i].fieldCardinality === ONE && rel[i==1?2:1].fieldCardinality === MANY && rel[i].indexFieldName) {
-			rel[i].type.properties[rel[i].indexFieldName] = { type: 'integer', minimum: 0, 'x-required': true };
+			rel[i].type.schema.properties[rel[i].indexFieldName] = {
+				type: 'integer',
+				minimum: 0,
+				'x-required': true
+			};
 		}
 
 		/* other fields that should be set */
 		if (rel[i].setFields) {
 			for (let fieldName of Object.keys(rel[i].setFields)) {
-				rel[i].type.properties[fieldName] = { type: (typeof rel[i].setFields[fieldName]) };
+				rel[i].type.schema.properties[fieldName] = {
+					type: (typeof rel[i].setFields[fieldName])
+				};
 			}
 		}
 	}
@@ -108,6 +137,7 @@ for (let [
 // TODO: enforce that no two publications have the same 'pubmed uri'
 // TODO: enforce that a (potential) process does not go from x to y, when x and y are on the same border
 // TODO: enforce that a bag of pathologies has at least one 'thing' in it
+// TODO: enforce that min thickness is <= max thickness
 
 // DONE: enforce that layers of instantiated lyphs correspond to the layer(Template)s of the lyph template
 // done by auto-syncing from layerTemplates to layers
