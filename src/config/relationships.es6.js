@@ -1,3 +1,30 @@
+// RelationshipName: [
+//     'ResourceType1', c1, 'fieldName1', { /* options1 */ },
+//     'ResourceType2', c2, 'fieldName2', { /* options2 */ },
+//     { /* options */ }
+// ]
+// This means that RelationshipName is a type of c1-to-c2 relationship
+// (c stands for cardinality: many-to-many, one-to-many, many-to-one, one-to-one)
+// between ResourceType1 resources and ResourceType2 resources.
+// So: "a ResourceType1 resource can be related to 'c1' ResourceType2 resource(s),
+//      exposed through fieldName1 in that resource"
+// and vice versa.
+//
+// A couple of possible options:
+// - options.readOnly:       this relationship type is managed programmatically, not to be exposed through the API directly
+// - options.symmetric:      this relationship type is bidirectional, 1->2 always implies 2->1
+// - options.anti-reflexive: a resource may not be related to itself with this type
+// - options1.sustains:      when no more ResourceType1 instances point to a specific ResourceType2 instance,
+//                           that ResourceType2 instance is deleted automatically, as it needs at least one link
+// - options1.anchors:       a ResourceType2 instance cannot be deleted if there are still ResourceType1 instances
+//                           pointing to it
+// - options1.implicit:      (only when c2 = ONE) a new ResourceType2 instance, plus this kind of relationship,
+//                           is automatically created for a new ResourceType1 instance
+// - options1.getSummary:    an explanation in English of the corresponding REST endpoint for HTTP GET
+// - options1.putSummary:    an explanation in English of the corresponding REST endpoint for HTTP PUT
+// - options1.deleteSummary: an explanation in English of the corresponding REST endpoint for HTTP DELETE
+
+
 import {sideSchema} from '../simpleDataTypes.es6.js';
 
 
@@ -10,7 +37,7 @@ const $ = MANY;
 /* relationships */
 export const relationships = {
 	LyphTemplateLayer: [
-		'LyphTemplate',     $, 'layers',       {},
+		'LyphTemplate',     $, 'layers',       { sustains: true },
 		'LayerTemplate',    1, 'lyphTemplate', { indexFieldName: 'position' }
 	],
 	LayerTemplateMaterial: [
@@ -27,15 +54,17 @@ export const relationships = {
 	],
 	LyphTemplateInstantiation: [
 		'LyphTemplate',     $, 'instantiations', {
+			sustains: true,
 			getSummary: "find all lyphs instantiated from a given lyph template"
 		},
 		'Lyph',             1, 'template',       {},
 		{
-			readOnly: true // instantiation has 1 template from creation
+			readOnly:   true // instantiation has 1 template from creation
 		}
 	],
 	LayerTemplateInstantiation: [
 		'LayerTemplate',    $, 'instantiations', {
+			sustains: true,
 			getSummary: "find all layers instantiated from a given layer template"
 		},
 		'Layer',            1, 'template',       {},
@@ -44,7 +73,9 @@ export const relationships = {
 		}
 	],
 	LyphLayer: [
-		'Lyph',             $, 'layers', {},
+		'Lyph',             $, 'layers', {
+			sustains: true
+		},
 		'Layer',            1, 'lyph',   { indexFieldName: 'position' },
 		{
 			readOnly: true // layers sync through templates
@@ -52,6 +83,7 @@ export const relationships = {
 	],
 	LayerChildLyph: [
 		'Layer',            $, 'childLyphs', {
+			sustains:      true,
 			getSummary:    "find all lyphs that are located in a given layer",
 			putSummary:    "add a given lyph into a given layer",
 			deleteSummary: "remove a given lyph from inside a given layer"
@@ -79,10 +111,13 @@ export const relationships = {
 			putSummary:    "add a given lyph to a given compartment as a member",
 			deleteSummary: "remove a given lyph from a given compartment as a member"
 		},
-		'Compartment',      $, 'lyphs',          {}
+		'Compartment',      $, 'lyphs',          {
+			anchors: true
+		}
 	],
 	LyphLocatedMeasure: [
 		'Lyph',             $, 'locatedMeasures', {
+			sustains:      true,
 			getSummary:    "find all located measures associated with a given lyph",
 			putSummary:    "associate a given located measure with a given lyph",
 			deleteSummary: "remove a given located measure associated with a given lyph"
@@ -90,43 +125,44 @@ export const relationships = {
 		'LocatedMeasure',   1, 'lyph',            {}
 	],
 	BorderNode: [
-		'Border',           $, 'nodes',   {},
+		'Border',           $, 'nodes',   { sustains: true },
 		'Node',             $, 'borders', {}
 	],
 	NodeProcess: [
-		'Node',    $, 'outgoingProcesses', {},
-		'Process', 1, 'source',            {}
+		'Node',             $, 'outgoingProcesses', { sustains: true },
+		'Process',          1, 'source',            {}
 	],
 	ProcessNode: [ // swapped sides to directionally align with above
-		'Process', 1, 'target',            {},
-		'Node',    $, `incomingProcesses`, {}
+		'Process',          1, 'target',            {},
+		'Node',             $, `incomingProcesses`, { sustains: true }
 	],
 	NodePotentialProcess: [
-		'Node',             $, 'outgoingPotentialProcesses', {},
+		'Node',             $, 'outgoingPotentialProcesses', { sustains: true },
 		'PotentialProcess', 1, 'source',                     {}
 	],
 	PotentialProcessNode: [ // swapped sides to directionally align with above
 		'PotentialProcess', 1, 'target',                     {},
-		'Node',             $, `incomingPotentialProcesses`, {}
+		'Node',             $, `incomingPotentialProcesses`, { sustains: true }
 	],
 	CorrelationPublication: [
 		'Correlation',      1, 'publication',   {},
-		'Publication',      $, 'correlations',  {}
+		'Publication',      $, 'correlations',  { sustains: true }
 	],
 	CorrelationLocatedMeasure: [
-		'Correlation',      $, 'locatedMeasures', {},
+		'Correlation',      $, 'locatedMeasures', { anchors: true },
 		'LocatedMeasure',   $, 'correlations',    {}
 	],
 	CorrelationClinicalIndex: [
-		'Correlation',      $, 'clinicalIndices', {},
+		'Correlation',      $, 'clinicalIndices', { anchors: true },
 		'ClinicalIndex',    $, 'correlations',    {}
 	],
 	LocatedMeasureBagOfPathologies: [
-		'LocatedMeasure',   $, 'bagsOfPathologies', {},
-		'BagOfPathologies', $, 'locatedMeasures',   {}
+		'BagOfPathologies', $, 'locatedMeasures',   { anchors: true },
+		'LocatedMeasure',   $, 'bagsOfPathologies', {}
 	],
-	LocatedMeasureRemovedProcess: [
-		'LocatedMeasure',   $, 'removedProcesses',           {
+	BagOfPathologiesRemovedProcess: [
+		'BagOfPathologies', $, 'removedProcesses',           {
+			anchors:       true,
 			getSummary:    "find all processes 'removed' by a given bag of pathologies",
 			putSummary:    "make a given bag of pathologies 'remove' a given process",
 			deleteSummary: "stop a given bag of pathologies from 'removing' a given process"
@@ -137,8 +173,9 @@ export const relationships = {
 			deleteSummary: "stop a given bag of pathologies from 'removing' a given process"
 		}
 	],
-	LocatedMeasureAddedProcess: [
-		'LocatedMeasure',   $, 'addedProcesses',           {
+	BagOfPathologiesAddedProcess: [
+		'BagOfPathologies', $, 'addedProcesses',           {
+			anchors:       true,
 			getSummary:    "find all potential processes 'added' by a given bag of pathologies",
 			putSummary:    "make a given bag of pathologies 'add' a given potential process",
 			deleteSummary: "stop a given bag of pathologies from 'adding' a given potential process"
@@ -154,7 +191,11 @@ export const relationships = {
 /* adding some relationships through loops, to avoid duplication */
 for (let side of sideSchema.enum) {
 	relationships[`LayerBorder_${side}`] = [
-		'Layer',  1,  side,   {},
+		'Layer',  1,  side,   {
+			sustains: true,
+			anchors:  true,
+			implicit: true
+		},
 		'Border', 1, 'layer', {
 			setFields: {
 				side: { value: side }
@@ -162,20 +203,8 @@ for (let side of sideSchema.enum) {
 		}
 	];
 }
-for (let [edgeEnd, direction] of [['source', 'outgoing'], ['target', 'incoming']]) {
-	relationships[`NodeProcess_${direction}`] = [
-		'Node',    $, `${direction}Processes`, {},
-		'Process', 1, edgeEnd,                 {}
-	];
-}
-for (let [edgeEnd, direction] of [['source', 'outgoing'], ['target', 'incoming']]) {
-	relationships[`NodePotentialProcess_${direction}`] = [
-		'Node',             $, direction+'PotentialProcesses', {},
-		'PotentialProcess', 1, edgeEnd,                        {}
-	];
-}
 
-/* cardinality shorthand */
+/* resolve cardinality shorthand */
 for (let relName of Object.keys(relationships)) {
 	if (relationships[relName][1] === 1) { relationships[relName][1] = ONE }
 	if (relationships[relName][5] === 1) { relationships[relName][5] = ONE }

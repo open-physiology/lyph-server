@@ -40,8 +40,10 @@ const rest = (method, url, data) => {
 //});
 
 
-rest('GET', '/lyphs/4').then((response) => {
-	console.log('OK:', response);
+rest('DELETE', '/lyphTemplates/4/layers/1').then((response) => {
+	console.log('    OK:', response);
+}, (err) => {
+	console.log('    ERROR:', err);
 });
 
 

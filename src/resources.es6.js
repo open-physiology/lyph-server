@@ -31,6 +31,8 @@ for (let resName of Object.keys(resources)) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export let relationships = {};
+export let sustainingRelationships = [];
+export let anchoringRelationships = [];
 
 for (let relName of Object.keys(specifiedRelationships)) {
 	/* unpacking the relationship data */
@@ -72,9 +74,19 @@ for (let relName of Object.keys(specifiedRelationships)) {
 
 	/* supplementing the resource type object(s) */
 	for (let i of [1, 2]) {
-		/* ordered pair of pointers to the sides of this relationship */
+		/* ordered pairs of relationship sides into relevant resource types */
 		if (!rel[i].type.relationships) { rel[i].type.relationships = [] }
 		rel[i].type.relationships.push([ rel[i], rel[i==1?2:1] ]);
+
+		/* ordered pairs of relationship sides for sustaining relationships */
+		if (rel[i].sustains) {
+			sustainingRelationships.push([ rel[i], rel[i==1?2:1] ]);
+		}
+
+		/* ordered pairs of relationship sides for anchoring relationships */
+		if (rel[i].anchors) {
+			anchoringRelationships.push([ rel[i], rel[i==1?2:1] ]);
+		}
 
 		/* a field pointing to the related entity|-ies */
 		if (rel[i].fieldCardinality === ONE) {

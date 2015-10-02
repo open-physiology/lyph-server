@@ -65,6 +65,10 @@ export const query = (statements) => {
 		throw new Error(`Invalid query parameter: ${statements}`);
 	}
 
+	//console.log('----------------------------------------------------------------------------------------------------');
+	//console.log(JSON.stringify(statements, null, 4));
+	//console.log('----------------------------------------------------------------------------------------------------');
+
 	/* launch the REST call to Neo4j, return a promise */
 	return waitingFor.then(() => new Promise((resolve, reject) => {
 		restClient.post(`http://${server}:${port}/db/data/transaction/commit`, {
