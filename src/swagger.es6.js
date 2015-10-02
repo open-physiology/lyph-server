@@ -109,6 +109,7 @@ function addResourceEndpoint(type) {
 		}
 	}, readOnly ? null : {
 		put: {
+			summary: `replace a given ${singular}`,
 			parameters: [
 				{
 					name:        singularIdKey,
@@ -189,8 +190,8 @@ let relationshipEndpoints = {};
 const FORWARD  = Symbol('FORWARD' );
 const BACKWARD = Symbol('BACKWARD');
 function addRelationshipEndpoints(rel, direction) {
-	const relA = rel[direction === FORWARD  ? 1 : 2];
-	const relB = rel[direction === BACKWARD ? 2 : 1];
+	const relA = rel[direction === FORWARD ? 1 : 2];
+	const relB = rel[direction === FORWARD ? 2 : 1];
 
 	const pluralA   = relA.type.plural;
 	const singularA = relA.type.singular;

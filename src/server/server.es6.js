@@ -86,7 +86,7 @@ const dbOnly = (type, allProperties) => _.omit(allProperties, (__, prop) =>
 
 /* to get the arrow-parts for a Cypher relationship */
 const arrowEnds = (relA) => (relA.symmetric)  ? ['-','-']  :
-                        (relA.side === 1) ? ['-','->'] : ['<-','-'];
+                            (relA.side === 1) ? ['-','->'] : ['<-','-'];
 
 /* to get query-fragments to get relationship-info for a given resource */
 function relationshipQueryFragments(type, nodeName) {
@@ -113,6 +113,10 @@ function relationshipQueryFragments(type, nodeName) {
 	}
 	return { optionalMatches, objectMembers };
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Neo4j-based functions returning promises                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function getIdsToDelete(firstId, forceFirst = true) {
 
@@ -202,11 +206,14 @@ function anythingAnchoredFromOutside(ids) {
 	`).then(pluckData('n'));
 }
 
-const assertResourceExists = (type, id) => (data) => {
-	return query(`
-		MATCH (n:${type.name} {id:${id}})
-		RETURN count(n) > 0 AS exists
-	`).then(pluckData('exists'))
+const assertResourceExists = (type, id, passthrough) => {
+	return Promise.resolve()
+		/* a query for checking existence of this resource */
+		.then(() => query(`
+			MATCH (n:${type.name} {id:${id}})
+			RETURN count(n) > 0 AS exists
+		`)).then(pluckData('exists'))
+		/* throw the 404 error if 'exists' is false */
 		.then(([exists]) => {
 			if (!exists) {
 				throw customError({
@@ -217,7 +224,36 @@ const assertResourceExists = (type, id) => (data) => {
 				});
 			}
 		})
-		.then(() => data);
+		/* passing along the original data */
+		.then(() => passthrough);
+};
+
+const getSingleResource = (type, id) => {
+	/* preparing the part of the query that adds relationship info */
+	let {optionalMatches, objectMembers} = relationshipQueryFragments(type, 'n');
+	return Promise.resolve()
+		/* formulating and sending the query */
+		.then(() => query(`
+			MATCH (n:${type.name} { id: ${id} })
+			${optionalMatches.join(' ')}
+			RETURN n, { ${objectMembers.join(', ')} } AS relationships
+		`))
+		/* integrate relationship data into the resource object */
+		.then(([{n, relationships}]) => Object.assign({}, n, relationships))
+};
+
+const getAllResources = (type) => {
+	/* preparing the part of the query that adds relationship info */
+	let {optionalMatches, objectMembers} = relationshipQueryFragments(type, 'n');
+	return Promise.resolve()
+		/* formulating and sending the query */
+		.then(() => query(`
+			MATCH (n:${type.name})
+			${optionalMatches.join(' ')}
+			RETURN n, { ${objectMembers.join(', ')} } AS relationships
+		`))
+		/* integrate relationship data into the resource object */
+		.then((results) => results.map(([{n, relationships}]) => Object.assign({}, n, relationships)))
 };
 
 
@@ -225,23 +261,21 @@ const assertResourceExists = (type, id) => (data) => {
 // request handlers                                                                                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// TODO: to avoid race conditions, use a Neo4j REST transactions to get some ACID around these multiple queries
+
 const requestHandler = {
 	resources: {
 		get: ({type}) => (req, res, next) => {
 
 			console.log(`Getting all ${type.plural}...`);
 
-			/* preparing the part of the query that adds relationship info */
-			let {optionalMatches, objectMembers} = relationshipQueryFragments(type, 'n');
+			Promise.resolve()
 
-			/* formulating and sending the query; pass errors to Express through 'next' */
-			query(`
-				MATCH (n:${type.name})
-				${optionalMatches.join(' ')}
-				RETURN n, { ${objectMembers.join(', ')} } AS relationships
-			`).then(([{n, relationships}]) => {
-				return Object.assign(n, relationships);
-			}).then((nodes) => {  res.status(OK).send(nodes)  }, next);
+				/* formulating and sending the query */
+				.then(() => getAllResources(type))
+
+				/* send the response; pass any error to Express through 'next' */
+				.then((resources) => {  res.status(OK).send(resources)  }, next);
 
 		},
 		post: ({type}) => (req, res, next) => {
@@ -261,14 +295,14 @@ const requestHandler = {
 							${WITH_NEW_ID('newID')}
 							CREATE (n:${type.name} { id: newID, type: "${type.name}" })
 							SET n += {dbProperties}
-							RETURN n
+							RETURN newID as id
 						`,
-						parameters: {  dbProperties: dbOnly(req.body)  }
+						parameters: {  dbProperties: dbOnly(type, req.body)  }
 					}
-				]).then(pluckData('n')))
+				]).then(pluckData('id')))
 
 				/* add all required relationships */
-				.then((nodes) => {
+				.then(([id]) => {
 					let relationshipPatterns = [];
 					for (let [relA, relB] of type.relationships) {
 						// if given is absent, but should be an array, that's OK, we use an empty array
@@ -287,16 +321,19 @@ const requestHandler = {
 					}
 					if (relationshipPatterns.length > 0) {
 						return query(`
-							MATCH (A:${type.name} { id: ${nodes[0].id} })
+							MATCH (A:${type.name} { id: ${id} })
 							${relationshipPatterns}
-						`).then(() => nodes);
+						`).then(() => id);
 					} else {
-						return nodes;
+						return id;
 					}
 				})
 
+				/* fetch the newly created resource */
+				.then((id) => getSingleResource(type, id))
+
 				/* send the response; pass any error to Express through 'next' */
-				.then((nodes) => {  res.status(CREATED).send(nodes)  }, next);
+				.then((resources) => {  res.status(CREATED).send(resources)  }, next);
 
 		}
 	},
@@ -313,17 +350,10 @@ const requestHandler = {
 			Promise.resolve()
 
 				/* throw a 404 if the resource doesn't exist */
-				.then(assertResourceExists(type, req.pathParams.id))
+				.then(() => assertResourceExists(type, req.pathParams.id))
 
-				/* formulating and sending the query */
-				.then(() => query(`
-					MATCH (n:${type.name} { id: ${req.pathParams.id} })
-					${optionalMatches.join(' ')}
-					RETURN n, { ${objectMembers.join(', ')} } AS relationships
-				`))
-
-				/* integrate relationship data into the resource object */
-				.then(([{n, relationships}]) => Object.assign(n, relationships))
+				/* send the query */
+				.then(() => getSingleResource(type, req.pathParams.id))
 
 				/* send the response; pass any error to Express through 'next' */
 				.then((nodes) => {  res.status(OK).send(nodes)  }, next);
@@ -333,12 +363,10 @@ const requestHandler = {
 
 			console.log(`Updating ${type.singular} ${req.pathParams.id}...`);
 
-			// TODO: to avoid race conditions, use a Neo4j REST transaction to envelop these two steps
-
 			Promise.resolve()
 
 				/* throw a 404 if the resource doesn't exist */
-				.then(assertResourceExists(type, req.pathParams.id))
+				.then(() => assertResourceExists(type, req.pathParams.id))
 
 				/* the main query for updating the node */
 				.then(() => type.update ? type.update({type}, req) : query({
@@ -347,7 +375,7 @@ const requestHandler = {
 						SET n += {dbProperties}
 						RETURN n
 					`,
-					parameters: {  dbProperties: dbOnly(req.body)  }
+					parameters: {  dbProperties: dbOnly(type, req.body)  }
 				}).then(pluckData('n')))
 
 				/* add all required relationships, remove others */
@@ -376,11 +404,12 @@ const requestHandler = {
 						return query(`
 							MATCH (A:${type.name} { id: ${nodes[0].id} })
 							${relationshipPatterns}
-						`).then(() => nodes);
-					} else {
-						return nodes;
+						`);
 					}
 				})
+
+				/* re-fetch the resource */
+				.then(() => getSingleResource(type, req.pathParams.id))
 
 				/* send the response; pass any error to Express through 'next' */
 				.then((nodes) => {  res.status(OK).send(nodes)  }, next);
@@ -393,7 +422,7 @@ const requestHandler = {
 			Promise.resolve()
 
 				/* throw a 404 if the resource doesn't exist */
-				.then(assertResourceExists(type, req.pathParams.id))
+				.then(() => assertResourceExists(type, req.pathParams.id))
 
 				/* the main query for updating the node */
 				.then(() => type.update ? type.update({type}, req) : query({
@@ -404,7 +433,7 @@ const requestHandler = {
 						SET n.type = "${type.name}"
 						RETURN n
 					`,
-					parameters: {  dbProperties: dbOnly(req.body)  }
+					parameters: {  dbProperties: dbOnly(type, req.body)  }
 				}).then(pluckData('n')))
 
 				/* add all required relationships, remove others */
@@ -434,14 +463,15 @@ const requestHandler = {
 						return query(`
 							MATCH (A:${type.name} { id: ${nodes[0].id} })
 							${relationshipPatterns}
-						`).then(() => nodes);
-					} else {
-						return nodes;
+						`);
 					}
 				})
 
+				/* re-fetch the resource */
+				.then(() => getSingleResource(type, req.pathParams.id))
+
 				/* send the response; pass any error to Express through 'next' */
-				.then((nodes) => {  res.status(OK).send(nodes)  }, next);
+				.then((resources) => {  res.status(OK).send(resources)  }, next);
 
 		},
 		delete: ({type}) => (req, res, next) => {
@@ -451,7 +481,7 @@ const requestHandler = {
 			Promise.resolve()
 
 				/* throw a 404 if the resource doesn't exist */
-				.then(assertResourceExists(type, req.pathParams.id))
+				.then(() => assertResourceExists(type, req.pathParams.id))
 
 				/* get all ids that would be auto-deleted by deleting this particular node */
 				.then(() => getIdsToDelete(req.pathParams.id))
@@ -495,7 +525,7 @@ const requestHandler = {
 			Promise.resolve()
 
 				/* throw a 404 if the resource doesn't exist */
-				.then(assertResourceExists(relA.type, req.pathParams.idA))
+				.then(() => assertResourceExists(relA.type, req.pathParams.idA))
 
 				/* formulating and sending the query */
 				.then(() => query(`
@@ -507,7 +537,7 @@ const requestHandler = {
 				`))
 
 				/* integrate relationship data into the resource object */
-				.then(([{B, relationships}]) => Object.assign(B, relationships))
+				.then(([{B, relationships}]) => Object.assign({}, B, relationships))
 
 				/* send the response; pass any error to Express through 'next' */
 				.then((nodes) => {  res.status(OK).send(nodes)  }, next);
@@ -524,10 +554,10 @@ const requestHandler = {
 			Promise.resolve()
 
 				/* throw a 404 if the A resource doesn't exist */
-				.then(assertResourceExists(relA.type, req.pathParams.idA))
+				.then(() => assertResourceExists(relA.type, req.pathParams.idA))
 
 				/* throw a 404 if the B resource doesn't exist */
-				.then(assertResourceExists(relB.type, req.pathParams.idB))
+				.then(() => assertResourceExists(relB.type, req.pathParams.idB))
 
 				/* the main query for adding the new relationship, and possibly deleting an existing one that needs to be replaced */
 				.then(() => type.set ? type.set({type, relA, relB}, req) : query(`
@@ -557,10 +587,10 @@ const requestHandler = {
 			Promise.resolve()
 
 				/* throw a 404 if the A resource doesn't exist */
-				.then(assertResourceExists(relA.type, req.pathParams.idA))
+				.then(() => assertResourceExists(relA.type, req.pathParams.idA))
 
 				/* throw a 404 if the B resource doesn't exist */
-				.then(assertResourceExists(relB.type, req.pathParams.idB))
+				.then(() => assertResourceExists(relB.type, req.pathParams.idB))
 
 				/* the main query for deleting the existing relationship */
 				.then(() => type.delete ? type.delete({type, relA, relB}, req) : query(`
@@ -664,6 +694,11 @@ for (let typeName of Object.keys(resources)) {
 
 /* the express application */
 let app = express();
+
+
+/* serve swagger-ui based documentation */
+app.use('/docs', express.static(__dirname + '/../../dist/docs/'));
+
 
 /* serve client files (for testing purposes) */
 ['index.html', 'index.js', 'index.js.map'].forEach((filename) => {
