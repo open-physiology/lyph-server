@@ -5,9 +5,13 @@
   "main": "dist/index.js",
   "scripts": {
     "build-server": "webpack; node dist/tools/buildSwaggerJSON.js",
-    "build-client": "webpack --config ./webpack-client.config.js",
-    "build-docs":   "cp -r src/docs dist",
-    "build": "npm run build-server; npm run build-client; npm run build-docs"
+    "build-docs": "cp -r src/docs dist",
+    "build": "npm run build-server; npm run build-docs",
+    "prestart": "npm run build",
+    "start": "forever start -a -l forever.log -o out.log -e err.log ./dist/server/server.js",
+    "stop": "forever stop ./dist/server/server.js",
+    "prerestart": "npm run build",
+    "restart": "forever restart -a ./dist/server/server.js"
   },
   "keywords": [
     "lyph"
@@ -17,8 +21,10 @@
     "Samuel Alexander <rmhiale@ucl.ac.uk>"
   ],
   "dependencies": {
-    "body-parser": "~1",
+    "co": "^4.6.0",
+    "commander": "^2.8.1",
     "express": "~4",
+    "forever": "^0.15.1",
     "lodash": "~3",
     "neo4j": "~1",
     "node-rest-client": "^1.5.1",
@@ -30,7 +36,6 @@
     "babel": "~5",
     "babel-core": "~5",
     "babel-loader": "~5",
-    "hanson": "~1",
     "json-loader": "~0.5",
     "webpack": "~1"
   }

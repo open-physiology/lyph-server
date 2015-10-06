@@ -1,3 +1,7 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// relationship specifications                                                                                        //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // RelationshipName: [
 //     'ResourceType1', c1, 'fieldName1', { /* options1 */ },
 //     'ResourceType2', c2, 'fieldName2', { /* options2 */ },
@@ -14,27 +18,17 @@
 // - options.readOnly:       this relationship type is managed programmatically, not to be exposed through the API directly
 // - options.symmetric:      this relationship type is bidirectional, 1->2 always implies 2->1
 // - options.anti-reflexive: a resource may not be related to itself with this type
-// - options1.sustains:      when no more ResourceType1 instances point to a specific ResourceType2 instance,
-//                           that ResourceType2 instance is deleted automatically, as it needs at least one link
-// - options1.anchors:       a ResourceType2 instance cannot be deleted if there are still ResourceType1 instances
-//                           pointing to it
-// - options1.implicit:      (only when c2 = ONE) a new ResourceType2 instance, plus this kind of relationship,
+// - options1.sustains:      when a ResourceType1 instance is deleted,
+//                           the ResourceType2 instance that is being sustained by it is deleted automatically
+// - options1.anchors:       a ResourceType2 instance cannot be deleted
+//                           while there are still ResourceType1 instances pointing to it
+// - options1.implicit:      (only when c2 = 'one') a new ResourceType2 instance, plus this kind of relationship,
 //                           is automatically created for a new ResourceType1 instance
 // - options1.getSummary:    an explanation in English of the corresponding REST endpoint for HTTP GET
 // - options1.putSummary:    an explanation in English of the corresponding REST endpoint for HTTP PUT
 // - options1.deleteSummary: an explanation in English of the corresponding REST endpoint for HTTP DELETE
 
-
-import {sideSchema} from '../simpleDataTypes.es6.js';
-
-
-/* cardinalities */
-export const ONE  = Symbol('ONE');
-export const MANY = Symbol('MANY');
-const $ = MANY;
-
-
-/* relationships */
+const $ = 'many';
 export const relationships = {
 	LyphTemplateLayer: [
 		'LyphTemplate',     $, 'layers',       { sustains: true },
@@ -58,9 +52,7 @@ export const relationships = {
 			getSummary: "find all lyphs instantiated from a given lyph template"
 		},
 		'Lyph',             1, 'template',       {},
-		{
-			readOnly:   true // instantiation has 1 template from creation
-		}
+		{ readOnly: true } // instantiation has a single template from creation
 	],
 	LayerTemplateInstantiation: [
 		'LayerTemplate',    $, 'instantiations', {
@@ -68,18 +60,12 @@ export const relationships = {
 			getSummary: "find all layers instantiated from a given layer template"
 		},
 		'Layer',            1, 'template',       {},
-		{
-			readOnly: true // instantiation has 1 template from creation
-		}
+		{ readOnly: true } // instantiation has a single template from creation
 	],
 	LyphLayer: [
-		'Lyph',             $, 'layers', {
-			sustains: true
-		},
+		'Lyph',             $, 'layers', { sustains: true },
 		'Layer',            1, 'lyph',   { indexFieldName: 'position' },
-		{
-			readOnly: true // layers sync through templates
-		}
+		{ readOnly: true } // layers sync through templates
 	],
 	LayerChildLyph: [
 		'Layer',            $, 'childLyphs', {
@@ -111,9 +97,7 @@ export const relationships = {
 			putSummary:    "add a given lyph to a given compartment as a member",
 			deleteSummary: "remove a given lyph from a given compartment as a member"
 		},
-		'Compartment',      $, 'lyphs',          {
-			anchors: true
-		}
+		'Compartment',      $, 'lyphs',          { anchors: true }
 	],
 	LyphLocatedMeasure: [
 		'Lyph',             $, 'locatedMeasures', {
@@ -145,8 +129,8 @@ export const relationships = {
 		'Node',             $, `incomingPotentialProcesses`, { sustains: true }
 	],
 	CorrelationPublication: [
-		'Correlation',      1, 'publication',   {},
-		'Publication',      $, 'correlations',  { sustains: true }
+		'Correlation',      1, 'publication',   { anchors: true },
+		'Publication',      $, 'correlations',  {}
 	],
 	CorrelationLocatedMeasure: [
 		'Correlation',      $, 'locatedMeasures', { anchors: true },
@@ -188,8 +172,8 @@ export const relationships = {
 	]
 };
 
-/* adding some relationships through loops, to avoid duplication */
-for (let side of sideSchema.enum) {
+/* adding these four relationships through a loop, to avoid duplication */
+for (let side of ['plus', 'minus', 'inner', 'outer']) {
 	relationships[`LayerBorder_${side}`] = [
 		'Layer',  1,  side,   {
 			sustains: true,
@@ -202,10 +186,4 @@ for (let side of sideSchema.enum) {
 			}
 		}
 	];
-}
-
-/* resolve cardinality shorthand */
-for (let relName of Object.keys(relationships)) {
-	if (relationships[relName][1] === 1) { relationships[relName][1] = ONE }
-	if (relationships[relName][5] === 1) { relationships[relName][5] = ONE }
 }

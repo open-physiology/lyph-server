@@ -6,13 +6,10 @@
 import _ from 'lodash';
 
 /* local stuff */
-import {toCamelCase, a}                                     from './util.es6';
-import {resources     as specifiedResources}                from './config/resources.es6.js';
-import {relationships as specifiedRelationships, ONE, MANY} from './config/relationships.es6.js';
-import {idSchema}                                           from './simpleDataTypes.es6.js';
-
-/* direct exports */
-export {ONE, MANY};
+import {toCamelCase, a}                          from './util.es6';
+import {resources     as specifiedResources}     from './config/resources.es6.js';
+import {relationships as specifiedRelationships} from './config/relationships.es6.js';
+import {idSchema}                                from './simpleDataTypes.es6.js';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,6 +38,10 @@ for (let relName of Object.keys(specifiedRelationships)) {
 		typeName2, fieldCardinality2, fieldName2, options2,
 		options
 	] = specifiedRelationships[relName];
+
+	/* normalize the ONE cardinality (MANY is already good coming from 'config/relationships.es6.js') */
+	if (fieldCardinality1 === 1) { fieldCardinality1 = 'one' }
+	if (fieldCardinality2 === 1) { fieldCardinality2 = 'one' }
 
 	/* creating the relationship object */
 	if (!options1) { options1 = {} }
@@ -74,22 +75,17 @@ for (let relName of Object.keys(specifiedRelationships)) {
 
 	/* supplementing the resource type object(s) */
 	for (let i of [1, 2]) {
-		/* ordered pairs of relationship sides into relevant resource types */
-		if (!rel[i].type.relationships) { rel[i].type.relationships = [] }
-		rel[i].type.relationships.push([ rel[i], rel[i==1?2:1] ]);
+		/* putting specific relationship sides into relevant resource types */
+		a(rel[i].type, 'relationships').push(rel[i]);
 
-		/* ordered pairs of relationship sides for sustaining relationships */
-		if (rel[i].sustains) {
-			sustainingRelationships.push([ rel[i], rel[i==1?2:1] ]);
-		}
+		/* specific relationship sides for 'sustaining' relationships */
+		if (rel[i].sustains) {  sustainingRelationships.push(rel[i])  }
 
-		/* ordered pairs of relationship sides for anchoring relationships */
-		if (rel[i].anchors) {
-			anchoringRelationships.push([ rel[i], rel[i==1?2:1] ]);
-		}
+		/* specific relationship sides for 'anchoring' relationships */
+		if (rel[i].anchors)  {  anchoringRelationships .push(rel[i])  }
 
 		/* a field pointing to the related entity|-ies */
-		if (rel[i].fieldCardinality === ONE) {
+		if (rel[i].fieldCardinality === 'one') {
 			rel[i].type.schema.properties[rel[i].fieldName] = {
 				...idSchema,
 				'x-skip-db':  true,
@@ -100,16 +96,17 @@ for (let relName of Object.keys(specifiedRelationships)) {
 				type: 'array',
 				items: idSchema,
 				'x-skip-db':  true,
-				'x-required': true
+				default: []
+				//'x-required': true // TODO: an empty array is assumed
 			};
 		}
 
 		/* a field containing the index this entity occupies in the related entity */
-		if (rel[i].fieldCardinality === ONE && rel[i==1?2:1].fieldCardinality === MANY && rel[i].indexFieldName) {
+		if (rel[i].fieldCardinality === 'one' && rel[i].otherSide.fieldCardinality === 'many' && rel[i].indexFieldName) {
 			rel[i].type.schema.properties[rel[i].indexFieldName] = {
 				type: 'integer',
-				minimum: 0,
-				'x-required': true
+				minimum: 0
+				//'x-required': true // TODO: the default value should be 'at the end'; how to express this?
 			};
 		}
 

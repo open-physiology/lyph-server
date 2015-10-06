@@ -17,22 +17,21 @@ export const LOCK_UID = `
 	SET UID.__lock = true
 	RETURN UID.__lock
 `;
-export const WITH_NEW_IDS = (matchName, newIdName, staticIdNames = [], preserve = []) => `
-	WITH collect(${matchName}) AS matchedNodes, ${preserve.join(', ')}
+export const WITH_NEW_IDS = (matchName, newIdName, preserve = []) => `
+	WITH collect(${matchName}) AS matchedNodes ${preserve.map(p => `, ${p}`).join('')}
 	MATCH (UID:UID)
-	SET UID.counter = UID.counter + ${staticIdNames.length} + size(matchedNodes)
+	SET UID.counter = UID.counter + size(matchedNodes)
 	SET UID.__lock = false
 	WITH matchedNodes,
-	     UID.counter - ${staticIdNames.length} - size(matchedNodes) AS oldIdCount
-	     ${preserve.map(p => `, ${p}`)}
+	     UID.counter - size(matchedNodes) AS oldIdCount
+	     ${preserve.map(p => `, ${p}`).join('')}
 	UNWIND range(0, size(matchedNodes) - 1) AS i
-	WITH matchedNodes[i]                                         AS ${matchName},
-	     oldIdCount + ${staticIdNames.length} + i                AS ${newIdName}
-	     ${staticIdNames.map((idName, j) => `, oldIdCount + ${j} AS ${idName}`)}
-	     ${preserve.map(p => `, ${p}`)}
+	WITH matchedNodes[i]     AS ${matchName},
+	     oldIdCount + i + 1  AS ${newIdName}
+	     ${preserve.map(p => `, ${p}`).join('')}
 `;
 export const WITH_NEW_ID = (newIdName) => `
-	MERGE (UID:UID)
+	MATCH (UID:UID)
 	SET UID.counter = UID.counter + 1
 	SET UID.__lock = false
 	WITH UID.counter as ${newIdName}
@@ -43,13 +42,14 @@ export const WITH_NEW_ID = (newIdName) => `
 // set up the database connection and provide a way to send queries                                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const {user, password, server, port} = require('../neo4j.config.json');
-let restClient = new RestClient({ user, password });
+import config from './config.es6.js';
+let restClient = new RestClient({ user: config.dbUser, password: config.dbPass});
 
 let waitingFor = Promise.resolve();
 function waitFor(p) { waitingFor = waitingFor.then(() => p) }
 
 export const query = (statements) => {
+
 	/* normalize main Cypher statements */
 	if (Array.isArray(statements)) {
 		statements = statements.map((stmt) => {
@@ -65,13 +65,16 @@ export const query = (statements) => {
 		throw new Error(`Invalid query parameter: ${statements}`);
 	}
 
-	//console.log('----------------------------------------------------------------------------------------------------');
-	//console.log(JSON.stringify(statements, null, 4));
-	//console.log('----------------------------------------------------------------------------------------------------');
+	console.log('----------------------------------------------------------------------------------------------------');
+	for (let {statement} of statements) {
+		console.log(statement.replace(/^\s+/mg, '').replace(/\n$/, ''));
+		console.log('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ');
+	}
+	//console.log(JSON.stringify(statements.map(({statement}) => statement.replace('\\n', '\n').replace('\\t', '')), null, 4));
 
 	/* launch the REST call to Neo4j, return a promise */
 	return waitingFor.then(() => new Promise((resolve, reject) => {
-		restClient.post(`http://${server}:${port}/db/data/transaction/commit`, {
+		restClient.post(`http://${config.dbHost}:${config.dbPort}/db/data/transaction/commit`, {
 			data: {
 				statements
 			}
@@ -132,50 +135,53 @@ export function createUniqueIdConstraintOn(label) {
 					//		`).join(THEN) + END);
 					//	});
 					//};
-//
-//// When creating a layerTemplate:
-//// TODO: implement the ad-hoc thing below
-//NODE_TYPES.layerTemplates.onCreate = (data, layerTemplate) => {
-//	return query(`
-//		MATCH  (lyph:lyphs) -[:instantiates]-> (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}})
-//		RETURN lyph
-//	`).then((lyphs) => {
-//		let handlePositioning;
-//		if (typeof data.position === 'undefined') {
-//			handlePositioning = `
-//				MATCH (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}) -[:hasLayer]-> (:layerTemplates)
-//				WITH  count(*) AS newPosition
-//			`;
-//		} else {
-//			handlePositioning = `
-//				MATCH (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}) -[:hasLayer]-> (layerTemplate:layerTemplates)
-//				WHERE layerTemplate.position >= ${data.position}
-//				OPTIONAL MATCH (layerTemplate) <-[:instantiates]- (layer:layers)
-//				WHERE layer.position >= ${data.position}
-//				SET   layerTemplate.position = layerTemplate.position + 1
-//				SET   layer.position = layer.position + 1
-//				WITH  ${data.position} AS newPosition
-//			`;
-//		}
-//		return query(`
-//			${handlePositioning}
-//			// Set the position on the new layerTemplate
-//			MATCH (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
-//			SET   layerTemplate.position = newPosition
-//			${THEN}
-//			// Add :hasLayer relationship
-//			MATCH         (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}), (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
-//			CREATE UNIQUE (lyphTemplate) -[:hasLayer]-> (layerTemplate)
-//			${THEN}
-//		` + lyphs.map(({lyph}) => `
-//			// Add corresponding layer to all instantiated lyphs
-//			${WITH_NEW_ID('nid')}
-//			MATCH         (lyph:lyphs {id: ${lyph.data.id}}), (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
-//			CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layers { id: nid, position: layerTemplate.position }) -[:instantiates]-> (layerTemplate)
-//		`).join(THEN) + END);
-//	});
-//};
-//
+
+
+					//// When creating a layerTemplate:
+					//// TODO: implement the ad-hoc thing below
+					//NODE_TYPES.layerTemplates.onCreate = (data, layerTemplate) => {
+					//	return query(`
+					//		MATCH  (lyph:lyphs) -[:instantiates]-> (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}})
+					//		RETURN lyph
+					//	`).then((lyphs) => {
+					//		let handlePositioning;
+					//		if (typeof data.position === 'undefined') {
+					//			handlePositioning = `
+					//				MATCH (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}) -[:hasLayer]-> (:layerTemplates)
+					//				WITH  count(*) AS newPosition
+					//			`;
+					//		} else {
+					//			handlePositioning = `
+					//				MATCH (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}) -[:hasLayer]-> (layerTemplate:layerTemplates)
+					//				WHERE layerTemplate.position >= ${data.position}
+					//				OPTIONAL MATCH (layerTemplate) <-[:instantiates]- (layer:layers)
+					//				WHERE layer.position >= ${data.position}
+					//				SET   layerTemplate.position = layerTemplate.position + 1
+					//				SET   layer.position = layer.position + 1
+					//				WITH  ${data.position} AS newPosition
+					//			`;
+					//		}
+					//		return query(`
+					//			${handlePositioning}
+					//			// Set the position on the new layerTemplate
+					//			MATCH (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
+					//			SET   layerTemplate.position = newPosition
+					//			${THEN}
+					//			// Add :hasLayer relationship
+					//			MATCH         (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}), (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
+					//			CREATE UNIQUE (lyphTemplate) -[:hasLayer]-> (layerTemplate)
+					//			${THEN}
+					//		` + lyphs.map(({lyph}) => `
+					//			// Add corresponding layer to all instantiated lyphs
+					//			${WITH_NEW_ID('nid')}
+					//			MATCH         (lyph:lyphs {id: ${lyph.data.id}}), (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
+					//			CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layers { id: nid, position: layerTemplate.position }) -[:instantiates]-> (layerTemplate)
+					//		`).join(THEN) + END);
+					//	});
+					//};
+
+
+
 //// When creating a node:
 //// TODO: check if I need to implement the ad-hoc thing below
 //NODE_TYPES.nodes.onCreate = (data, node) => {

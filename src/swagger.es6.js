@@ -6,8 +6,8 @@
 import _ from 'lodash';
 
 /* local stuff */
-import {toCamelCase}                         from './util.es6';
-import {resources, relationships, ONE, MANY} from './resources.es6.js';
+import {toCamelCase}              from './util.es6';
+import {resources, relationships} from './resources.es6.js';
 import {
 	OK,
 	CREATED,
@@ -30,7 +30,18 @@ for (let resName of Object.keys(resources)) {
 		'x-resource-name': type.name,
 		type:       'object',
 		properties: _.cloneDeep(type.schema.properties),
-		required:   _.cloneDeep(type.schema.required)
+		required:   [...Object.entries(type.schema.properties)]
+		                .filter(([fieldName, {'x-required': required}]) => required)
+		                .map(([fieldName]) => fieldName)
+	};
+	swaggerDataTypes[`partial_${resName}`] = { // partial = allow required fields to be absent for update commands
+		'x-resource-name': type.name,
+		type:       'object',
+		properties: (() => {
+			let properties = _.cloneDeep(type.schema.properties);
+			for (let prop of Object.values(properties)) { delete prop.default }
+			return properties;
+		})()
 	};
 }
 
@@ -41,7 +52,7 @@ for (let resName of Object.keys(resources)) {
 
 let resourceEndpoints = {};
 
-const $ref = (type) => ({ $ref: `#/definitions/${type.name}` });
+const $ref = (type) => ({ $ref: `#/definitions/${type}` });
 
 function addResourceEndpoint(type) {
 
@@ -58,7 +69,7 @@ function addResourceEndpoint(type) {
 			responses: {
 				[OK]: {
 					description: `an array containing all ${plural}`,
-					schema: { type: 'array', items: $ref(type) }
+					schema: { type: 'array', items: $ref(type.name) }
 				}
 			}
 		}
@@ -71,13 +82,13 @@ function addResourceEndpoint(type) {
 					in:          'body',
 					description: `the new ${singular} to create`,
 					required:    true,
-					schema:      $ref(type)
+					schema:      $ref(type.name)
 				}
 			],
 			responses: {
 				[CREATED]: {
 					description: `an array containing one element: the newly created ${singular}`,
-					schema: { type: 'array', items: $ref(type), minItems: 1, maxItems: 1 }
+					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
 				}
 			}
 		}
@@ -103,7 +114,7 @@ function addResourceEndpoint(type) {
 			responses: {
 				[OK]: {
 					description: `an array containing one element: the requested ${singular}`,
-					schema: { type: 'array', items: $ref(type), minItems: 1, maxItems: 1 }
+					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
 				}
 			}
 		}
@@ -122,13 +133,13 @@ function addResourceEndpoint(type) {
 					in:          'body',
 					description: `the new ${singular} to replace the old one with`,
 					required:    true,
-					schema:      $ref(type)
+					schema:      $ref(type.name)
 				}
 			],
 			responses: {
 				[OK]: {
 					description: `an array containing one element: the full ${singular} after the replacement`,
-					schema: { type: 'array', items: $ref(type), minItems: 1, maxItems: 1 }
+					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
 				}
 			}
 		},
@@ -146,13 +157,13 @@ function addResourceEndpoint(type) {
 					in:          'body',
 					description: `a (partial) ${singular} object with the data that should be updated`,
 					required:    true,
-					schema:      $ref(type) // TODO: should this be a different schema, given that partial info is allowed for 'update'?
+					schema:      $ref(`partial_${type.name}`) // TODO: does the 'partial' thing work correctly now?
 				}
 			],
 			responses: {
 				[OK]: {
 					description: `an array containing one element: the full ${singular} after the update`,
-					schema: { type: 'array', items: $ref(type), minItems: 1, maxItems: 1 }
+					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
 				}
 			}
 		},
@@ -227,7 +238,7 @@ function addRelationshipEndpoints(rel, direction) {
 			responses: {
 				[OK]: {
 					description: `an array containing the ${pluralB} of the given ${singularA}`,
-					schema: { type: 'array', items: $ref(relB.type), minItems: 1, maxItems: 1 }
+					schema: { type: 'array', items: $ref(relB.type.name), minItems: 1, maxItems: 1 }
 				}
 			}
 		}
@@ -297,8 +308,8 @@ function addRelationshipEndpoints(rel, direction) {
 
 for (let relName of Object.keys(relationships)) {
 	let rel = relationships[relName];
-	if (rel[1].fieldCardinality === MANY) { addRelationshipEndpoints(rel, FORWARD ) }
-	if (rel[2].fieldCardinality === MANY) { addRelationshipEndpoints(rel, BACKWARD) }
+	if (rel[1].fieldCardinality === 'many') { addRelationshipEndpoints(rel, FORWARD ) }
+	if (rel[2].fieldCardinality === 'many') { addRelationshipEndpoints(rel, BACKWARD) }
 }
 
 
@@ -306,14 +317,16 @@ for (let relName of Object.keys(relationships)) {
 // final Swagger spec                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+import config from './config.es6.js';
+
 export default {
 	swagger: '2.0',
 	info: {
-		title: "Open Physiology Lyph System",
+		title: "Open Physiology Lyph Server",
 		description: "REST API for anatomical lyph systems and related constructs",
 		version: '1'
 	},
-	host: 'localhost:3000',
+	host: `${config['host']}:${config['port']}`,
 	consumes: ['application/json'],
 	produces: ['application/json'],
 	definitions: {
