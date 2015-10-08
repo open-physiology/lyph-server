@@ -7,70 +7,40 @@ import {Client as RestClient} from 'node-rest-client';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Helpful snippets for Cypher Queries                                                                                //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export const THEN = `WITH 1 AS XdummyX`;
-export const END = `RETURN 0`;
-export const LOCK_UID = `
-	MATCH (UID:UID)
-	SET UID.__lock = true
-	RETURN UID.__lock
-`;
-export const WITH_NEW_IDS = (matchName, newIdName, preserve = []) => `
-	WITH collect(${matchName}) AS matchedNodes ${preserve.map(p => `, ${p}`).join('')}
-	MATCH (UID:UID)
-	SET UID.counter = UID.counter + size(matchedNodes)
-	SET UID.__lock = false
-	WITH matchedNodes,
-	     UID.counter - size(matchedNodes) AS oldIdCount
-	     ${preserve.map(p => `, ${p}`).join('')}
-	UNWIND range(0, size(matchedNodes) - 1) AS i
-	WITH matchedNodes[i]     AS ${matchName},
-	     oldIdCount + i + 1  AS ${newIdName}
-	     ${preserve.map(p => `, ${p}`).join('')}
-`;
-export const WITH_NEW_ID = (newIdName) => `
-	MATCH (UID:UID)
-	SET UID.counter = UID.counter + 1
-	SET UID.__lock = false
-	WITH UID.counter as ${newIdName}
-`;
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// set up the database connection and provide a way to send queries                                                   //
+// set up the database connection                                                                                     //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import config from './config.es6.js';
 let restClient = new RestClient({ user: config.dbUser, password: config.dbPass});
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// set up a queue to wait for certain database-tasks                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 let waitingFor = Promise.resolve();
 function waitFor(p) { waitingFor = waitingFor.then(() => p) }
 
-export const query = (statements) => {
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// provide a way to send queries                                                                                      //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export function query(statements, returnIndex) {
 	/* normalize main Cypher statements */
-	if (Array.isArray(statements)) {
-		statements = statements.map((stmt) => {
-			if (_.isObject(stmt) && _.isString(stmt.statement)) { return stmt                }
-			if (_.isString(stmt))                               { return { statement: stmt } }
-			throw new Error(`Invalid query parameter: ${statements}`);
-		});
-	} else if (_.isObject(statements) && statements.statement) {
-		statements = [statements];
-	} else if (_.isString(statements)) {
-		statements = [{ statement: statements }];
-	} else {
+	if (!Array.isArray(statements)) { statements = [statements] }
+	statements = statements.map((stmt) => {
+		if (_.isObject(stmt) && _.isString(stmt.statement)) { return stmt                }
+		if (_.isString(stmt))                               { return { statement: stmt } }
 		throw new Error(`Invalid query parameter: ${statements}`);
-	}
+	});
 
-	console.log('----------------------------------------------------------------------------------------------------');
-	for (let {statement} of statements) {
-		console.log(statement.replace(/^\s+/mg, '').replace(/\n$/, ''));
-		console.log('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ');
-	}
-	//console.log(JSON.stringify(statements.map(({statement}) => statement.replace('\\n', '\n').replace('\\t', '')), null, 4));
+	///* dumping queries to the console */
+	//console.log('----------------------------------------------------------------------------------------------------');
+	//for (let {statement} of statements) {
+	//	console.log(statement.replace(/^\s+/mg, '').replace(/\n$/, ''));
+	//	console.log('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ');
+	//}
 
 	/* launch the REST call to Neo4j, return a promise */
 	return waitingFor.then(() => new Promise((resolve, reject) => {
@@ -82,14 +52,49 @@ export const query = (statements) => {
 			if (errors.length > 0) {
 				reject(errors);
 			} else {
-				let result = results[statements.length-1];
+				if (_.isUndefined(returnIndex)) { returnIndex = statements.length-1 }
+				let result = results[returnIndex];
 				resolve(result.data.map(({row}) => _.zipObject(result.columns, row)));
 			}
 		}).on('error', (err) => {
 			reject(err);
 		});
 	}));
+}
+
+
+export const creationQuery = (statements) => {
+	statements = statements({
+		withNewId: (newIdName) => `
+			MATCH (UID:UID)
+			SET UID.counter = UID.counter + 1
+			WITH UID.counter as ${newIdName}
+		`,
+		withNewIds: (matchName, newIdName, preserve = []) => `
+			WITH collect(${matchName}) AS matchedNodes ${preserve.map(p => `, ${p}`).join('')}
+			MATCH (UID:UID)
+			SET UID.counter = UID.counter + size(matchedNodes)
+			WITH matchedNodes,
+			     UID.counter - size(matchedNodes) AS oldIdCount
+			     ${preserve.map(p => `, ${p}`).join('')}
+			UNWIND range(0, size(matchedNodes) - 1) AS i
+			WITH matchedNodes[i]     AS ${matchName},
+			     oldIdCount + i + 1  AS ${newIdName}
+			     ${preserve.map(p => `, ${p}`).join('')}
+		`
+	});
+	if (!Array.isArray(statements)) { statements = [statements] }
+	return query([`
+		MATCH (UID:UID)
+		SET UID.__lock = true
+		RETURN UID.__lock
+	`, ...statements, `
+		MATCH (UID:UID)
+		SET UID.__lock = false
+		RETURN UID.__lock
+	`], statements.length);
 };
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -109,85 +114,3 @@ export function createUniqueIdConstraintOn(label) {
 		ASSERT n.id IS UNIQUE
 	`));
 }
-
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// TODO: implement these AD HOC actions into the new code
-//
-///////////// Ad-hoc actions after creating/updating/deleting nodes or relationships /////////////////////////////////////
-//
-//// When creating a lyph:
-////
-					//NODE_TYPES.lyphs.onCreate = (data, lyph) => {
-					//	return query(`
-					//		MATCH (lyphTemplate:lyphTemplates {id: ${data.template}}) -[:hasLayer]-> (layerTemplate:layerTemplates)
-					//		RETURN layerTemplate
-					//	`).then((layerTemplates) => {
-					//		return query(`
-					//			MATCH         (lyph:lyphs {id: ${lyph.data.id}}), (lyphTemplate:lyphTemplates {id: ${data.template}})
-					//			CREATE UNIQUE (lyph) -[:instantiates]-> (lyphTemplate)
-					//			${THEN}
-					//		` + layerTemplates.map(({layerTemplate}) => `
-					//			${WITH_NEW_ID('nid')}
-					//			MATCH         (lyph:lyphs {id: ${lyph.data.id}}), (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
-					//			CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layers {id: nid, position: layerTemplate.position}) -[:instantiates]-> (layerTemplate)
-					//		`).join(THEN) + END);
-					//	});
-					//};
-
-
-					//// When creating a layerTemplate:
-					//// TODO: implement the ad-hoc thing below
-					//NODE_TYPES.layerTemplates.onCreate = (data, layerTemplate) => {
-					//	return query(`
-					//		MATCH  (lyph:lyphs) -[:instantiates]-> (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}})
-					//		RETURN lyph
-					//	`).then((lyphs) => {
-					//		let handlePositioning;
-					//		if (typeof data.position === 'undefined') {
-					//			handlePositioning = `
-					//				MATCH (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}) -[:hasLayer]-> (:layerTemplates)
-					//				WITH  count(*) AS newPosition
-					//			`;
-					//		} else {
-					//			handlePositioning = `
-					//				MATCH (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}) -[:hasLayer]-> (layerTemplate:layerTemplates)
-					//				WHERE layerTemplate.position >= ${data.position}
-					//				OPTIONAL MATCH (layerTemplate) <-[:instantiates]- (layer:layers)
-					//				WHERE layer.position >= ${data.position}
-					//				SET   layerTemplate.position = layerTemplate.position + 1
-					//				SET   layer.position = layer.position + 1
-					//				WITH  ${data.position} AS newPosition
-					//			`;
-					//		}
-					//		return query(`
-					//			${handlePositioning}
-					//			// Set the position on the new layerTemplate
-					//			MATCH (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
-					//			SET   layerTemplate.position = newPosition
-					//			${THEN}
-					//			// Add :hasLayer relationship
-					//			MATCH         (lyphTemplate:lyphTemplates {id: ${data.lyphTemplate}}), (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
-					//			CREATE UNIQUE (lyphTemplate) -[:hasLayer]-> (layerTemplate)
-					//			${THEN}
-					//		` + lyphs.map(({lyph}) => `
-					//			// Add corresponding layer to all instantiated lyphs
-					//			${WITH_NEW_ID('nid')}
-					//			MATCH         (lyph:lyphs {id: ${lyph.data.id}}), (layerTemplate:layerTemplates {id: ${layerTemplate.data.id}})
-					//			CREATE UNIQUE (lyph) -[:hasLayer]-> (layer:layers { id: nid, position: layerTemplate.position }) -[:instantiates]-> (layerTemplate)
-					//		`).join(THEN) + END);
-					//	});
-					//};
-
-
-
-//// When creating a node:
-//// TODO: check if I need to implement the ad-hoc thing below
-//NODE_TYPES.nodes.onCreate = (data, node) => {
-//	return query(data.attachments.map(attachment => `
-//		MATCH         (node:nodes {id:${node.data.id}}), (layer:layers {id:${attachment.layer}})
-//		CREATE UNIQUE (layer) -[:hasOnBorder {border: '${attachment.border}'}]-> (node)
-//	`).join(THEN));
-//};
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -33,7 +33,7 @@ export const relationships = {
 	LyphTemplateLayer: [
 		'LyphTemplate',     $, 'layers',       { sustains: true },
 		'LayerTemplate',    1, 'lyphTemplate', { indexFieldName: 'position' }
-	],
+	], // TODO: somehow unify 'indexFieldName' (if only in style) with the 'disambiguation' property used at the bottom
 	LayerTemplateMaterial: [
 		'LayerTemplate',    $, 'materials',  {
 			getSummary:    "find all lyph templates acting as materials in a given layer template",
@@ -181,9 +181,7 @@ for (let side of ['plus', 'minus', 'inner', 'outer']) {
 			implicit: true
 		},
 		'Border', 1, 'layer', {
-			setFields: {
-				side: { value: side }
-			}
+			disambiguation: { side }
 		}
 	];
 }

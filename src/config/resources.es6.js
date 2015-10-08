@@ -10,7 +10,11 @@ import co from 'co';
 import {
 	debugPromise,
 	dbOnly,
-	pluckDatum
+	pluckDatum,
+	customError,
+	isCustomError,
+	cleanCustomError,
+	inspect
 } from '../util.es6.js';
 import {
 	uriSchema,
@@ -18,16 +22,13 @@ import {
 } from '../simpleDataTypes.es6.js';
 import {
 	query,
-	LOCK_UID,
-	THEN,
-	END,
-	WITH_NEW_ID,
-	WITH_NEW_IDS
+	creationQuery
 } from '../neo4j.es6.js';
 import {
 	assertResourceExists,
 	getSingleResource,
-	getAllResources
+	getAllResources,
+	createResource
 } from '../common-queries.es6.js';
 
 
@@ -65,10 +66,10 @@ export const resources = {
 
 			/* assert that the linked lyph template exists */
 			// TODO: when this is checked generally in server.es6.js, remove the check here
-			yield assertResourceExists(resources['LyphTemplate'], req.body.lyphTemplate);
+			yield assertResourceExists(resources.LyphTemplate, req.body.lyphTemplate);
 
 			/* get that lyph template */
-			let [lyphTemplate] = yield getSingleResource(resources['LyphTemplate'], req.body.lyphTemplate);
+			let [lyphTemplate] = yield getSingleResource(resources.LyphTemplate, req.body.lyphTemplate);
 
 			/* calculate the position of the new layer */
 			let newPosition = Math.min(
@@ -76,8 +77,8 @@ export const resources = {
 				_.isNumber(req.body.position) ? req.body.position : lyphTemplate.layers.length
 			);
 
-			/* set correct positions for layer templates and layers, and add new layers */
-			yield query([`
+			/* set correct positions for existing layer templates and layers, and return info on relevant lyphs */
+			let lyphsIdsToAddLayerTo = yield query([`
 				MATCH (layerTemplate:LayerTemplate { id: ${id} })
 				SET layerTemplate.position = ${newPosition}
 			`, `
@@ -89,22 +90,32 @@ export const resources = {
 				WITH otherLayerTemplate
 				MATCH (otherLayerTemplate) -[:LayerTemplateInstantiation]-> (layer:Layer)
 				SET layer.position = layer.position + 1
-			`, LOCK_UID, `
+			`, `
 				MATCH (layerTemplate:LayerTemplate { id: ${id} })
 				      <-[:LyphTemplateLayer]-
 				      (lyphTemplate:LyphTemplate   { id: ${lyphTemplate.id} })
 				      -[:LyphTemplateInstantiation]->
 				      (lyph:Lyph)
-				${WITH_NEW_IDS('lyph', 'newLayerID', ['layerTemplate'])}
-				CREATE UNIQUE (lyph)
-				              -[:LyphLayer]->
-				              (layer:Layer { id: newLayerID, type: 'Layer', position: ${newPosition} })
-				              <-[:LayerTemplateInstantiation]-
-				              (layerTemplate)
+				RETURN lyph.id AS id
 			`]);
+
+			/* add the new layers */
+			for (let {id: lyphId} of lyphsIdsToAddLayerTo) {
+				try {
+					yield createResource(resources.Layer, {
+						position: newPosition,
+						lyph:     lyphId,
+						template: id
+					});
+				} catch (err) {
+					if (isCustomError(err)) { throw cleanCustomError(err) }
+					throw err;
+				}
+			}
 
 		}),
 		delete: co.wrap(function* ({id}) {
+			/* shift layer positioning after deletion of this layer */
 			yield query(`
 				MATCH (otherLayerTemplate:LayerTemplate)
 				      <-[:LyphTemplateLayer]-
@@ -137,25 +148,27 @@ export const resources = {
 			}
 		},
 		create: co.wrap(function* ({id, resources}, req) {
-
-			/* assert that the specified lyph template exists */
-			// TODO: when this is checked generally in server.es6.js, remove the check here
-			yield assertResourceExists(resources['LyphTemplate'], req.body.template);
-
-			/* add layers to that new lyph corresponding to the lyph template */
-			yield query([LOCK_UID, `
+			/* get info on all relevant layer templates */
+			let layerTemplateIds = yield query(`
 				MATCH (lyphTemplate:LyphTemplate { id: ${req.body.template} })
 				      -[:LyphTemplateLayer]->
 				      (layerTemplate:LayerTemplate)
-				${WITH_NEW_IDS('layerTemplate', 'newLayerId')}
-				MATCH (lyph:Lyph { id: ${id} })
-				CREATE UNIQUE (lyph)
-				              -[:LyphLayer]->
-				              (layer:Layer {id: newLayerId, type: "Layer", position: layerTemplate.position})
-				              <-[:LayerTemplateInstantiation]-
-				              (layerTemplate)
-			`]);
+				RETURN layerTemplate.id AS id, layerTemplate.position AS position
+			`);
 
+			/* and add layers to the new lyph corresponding to those layer templates */
+			for (let {id: layerTemplateId, position} of layerTemplateIds) {
+				try {
+					yield createResource(resources.Layer, {
+						position: position,
+						lyph:     id,
+						template: layerTemplateId
+					});
+				} catch (err) {
+					if (isCustomError(err)) { throw cleanCustomError(err) }
+					throw err;
+				}
+			}
 		})
 	},
 
@@ -179,6 +192,7 @@ export const resources = {
 	Border: {
 		singular: "border",
 		plural:   "borders",
+		readOnly: true, // four borders are added automatically to all layers
 		schema: {
 			properties: {}
 		}

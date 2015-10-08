@@ -3,7 +3,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _ from 'lodash';
+import _    from 'lodash';
+import util from 'util';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,6 +32,23 @@ export function def(object, field, defaultValue) {
 
 export const a = (object, field) => def(object, field, []);
 export const o = (object, field) => def(object, field, {});
+
+export const simpleSpaced = (str) => str.replace(/\s+/mg, ' ');
+
+export const humanMsg = (strings, ...values) => {
+	let result = strings[0];
+	for (let [val, str] of _.zip(values, strings.slice(1))) {
+		result += val + simpleSpaced(str);
+	}
+	return _.trim(result);
+};
+
+export const inspect = (obj, options = {}) => {
+	console.log(util.inspect(obj, Object.assign({
+		colors: true,
+		depth:  2
+	}, options)));
+};
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -131,3 +149,5 @@ if (!_.isFunction(Object.values)) {
 		}
 	});
 }
+
+

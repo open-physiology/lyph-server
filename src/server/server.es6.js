@@ -34,12 +34,7 @@ import {
 } from '../resources.es6.js';
 import {
 	createUniqueIdConstraintOn,
-	query,
-	LOCK_UID,
-	THEN,
-	END,
-	WITH_NEW_ID,
-	WITH_NEW_IDS
+	query
 } from '../neo4j.es6.js';
 import {
 	OK,
@@ -55,7 +50,8 @@ import {
 import {
 	assertResourceExists,
 	getSingleResource,
-	getAllResources
+	getAllResources,
+	createResource
 } from '../common-queries.es6.js';
 
 
@@ -144,93 +140,86 @@ const requestHandler = {
 			} catch (err) { next(err) }
 		}),
 		post: co.wrap(function* ({type}, req, res, next) {
-			// TODO: add resources specified 'implicit' by a relationship type
-			// TODO: to avoid race conditions, use a Neo4j REST transaction to envelop these two steps
-			// TODO: assert that proper relationship-fields have been given:
-			//  - if given is absent, but should be an array, that's OK, we use an empty array
-			//  - TODO: if given is absent, and shouldn't be an array, 400 ERROR
-			//  - TODO: if given is an array but shouldn't be,         400 ERROR
-			//  - TODO: if given is NOT an array but should be,        400 ERROR
-			//  - TODO: for any given relationship(s), assert that the other resource actually exists
 			try {
+				// TODO: add resources specified 'implicit' by a relationship type
+				// TODO: to avoid race conditions, use a Neo4j REST transactions to envelop all related database queries
 
-				/* process relevant relationships */
-				let rels = new Map();
-				for (let rel of type.relationships) {
-					let given = req.body[rel.fieldName];
-					rels.set(rel.fieldName, {
-						rel,
-						given,
-						ids: (rel.fieldCardinality === 'one') ? [given] : (given || [])
-
-					});
-				}
-
-				/* assert that all required fields are given */
-				for (let [fieldName, schema] of Object.entries(type.schema.properties)) {
-					if (schema['x-required'] && !req.body[fieldName]) {
-						throw customError({
-							status: BAD_REQUEST,
-							type:   type.name,
-							field:  fieldName,
-							message: `You tried to create a new ${type.singular}, but the required field '${fieldName}' was not given.`
-						});
-					}
-				}
-
-				/* for all relationships specified in the request, assert that those resources exist */
-				for (let [fieldName, {rel, ids}] of rels) {
-					let [{existing}] = yield query(`
-						MATCH (n:${rel.otherSide.type.name})
-						WHERE n.id IN [${ids.join(',')}]
-						RETURN collect(n.id) as existing
-					`);
-					let leftOut = _.difference(ids, existing);
-					if (leftOut.length > 0) {
-						let c = (rel.fieldCardinality === 'one') ? 'singular' : 'plural';
-						throw customError({
-							status: NOT_FOUND,
-							type:     type.name,
-							field:    fieldName,
-							ids:      leftOut,
-							id:      (c === 'singular' ? leftOut[0] : undefined),
-							message: `The specified ${rel.otherSide.type[c]} ${leftOut.join(',')} ${c === 'singular' ? 'does' : 'do'} not exist.`
-						});
-					}
-				}
+				//
+				///* process relevant relationships */
+				//let rels = _.map(type.relationships, rel => ({
+				//	rel, given: req.body[rel.fieldName],
+				//	get implicit() { return rel.implicit },
+				//	get ids()      { return (rel.fieldCardinality === 'one') ? [this.given] : this.given } // TODO: put default empty array back?
+				//}));
+				//
+				///* if relationship cardinality is confused in the request, error out */
+				//for (let {fieldName, rel, given} of _.filter(rels, 'given')) {
+				//	if (Array.isArray(given) && rel.fieldCardinality === 'one') {
+				//		throw customError({
+				//			status:   BAD_REQUEST,
+				//			type:     type.name,
+				//			field:    fieldName,
+				//			message: `The '${fieldName}' field expects a single ${rel.otherSide.singular}, but an array was provided.`
+				//		});
+				//	} else if (!Array.isArray(given) && rel.fieldCardinality === 'many') {
+				//		throw customError({
+				//			status:   BAD_REQUEST,
+				//			type:     type.name,
+				//			field:    fieldName,
+				//			message: `The '${fieldName}' field expects an array of ${rel.otherSide.plural}, but a single value was provided.`
+				//		});
+				//	}
+				//}
+				//
+				///* for all relationships specified in the request, assert that those resources exist */
+				//for (let {fieldName, rel, ids} of _.filter(rels, 'given')) {
+				//	let [{existing}] = yield query(`
+				//		MATCH (n:${rel.otherSide.type.name})
+				//		WHERE n.id IN [${ids.join(',')}]
+				//		RETURN collect(n.id) as existing
+				//	`);
+				//	let nonexisting = _.difference(ids, existing);
+				//	if (nonexisting.length > 0) {
+				//		let c = (rel.fieldCardinality === 'one') ? 'singular' : 'plural';
+				//		throw customError({
+				//			status:   NOT_FOUND,
+				//			type:     type.name,
+				//			field:    fieldName,
+				//			ids:      nonexisting,
+				//			id:      (c === 'singular' ? nonexisting[0] : undefined),
+				//			message: `The specified ${rel.otherSide.type[c]} ${nonexisting.join(',')} `+
+				//			         `${c === 'singular' ? 'does' : 'do'} not exist.`
+				//		});
+				//	}
+				//}
+				//
+				///* for all un-given relationships that should be 'implicit': create the other resource and adjust the 'rels' array */
+				//for (let actualRel of _.filter(rels, { given: false, implicit: true })) {
+				//	let implicitId = yield createResource(actualRel.rel.type, {});
+				//	actualRel.given = (actualRel.fieldCardinality === 'one' ? implicitId : [implicitId]);
+				//}
 
 				/* the main query for creating the node */
-				let [{id}] = yield query([LOCK_UID, {
-					statement: `
-						${WITH_NEW_ID('newID')}
-						CREATE (n:${type.name} { id: newID, type: "${type.name}" })
-						SET n += {dbProperties}
-						RETURN newID as id
-					`,
-					parameters: {  dbProperties: dbOnly(type, req.body)  }
-				}]);
+				let id = yield createResource(type, req.body);
 
-				/* for all relationships specified in the request, assert that those resources exist */
-				let relationshipPatterns = [];
-				for (let [fieldName, {rel, ids, given}] of rels) {
-					if (!given) { continue }
-					let [l, r] = arrowEnds(rel);
-					//noinspection JSReferencingMutableVariableFromClosure
-					relationshipPatterns.push(...ids.map(id => `
-						WITH A
-						MATCH (B:${rel.otherSide.type.name} { id: ${id} })
-						CREATE UNIQUE (A) ${l}[:${rel.relationship.name}]${r} (B)
-					`));
-				}
-				if (relationshipPatterns.length > 0) {
-					yield query(`
-						MATCH (A:${type.name} { id: ${id} })
-						${relationshipPatterns}
-					`);
-				}
+				///* create the required relationships */
+				//let relationshipPatterns = _(rels).filter('given').map(({rel, ids}) => {
+				//	let [l, r] = arrowEnds(rel);
+				//	return ids.map(id => `
+				//		WITH A
+				//		MATCH (B:${rel.otherSide.type.name} { id: ${id} })
+				//		CREATE UNIQUE (A) ${l}[:${rel.relationship.name}]${r} (B)
+				//	`);
+				//}).flatten().value();
+				//if (relationshipPatterns.length > 0) {
+				//	yield query(`
+				//		MATCH (A:${type.name} { id: ${id} })
+				//		${relationshipPatterns}
+				//	`);
+				//}
 
 				/* allow specific resource types to do extra 'ad-hoc' stuff */
-				if (type.create) { yield type.create({type, id, resources, relationships}, req) }
+				if (type.create) { yield type.create({id, resources, relationships}, req) }
 
 				/* send the newly created resource */
 				res.status(CREATED).send(yield getSingleResource(type, id));
@@ -247,6 +236,8 @@ const requestHandler = {
 
 				/* throw a 404 if the resource doesn't exist */
 				yield assertResourceExists(type, id);
+
+				// TODO: allow ad-hoc 'type' code here
 
 				/* send the response */
 				res.status(OK).send(yield getSingleResource(type, id))
@@ -274,7 +265,7 @@ const requestHandler = {
 				});
 
 				/* add all required relationships, remove others */
-				let relationshipPatterns = [];
+				let relationshipQueries = [];
 				for (let relA of type.relationships) {
 					// TODO: if given is an array but shouldn't be,  400 ERROR
 					// TODO: if given is NOT an array but should be, 400 ERROR
@@ -283,7 +274,7 @@ const requestHandler = {
 					let relatedIds = (relA.fieldCardinality === 'one') ? [given] : (given || []);
 					let [l, r] = arrowEnds(relA);
 					//noinspection JSReferencingMutableVariableFromClosure
-					relationshipPatterns.push(`
+					relationshipQueries.push(`
 						MATCH (A:${type.name} { id: ${id} })
 						      ${l}[r:${relA.relationship.name}]${r}
 						      (B)
@@ -295,12 +286,12 @@ const requestHandler = {
 						CREATE UNIQUE (A) ${l}[:${relA.relationship.name}]${r} (B)
 					`));
 				}
-				if (relationshipPatterns.length > 0) {
-					yield query(relationshipPatterns);
+				if (relationshipQueries.length > 0) {
+					yield query(relationshipQueries);
 				}
 
 				/* allow specific resource types to do extra 'ad-hoc' stuff */
-				if (type.update) { yield type.update({type, id, resources, relationships}, req) }
+				if (type.update) { yield type.update({id, resources, relationships}, req) }
 
 				/* send the response */
 				res.status(OK).send(yield getSingleResource(type, id));
@@ -317,7 +308,7 @@ const requestHandler = {
 				yield assertResourceExists(type, id);
 
 				/* the main query for updating the resource */
-				query({
+				yield query({
 					statement: `
 						MATCH (n:${type.name} {id: ${id}})
 						SET n += {dbProperties}
@@ -326,7 +317,7 @@ const requestHandler = {
 				});
 
 				/* the main query for replacing the resource */
-				query({
+				yield query({
 					statement: `
 						MATCH (n:${type.name} { id: ${id} })
 						SET n      =  {dbProperties}
@@ -365,6 +356,9 @@ const requestHandler = {
 					`);
 				}
 
+				/* allow specific resource types to do extra 'ad-hoc' stuff */
+				if (type.replace) { yield type.replace({id, resources, relationships}, req) }
+
 				/* send the response */
 				res.status(OK).send(yield getSingleResource(type, id))
 
@@ -394,7 +388,7 @@ const requestHandler = {
 				}
 
 				/* allow ad-hoc things to take place before deletion */
-				yield dResources.map(({id: dId, type: dType}) => {
+				yield dResources.reverse().map(({id: dId, type: dType}) => {
 					if (dType.delete) {
 						return dType.delete({
 							type: dType,
@@ -408,13 +402,13 @@ const requestHandler = {
 				/* the main query for deleting the node */
 				yield query(`
 					MATCH (n)
-					WHERE n.id IN [${dResources.map(({id: dId}) => dId).join(',')}]
+					WHERE n.id IN [${dResources.map(_.property('id')).join(',')}]
 					OPTIONAL MATCH (n)-[r]-()
 					DELETE n, r
 				`);
 
 				/* send the response */
-				res.status(NO_CONTENT).send()
+				res.status(NO_CONTENT).send();
 
 			} catch (err) { next(err) }
 		})
@@ -438,7 +432,7 @@ const requestHandler = {
 				`);
 
 				/* integrate relationship data into the resource object */
-				results = results.map(({B, relationships}) => Object.assign({}, B, relationships));
+				results = results.map(({B, relationships}) => Object.assign(B, relationships));
 
 				/* send the response */
 				res.status(OK).send(results);
