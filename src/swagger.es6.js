@@ -36,7 +36,7 @@ for (let resName of Object.keys(resources)) {
 	};
 	swaggerDataTypes[`partial_${resName}`] = { // partial = allow required fields to be absent for update commands
 		'x-resource-name': type.name,
-		type:       'object',
+		type: 'object',
 		properties: (() => {
 			let properties = _.cloneDeep(type.schema.properties);
 			for (let prop of Object.values(properties)) { delete prop.default }
@@ -76,15 +76,13 @@ function addResourceEndpoint(type) {
 	}, readOnly ? null : {
 		post: {
 			summary: `create a new ${singular}`,
-			parameters: [
-				{
-					name:        toCamelCase(`new ${singular}`),
-					in:          'body',
-					description: `the new ${singular} to create`,
-					required:    true,
-					schema:      $ref(type.name)
-				}
-			],
+			parameters: [{
+				name:        toCamelCase(`new ${singular}`),
+				in:          'body',
+				description: `the new ${singular} to create`,
+				required:    true,
+				schema:      $ref(type.name)
+			}],
 			responses: {
 				[CREATED]: {
 					description: `an array containing one element: the newly created ${singular}`,
@@ -102,15 +100,13 @@ function addResourceEndpoint(type) {
 		'x-resource-name': type.name,
 		get: {
 			summary: `retrieve ${plural} by id`,
-			parameters: [
-				{
-					name:        singularIdKey,
-					in:          'path',
-					description: `ID of the ${singular} to retrieve`,
-					required:    true,
-					type:        'string'
-				}
-			],
+			parameters: [{
+				name:        singularIdKey,
+				in:          'path',
+				description: `ID of the ${singular} to retrieve`,
+				required:    true,
+				type:        'integer'
+			}],
 			responses: {
 				[OK]: {
 					description: `an array containing one element: the requested ${singular}`,
@@ -121,21 +117,19 @@ function addResourceEndpoint(type) {
 	}, readOnly ? null : {
 		put: {
 			summary: `replace a given ${singular}`,
-			parameters: [
-				{
-					name:        singularIdKey,
-					in:          'path',
-					description: `ID of the ${singular} to replace`,
-					required:    true,
-					type:        'string'
-				}, {
-					name:        toCamelCase(`new ${singular}`),
-					in:          'body',
-					description: `the new ${singular} to replace the old one with`,
-					required:    true,
-					schema:      $ref(type.name)
-				}
-			],
+			parameters: [{
+				name:        singularIdKey,
+				in:          'path',
+				description: `ID of the ${singular} to replace`,
+				required:    true,
+				type:        'integer'
+			}, {
+				name:        toCamelCase(`new ${singular}`),
+				in:          'body',
+				description: `the new ${singular} to replace the old one with`,
+				required:    true,
+				schema:      $ref(type.name)
+			}],
 			responses: {
 				[OK]: {
 					description: `an array containing one element: the full ${singular} after the replacement`,
@@ -145,21 +139,19 @@ function addResourceEndpoint(type) {
 		},
 		post: {
 			summary: `update a given ${singular}`,
-			parameters: [
-				{
-					name:        singularIdKey,
-					in:          'path',
-					description: `ID of the ${singular} to update`,
-					required:    true,
-					type:        'string'
-				}, {
-					name:        toCamelCase(`new ${singular}`),
-					in:          'body',
-					description: `a (partial) ${singular} object with the data that should be updated`,
-					required:    true,
-					schema:      $ref(`partial_${type.name}`) // TODO: does the 'partial' thing work correctly now?
-				}
-			],
+			parameters: [{
+				name:        singularIdKey,
+				in:          'path',
+				description: `ID of the ${singular} to update`,
+				required:    true,
+				type:        'integer'
+			}, {
+				name:        toCamelCase(`new ${singular}`),
+				in:          'body',
+				description: `a (partial) ${singular} object with the data that should be updated`,
+				required:    true,
+				schema:      $ref(`partial_${type.name}`)
+			}],
 			responses: {
 				[OK]: {
 					description: `an array containing one element: the full ${singular} after the update`,
@@ -169,15 +161,13 @@ function addResourceEndpoint(type) {
 		},
 		delete: {
 			summary: `delete a given ${singular}`,
-			parameters: [
-				{
-					name:        singularIdKey,
-					in:          'path',
-					description: `ID of the ${singular} to delete`,
-					required:    true,
-					type:        'string'
-				}
-			],
+			parameters: [{
+				name:        singularIdKey,
+				in:          'path',
+				description: `ID of the ${singular} to delete`,
+				required:    true,
+				type:        'integer'
+			}],
 			responses: {
 				[NO_CONTENT]: {
 					description: `successfully deleted the ${singular}`
@@ -232,7 +222,7 @@ function addRelationshipEndpoints(rel, direction) {
 					in:          'path',
 					description: `ID of the ${singularA} of which to retrieve the ${pluralB}`,
 					required:    true,
-					type:        'string'
+					type:        'integer'
 				}
 			],
 			responses: {
@@ -264,13 +254,13 @@ function addRelationshipEndpoints(rel, direction) {
 						in:          'path',
 						description: `ID of the ${singularA} to which to add the '${fieldName}' ${singularB}`,
 						required:    true,
-						type:        'string'
+						type:        'integer'
 					}, {
 						name:        singularIdKeyB,
 						in:          'path',
 						description: `ID of the '${fieldName}' ${singularB} to add to the given ${singularA}`,
 						required:    true,
-						type:        'string'
+						type:        'integer'
 					}
 				],
 				responses: {
@@ -287,13 +277,13 @@ function addRelationshipEndpoints(rel, direction) {
 						in:          'path',
 						description: `ID of the ${singularA} from which to remove the '${fieldName}' ${singularB}`,
 						required:    true,
-						type:        'string'
+						type:        'integer'
 					}, {
 						name:        singularIdKeyB,
 						in:          'path',
 						description: `ID of the '${fieldName}' ${singularB} to remove from the given ${singularA}`,
 						required:    true,
-						type:        'string'
+						type:        'integer'
 					}
 				],
 				responses: {

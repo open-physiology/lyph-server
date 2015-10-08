@@ -70,20 +70,17 @@ let r2lAnchoring        = anchoringRelationships .filter((relA) => !relA.symmetr
 
 // TODO: use co.wrap on these functions not yet co.wrap-ified
 
-function getResourcesToDelete(type, id) {
+const getResourcesToDelete = co.wrap(function* (type, id) {
 
-	id = parseInt(id, 10);
-
+	/* collect nodes to delete */
 	let markedNodes = new Map();
 
-	return (function recurse({type, id}) {
-
-		if (markedNodes.has(id)) { return Promise.resolve() }
-
+	/* traverse graph to find nodes to delete, based on 'sustaining' relationships */
+	const recurse = co.wrap(function* ({type, id}) {
+		if (markedNodes.has(id)) { return }
 		markedNodes.set(id, { type, id });
-
-		return query(`
-			MATCH (a { id: ${id} })
+		let nResources = yield query(`
+			MATCH (a:${type.name} { id: ${id} })
 			${arrowMatch(symmetricSustaining, 'a', ' -','- ', 'x')}
 			${arrowMatch(l2rSustaining,       'a', ' -','->', 'y')}
 			${arrowMatch(r2lSustaining,       'a', '<-','- ', 'z')}
@@ -91,15 +88,18 @@ function getResourcesToDelete(type, id) {
 			     ${l2rSustaining      .length ? 'collect(y)' : '[]'} +
 			     ${r2lSustaining      .length ? 'collect(z)' : '[]'} AS coll UNWIND coll AS n
 			WITH DISTINCT n
-			RETURN n
-		`).then(pluckData('n')).then((nResources) => Promise.all(nResources.map(recurse)))
+			RETURN { id: n.id, type: n.type } AS n
+		`).then(pluckData('n'));
+		yield nResources.map(({id, type}) => ({id, type: resources[type]})).map(recurse);
+	});
+	yield recurse({ type, id });
 
-	})({ type, id }).then(() => [...markedNodes.values()]);
+	/* return the nodes that would be deleted */
+	return [...markedNodes.values()];
+});
 
-}
-
-function anythingAnchoredFromOutside(ids) {
-	return query(`
+const anythingAnchoredFromOutside = co.wrap(function* (ids) {
+	return yield query(`
 		WITH [${ids.join(',')}] AS ids
 		${ symmetricAnchoring.length ? `
 			OPTIONAL MATCH (x) -[:${symmetricAnchoring.map(({relationship:{name}})=>name).join('|')}]- (a)
@@ -121,7 +121,7 @@ function anythingAnchoredFromOutside(ids) {
 		WHERE n.anchoring IS NOT NULL
 		RETURN DISTINCT n
 	`).then(pluckData('n'));
-}
+});
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -141,82 +141,9 @@ const requestHandler = {
 		}),
 		post: co.wrap(function* ({type}, req, res, next) {
 			try {
-				// TODO: add resources specified 'implicit' by a relationship type
-				// TODO: to avoid race conditions, use a Neo4j REST transactions to envelop all related database queries
-
-				//
-				///* process relevant relationships */
-				//let rels = _.map(type.relationships, rel => ({
-				//	rel, given: req.body[rel.fieldName],
-				//	get implicit() { return rel.implicit },
-				//	get ids()      { return (rel.fieldCardinality === 'one') ? [this.given] : this.given } // TODO: put default empty array back?
-				//}));
-				//
-				///* if relationship cardinality is confused in the request, error out */
-				//for (let {fieldName, rel, given} of _.filter(rels, 'given')) {
-				//	if (Array.isArray(given) && rel.fieldCardinality === 'one') {
-				//		throw customError({
-				//			status:   BAD_REQUEST,
-				//			type:     type.name,
-				//			field:    fieldName,
-				//			message: `The '${fieldName}' field expects a single ${rel.otherSide.singular}, but an array was provided.`
-				//		});
-				//	} else if (!Array.isArray(given) && rel.fieldCardinality === 'many') {
-				//		throw customError({
-				//			status:   BAD_REQUEST,
-				//			type:     type.name,
-				//			field:    fieldName,
-				//			message: `The '${fieldName}' field expects an array of ${rel.otherSide.plural}, but a single value was provided.`
-				//		});
-				//	}
-				//}
-				//
-				///* for all relationships specified in the request, assert that those resources exist */
-				//for (let {fieldName, rel, ids} of _.filter(rels, 'given')) {
-				//	let [{existing}] = yield query(`
-				//		MATCH (n:${rel.otherSide.type.name})
-				//		WHERE n.id IN [${ids.join(',')}]
-				//		RETURN collect(n.id) as existing
-				//	`);
-				//	let nonexisting = _.difference(ids, existing);
-				//	if (nonexisting.length > 0) {
-				//		let c = (rel.fieldCardinality === 'one') ? 'singular' : 'plural';
-				//		throw customError({
-				//			status:   NOT_FOUND,
-				//			type:     type.name,
-				//			field:    fieldName,
-				//			ids:      nonexisting,
-				//			id:      (c === 'singular' ? nonexisting[0] : undefined),
-				//			message: `The specified ${rel.otherSide.type[c]} ${nonexisting.join(',')} `+
-				//			         `${c === 'singular' ? 'does' : 'do'} not exist.`
-				//		});
-				//	}
-				//}
-				//
-				///* for all un-given relationships that should be 'implicit': create the other resource and adjust the 'rels' array */
-				//for (let actualRel of _.filter(rels, { given: false, implicit: true })) {
-				//	let implicitId = yield createResource(actualRel.rel.type, {});
-				//	actualRel.given = (actualRel.fieldCardinality === 'one' ? implicitId : [implicitId]);
-				//}
 
 				/* the main query for creating the node */
 				let id = yield createResource(type, req.body);
-
-				///* create the required relationships */
-				//let relationshipPatterns = _(rels).filter('given').map(({rel, ids}) => {
-				//	let [l, r] = arrowEnds(rel);
-				//	return ids.map(id => `
-				//		WITH A
-				//		MATCH (B:${rel.otherSide.type.name} { id: ${id} })
-				//		CREATE UNIQUE (A) ${l}[:${rel.relationship.name}]${r} (B)
-				//	`);
-				//}).flatten().value();
-				//if (relationshipPatterns.length > 0) {
-				//	yield query(`
-				//		MATCH (A:${type.name} { id: ${id} })
-				//		${relationshipPatterns}
-				//	`);
-				//}
 
 				/* allow specific resource types to do extra 'ad-hoc' stuff */
 				if (type.create) { yield type.create({id, resources, relationships}, req) }
@@ -237,7 +164,7 @@ const requestHandler = {
 				/* throw a 404 if the resource doesn't exist */
 				yield assertResourceExists(type, id);
 
-				// TODO: allow ad-hoc 'type' code here
+				// TODO: allow ad-hoc 'type.get' code here
 
 				/* send the response */
 				res.status(OK).send(yield getSingleResource(type, id))
