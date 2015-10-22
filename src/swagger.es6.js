@@ -6,7 +6,7 @@
 import _ from 'lodash';
 
 /* local stuff */
-import {toCamelCase}              from './util.es6';
+import {toCamelCase}              from './utility.es6.js';
 import {resources, relationships} from './resources.es6.js';
 import {
 	OK,
@@ -27,7 +27,7 @@ let swaggerDataTypes = {};
 for (let resName of Object.keys(resources)) {
 	let type = resources[resName];
 	swaggerDataTypes[resName] = {
-		'x-resource-name': type.name,
+		'x-resource-type': type.name,
 		type:       'object',
 		properties: _.cloneDeep(type.schema.properties),
 		required:   [...Object.entries(type.schema.properties)]
@@ -35,7 +35,7 @@ for (let resName of Object.keys(resources)) {
 		                .map(([fieldName]) => fieldName)
 	};
 	swaggerDataTypes[`partial_${resName}`] = { // partial = allow required fields to be absent for update commands
-		'x-resource-name': type.name,
+		'x-resource-type': type.name,
 		type: 'object',
 		properties: (() => {
 			let properties = _.cloneDeep(type.schema.properties);
@@ -63,7 +63,7 @@ function addResourceEndpoint(type) {
 
 	resourceEndpoints[`/${pluralKey}`] = Object.assign({
 		'x-path-type': 'resources',
-		'x-resource-name': type.name,
+		'x-resource-type': type.name,
 		get: {
 			summary: `retrieve all ${plural}`,
 			responses: {
@@ -97,7 +97,7 @@ function addResourceEndpoint(type) {
 		'x-param-map': {
 			id: singularIdKey
 		},
-		'x-resource-name': type.name,
+		'x-resource-type': type.name,
 		get: {
 			summary: `retrieve ${plural} by id`,
 			parameters: [{
@@ -213,7 +213,7 @@ function addRelationshipEndpoints(rel, direction) {
 		},
 		'x-A': (direction === FORWARD ? 1 : 2),
 		'x-B': (direction === FORWARD ? 2 : 1),
-		'x-relationship-name': rel.name,
+		'x-relationship-type': rel.name,
 		get: {
 			summary: getSummary || `retrieve all the ${pluralB} of a given ${singularA}`,
 			parameters: [
@@ -245,7 +245,7 @@ function addRelationshipEndpoints(rel, direction) {
 			},
 			'x-A': (direction === FORWARD ? 1 : 2),
 			'x-B': (direction === FORWARD ? 2 : 1),
-			'x-relationship-name': rel.name, // TODO; rename to 'x-relationship-type'; also for resources
+			'x-relationship-type': rel.name,
 			put: {
 				summary: putSummary || `add a given ${pluralB} to a given ${singularA}`,
 				parameters: [

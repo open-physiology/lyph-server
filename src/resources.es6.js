@@ -6,7 +6,7 @@
 import _ from 'lodash';
 
 /* local stuff */
-import {toCamelCase, a}                          from './util.es6';
+import {toCamelCase, a}                          from './utility.es6.js';
 import {resources     as specifiedResources}     from './config/resources.es6.js';
 import {relationships as specifiedRelationships} from './config/relationships.es6.js';
 import {idSchema}                                from './simpleDataTypes.es6.js';

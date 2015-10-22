@@ -15,7 +15,7 @@ import {
 	isCustomError,
 	cleanCustomError,
 	inspect
-} from '../util.es6.js';
+} from '../utility.es6.js';
 import {
 	uriSchema,
 	polaritySchema
@@ -62,19 +62,15 @@ export const resources = {
 				}
 			}
 		},
-		create: co.wrap(function* ({id, resources}, req) {
-
-			/* assert that the linked lyph template exists */
-			// TODO: when this is checked generally in server.es6.js, remove the check here
-			yield assertResourceExists(resources.LyphTemplate, req.body.lyphTemplate);
+		*afterCreate({id, fields, resources}) {
 
 			/* get that lyph template */
-			let [lyphTemplate] = yield getSingleResource(resources.LyphTemplate, req.body.lyphTemplate);
+			let [lyphTemplate] = yield getSingleResource(resources.LyphTemplate, fields.lyphTemplate);
 
 			/* calculate the position of the new layer */
 			let newPosition = Math.min(
 				lyphTemplate.layers.length,
-				_.isNumber(req.body.position) ? req.body.position : lyphTemplate.layers.length
+				_.isNumber(fields.position) ? fields.position : lyphTemplate.layers.length
 			);
 
 			/* set correct positions for existing layer templates and layers, and return info on relevant lyphs */
@@ -113,8 +109,8 @@ export const resources = {
 				}
 			}
 
-		}),
-		delete: co.wrap(function* ({id}) {
+		},
+		*beforeDelete({id}) {
 			/* shift layer positioning after deletion of this layer */
 			yield query(`
 				MATCH (otherLayerTemplate:LayerTemplate)
@@ -128,7 +124,7 @@ export const resources = {
 				MATCH (otherLayerTemplate) -[:LayerTemplateInstantiation]-> (layer:Layer)
 				SET layer.position = layer.position - 1
 			`);
-		})
+		}
 	},
 
 	Lyph: {
@@ -147,10 +143,10 @@ export const resources = {
 				}
 			}
 		},
-		create: co.wrap(function* ({id, resources}, req) {
+		*afterCreate({id, fields, resources}) {
 			/* get info on all relevant layer templates */
 			let layerTemplateIds = yield query(`
-				MATCH (lyphTemplate:LyphTemplate { id: ${req.body.template} })
+				MATCH (lyphTemplate:LyphTemplate { id: ${fields.template} })
 				      -[:LyphTemplateLayer]->
 				      (layerTemplate:LayerTemplate)
 				RETURN layerTemplate.id AS id, layerTemplate.position AS position
@@ -169,7 +165,7 @@ export const resources = {
 					throw err;
 				}
 			}
-		})
+		}
 	},
 
 	Layer: {
