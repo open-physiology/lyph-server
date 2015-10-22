@@ -25,7 +25,6 @@ import {
 	creationQuery
 } from '../neo4j.es6.js';
 import {
-	assertResourceExists,
 	getSingleResource,
 	getAllResources,
 	createResource

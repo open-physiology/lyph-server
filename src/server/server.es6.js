@@ -138,7 +138,7 @@ const requestHandler = {
 			res.status(NO_CONTENT).send();
 
 		},
-		*delete({type, relA, relB}, req, res) {
+		*delete({relA}, req, res) {
 
 			/* add the new relationship as requested */
 			yield deleteRelationship(relA, req.pathParams.idA, req.pathParams.idB);
