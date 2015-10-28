@@ -18,7 +18,8 @@ import {
 	arrowEnds,
 	relationshipQueryFragments,
 	humanMsg,
-	inspect
+	inspect,
+	arrowMatch
 } from './utility.es6.js';
 import {
 	sustainingRelationships,

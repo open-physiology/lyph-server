@@ -98,7 +98,7 @@ const requestHandler = {
 			yield updateResource(type, req.pathParams.id, req.body);
 
 			/* send the response */
-			res.status(OK).send(yield getSingleResource(type, id));
+			res.status(OK).send(yield getSingleResource(type, req.pathParams.id));
 
 		},
 		*put({type}, req, res) {
@@ -107,7 +107,7 @@ const requestHandler = {
 			yield replaceResource(type, req.pathParams.id, req.body);
 
 			/* send the response */
-			res.status(OK).send(yield getSingleResource(type, id))
+			res.status(OK).send(yield getSingleResource(type, req.pathParams.id));
 
 		},
 		*delete({type, resources, relationships}, req, res) {

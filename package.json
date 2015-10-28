@@ -9,7 +9,7 @@
     "build": "npm run build-server; npm run build-docs",
     "prestart": "npm run build",
     "start": "forever start -a -l forever.log -o out.log -e err.log ./dist/server/server.js",
-    "stop": "forever stop ./dist/server/server.js",
+    "stop": "forever stop dist/server/server.js",
     "prerestart": "npm run build",
     "restart": "forever restart -a ./dist/server/server.js"
   },
