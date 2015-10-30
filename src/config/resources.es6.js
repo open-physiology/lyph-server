@@ -3,14 +3,10 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* libraries */
-import _  from 'lodash';
-import co from 'co';
+import _ from 'lodash';
 
 /* local stuff */
 import {
-	debugPromise,
-	dbOnly,
-	pluckDatum,
 	customError,
 	isCustomError,
 	cleanCustomError,
@@ -19,16 +15,7 @@ import {
 import {
 	uriSchema,
 	polaritySchema
-} from '../simpleDataTypes.es6.js';
-import {
-	query,
-	creationQuery
-} from '../neo4j.es6.js';
-import {
-	getSingleResource,
-	getAllResources,
-	createResource
-} from '../common-queries.es6.js';
+} from '../simple-data-types.es6.js';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -38,8 +25,9 @@ import {
 export const resources = {
 
 	LyphTemplate: {
-		singular: "lyph template",
-		plural:   "lyph templates",
+		singular:     "lyph template",
+		plural:       "lyph templates",
+		abbreviation: "lyphTmp",
 		schema: {
 			properties: {
 				name: { type: 'string', 'x-required': true }
@@ -48,8 +36,9 @@ export const resources = {
 	},
 
 	LayerTemplate: {
-		singular: "layer template",
-		plural:   "layer templates",
+		singular:     "layer template",
+		plural:       "layer templates",
+		abbreviation: "layerTmp",
 		schema: {
 			properties: {
 				name:      { type: 'string' },
@@ -61,10 +50,10 @@ export const resources = {
 				}
 			}
 		},
-		*afterCreate({id, fields, resources}) {
+		*afterCreate({db, id, fields, resources}) {
 
 			/* get that lyph template */
-			let [lyphTemplate] = yield getSingleResource(resources.LyphTemplate, fields.lyphTemplate);
+			let [lyphTemplate] = yield db.getSingleResource(resources.LyphTemplate, fields.lyphTemplate);
 
 			/* calculate the position of the new layer */
 			let newPosition = Math.min(
@@ -73,7 +62,7 @@ export const resources = {
 			);
 
 			/* set correct positions for existing layer templates and layers, and return info on relevant lyphs */
-			let lyphsIdsToAddLayerTo = yield query([`
+			let lyphsIdsToAddLayerTo = yield db.query([`
 				MATCH (layerTemplate:LayerTemplate { id: ${id} })
 				SET layerTemplate.position = ${newPosition}
 			`, `
@@ -97,7 +86,7 @@ export const resources = {
 			/* add the new layers */
 			for (let {id: lyphId} of lyphsIdsToAddLayerTo) {
 				try {
-					yield createResource(resources.Layer, {
+					yield db.createResource(resources.Layer, {
 						position: newPosition,
 						lyph:     lyphId,
 						template: id
@@ -109,9 +98,9 @@ export const resources = {
 			}
 
 		},
-		*beforeDelete({id}) {
+		*beforeDelete({db, id}) {
 			/* shift layer positioning after deletion of this layer */
-			yield query(`
+			yield db.query(`
 				MATCH (otherLayerTemplate:LayerTemplate)
 				      <-[:LyphTemplateLayer]-
 				      (lyphTemplate:LyphTemplate)
@@ -142,9 +131,9 @@ export const resources = {
 				}
 			}
 		},
-		*afterCreate({id, fields, resources}) {
+		*afterCreate({db, id, fields, resources}) {
 			/* get info on all relevant layer templates */
-			let layerTemplateIds = yield query(`
+			let layerTemplateIds = yield db.query(`
 				MATCH (lyphTemplate:LyphTemplate { id: ${fields.template} })
 				      -[:LyphTemplateLayer]->
 				      (layerTemplate:LayerTemplate)
@@ -154,7 +143,7 @@ export const resources = {
 			/* and add layers to the new lyph corresponding to those layer templates */
 			for (let {id: layerTemplateId, position} of layerTemplateIds) {
 				try {
-					yield createResource(resources.Layer, {
+					yield db.createResource(resources.Layer, {
 						position: position,
 						lyph:     id,
 						template: layerTemplateId
@@ -202,8 +191,9 @@ export const resources = {
 	},
 
 	Correlation: {
-		singular: "correlation",
-		plural:   "correlations",
+		singular:     "correlation",
+		plural:       "correlations",
+		abbreviation: "corr",
 		schema: {
 			properties: {
 				comment: { type: 'string' }
@@ -212,8 +202,9 @@ export const resources = {
 	},
 
 	Publication: {
-		singular: "publication",
-		plural:   "publications",
+		singular:     "publication",
+		plural:       "publications",
+		abbreviation: "pub",
 		schema: {
 			properties: {
 				uri:   { ...uriSchema, 'x-required': true },
@@ -223,8 +214,9 @@ export const resources = {
 	},
 
 	ClinicalIndex: {
-		singular: "clinical index",
-		plural:   "clinical indices",
+		singular:     "clinical index",
+		plural:       "clinical indices",
+		abbreviation: "cli",
 		schema: {
 			properties: {
 				uri:   { ...uriSchema, 'x-required': true },
@@ -234,8 +226,9 @@ export const resources = {
 	},
 
 	LocatedMeasure: {
-		singular: "located measure",
-		plural:   "located measures",
+		singular:     "located measure",
+		plural:       "located measures",
+		abbreviation: "lm",
 		schema: {
 			properties: {
 				quality: { type: 'string', 'x-required': true }
@@ -244,24 +237,27 @@ export const resources = {
 	},
 
 	BagOfPathologies: {
-		singular: "bag of pathologies",
-		plural:   "bags of pathologies",
+		singular:     "bag of pathologies",
+		plural:       "bags of pathologies",
+		abbreviation: "bop",
 		schema: {
 			properties: {}
 		}
 	},
 
 	Process: {
-		singular: "process",
-		plural:   "processes",
+		singular:     "process",
+		plural:       "processes",
+		abbreviation: "p",
 		schema: {
 			properties: {}
 		}
 	},
 
 	PotentialProcess: {
-		singular: "potential process",
-		plural:   "potential processes",
+		singular:     "potential process",
+		plural:       "potential processes",
+		abbreviation: "pp",
 		schema: {
 			properties: {}
 		}

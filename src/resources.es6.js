@@ -9,7 +9,7 @@ import _ from 'lodash';
 import {toCamelCase, a}                          from './utility.es6.js';
 import {resources     as specifiedResources}     from './config/resources.es6.js';
 import {relationships as specifiedRelationships} from './config/relationships.es6.js';
-import {idSchema}                                from './simpleDataTypes.es6.js';
+import {idSchema}                                from './simple-data-types.es6.js';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,7 +29,7 @@ for (let resName of Object.keys(resources)) {
 
 export let relationships = {};
 export let sustainingRelationships = [];
-export let anchoringRelationships = [];
+export let anchoringRelationships  = [];
 
 for (let relName of Object.keys(specifiedRelationships)) {
 	/* unpacking the relationship data */

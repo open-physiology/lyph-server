@@ -86,6 +86,17 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 	? `OPTIONAL MATCH (${a}) ${l}[:${relTypes.map(({relationship:{name}})=>name).join('|')}]${r} (${b})`
 	: ``;
 
+/* given a type and given fields, return an array of useful relationship type info */
+export function relationshipTypeSummaries(type, fields) {
+	return type.relationships.map(rel => ({
+		rel,
+		fieldName: rel.fieldName,
+		given:     (!rel.disambiguation || _.matches(rel.disambiguation)(fields)) ? fields[rel.fieldName] : undefined,
+		implicit:  rel.implicit,
+		get ids()  { return (rel.fieldCardinality === 'one') ? [this.given] : this.given }
+	}));
+}
+
 /* to get query-fragments to get relationship-info for a given resource */
 export function relationshipQueryFragments(type, nodeName) {
 	let optionalMatches = [];
@@ -96,10 +107,10 @@ export function relationshipQueryFragments(type, nodeName) {
 		handledFieldNames[relA.fieldName] = true;
 		let [l, r] = arrowEnds(relA);
 		optionalMatches.push(`
-					OPTIONAL MATCH (${nodeName})
-					               ${l}[:${relA.relationship.name}]${r}
-					               (rel_${relA.fieldName}:${relA.otherSide.type.name})
-		        `);
+			OPTIONAL MATCH (${nodeName})
+			               ${l}[:${relA.relationship.name}]${r}
+			               (rel_${relA.fieldName}:${relA.otherSide.type.name})
+        `);
 		objectMembers.push(
 			relA.fieldCardinality === 'many'
 				? `${relA.fieldName}: collect(DISTINCT rel_${relA.fieldName}.id)`

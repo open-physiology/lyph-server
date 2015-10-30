@@ -11,7 +11,8 @@
     "start": "forever start -a -l forever.log -o out.log -e err.log ./dist/server/server.js",
     "stop": "forever stop dist/server/server.js",
     "prerestart": "npm run build",
-    "restart": "forever restart -a ./dist/server/server.js"
+    "restart": "forever restart -a ./dist/server/server.js",
+    "test": "mocha dist/test/test.js"
   },
   "keywords": [
     "lyph"
@@ -37,6 +38,9 @@
     "babel-core": "~5",
     "babel-loader": "~5",
     "json-loader": "~0.5",
+    "mocha": "^2.3.3",
+    "supertest": "^1.1.0",
+    "supertest-as-promised": "^2.0.2",
     "webpack": "~1"
   }
 }

@@ -29,11 +29,12 @@ for (let resName of Object.keys(resources)) {
 	swaggerDataTypes[resName] = {
 		'x-resource-type': type.name,
 		type:       'object',
-		properties: _.cloneDeep(type.schema.properties),
-		required:   [...Object.entries(type.schema.properties)]
-		                .filter(([fieldName, {'x-required': required}]) => required)
-		                .map(([fieldName]) => fieldName)
+		properties: _.cloneDeep(type.schema.properties)
 	};
+	let required = [...Object.entries(type.schema.properties)]
+			.filter(([fieldName, {'x-required': required}]) => required)
+			.map(([fieldName]) => fieldName);
+	if (required.length > 0) { swaggerDataTypes[resName].required = required; }
 	swaggerDataTypes[`partial_${resName}`] = { // partial = allow required fields to be absent for update commands
 		'x-resource-type': type.name,
 		type: 'object',
@@ -56,12 +57,12 @@ const $ref = (type) => ({ $ref: `#/definitions/${type}` });
 
 function addResourceEndpoint(type) {
 
-	const {singular, plural, readOnly} = type;
+	const {singular, abbreviation, plural, readOnly} = type;
 
-	const singularIdKey = toCamelCase(singular) + 'ID';
-	const pluralKey     = toCamelCase(plural);
+	const singularIdKey = `${abbreviation||toCamelCase(singular)}ID`;
+	const pluralKey = toCamelCase(plural);
 
-	resourceEndpoints[`/${pluralKey}`] = Object.assign({
+	resourceEndpoints[`/${pluralKey}`] = {
 		'x-path-type': 'resources',
 		'x-resource-type': type.name,
 		get: {
@@ -72,31 +73,30 @@ function addResourceEndpoint(type) {
 					schema: { type: 'array', items: $ref(type.name) }
 				}
 			}
-		}
-	}, readOnly ? null : {
-		post: {
-			summary: `create a new ${singular}`,
-			parameters: [{
-				name:        toCamelCase(`new ${singular}`),
-				in:          'body',
-				description: `the new ${singular} to create`,
-				required:    true,
-				schema:      $ref(type.name)
-			}],
-			responses: {
-				[CREATED]: {
-					description: `an array containing one element: the newly created ${singular}`,
-					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
+		},
+		...(readOnly || {
+			post: {
+				summary: `create a new ${singular}`,
+				parameters: [{
+					name:        toCamelCase(`new ${singular}`),
+					in:          'body',
+					description: `the new ${singular} to create`,
+					required:    true,
+					schema:      $ref(type.name)
+				}],
+				responses: {
+					[CREATED]: {
+						description: `an array containing one element: the newly created ${singular}`,
+						schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
+					}
 				}
 			}
-		}
-	});
+		})
+	};
 
-	resourceEndpoints[`/${pluralKey}/{${singularIdKey}}`] = Object.assign({
+	resourceEndpoints[`/${pluralKey}/{${singularIdKey}}`] = {
 		'x-path-type': 'specificResource',
-		'x-param-map': {
-			id: singularIdKey
-		},
+		'x-param-map': { id: singularIdKey },
 		'x-resource-type': type.name,
 		get: {
 			summary: `retrieve ${plural} by id`,
@@ -113,68 +113,69 @@ function addResourceEndpoint(type) {
 					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
 				}
 			}
-		}
-	}, readOnly ? null : {
-		put: {
-			summary: `replace a given ${singular}`,
-			parameters: [{
-				name:        singularIdKey,
-				in:          'path',
-				description: `ID of the ${singular} to replace`,
-				required:    true,
-				type:        'integer'
-			}, {
-				name:        toCamelCase(`new ${singular}`),
-				in:          'body',
-				description: `the new ${singular} to replace the old one with`,
-				required:    true,
-				schema:      $ref(type.name)
-			}],
-			responses: {
-				[OK]: {
-					description: `an array containing one element: the full ${singular} after the replacement`,
-					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
-				}
-			}
 		},
-		post: {
-			summary: `update a given ${singular}`,
-			parameters: [{
-				name:        singularIdKey,
-				in:          'path',
-				description: `ID of the ${singular} to update`,
-				required:    true,
-				type:        'integer'
-			}, {
-				name:        toCamelCase(`new ${singular}`),
-				in:          'body',
-				description: `a (partial) ${singular} object with the data that should be updated`,
-				required:    true,
-				schema:      $ref(`partial_${type.name}`)
-			}],
-			responses: {
-				[OK]: {
-					description: `an array containing one element: the full ${singular} after the update`,
-					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
+		...(readOnly || {
+			put: {
+				summary: `replace a given ${singular}`,
+				parameters: [{
+					name:        singularIdKey,
+					in:          'path',
+					description: `ID of the ${singular} to replace`,
+					required:    true,
+					type:        'integer'
+				}, {
+					name:        toCamelCase(`new ${singular}`),
+					in:          'body',
+					description: `the new ${singular} to replace the old one with`,
+					required:    true,
+					schema:      $ref(type.name)
+				}],
+				responses: {
+					[OK]: {
+						description: `an array containing one element: the full ${singular} after the replacement`,
+						schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
+					}
+				}
+			},
+			post: {
+				summary: `update a given ${singular}`,
+				parameters: [{
+					name:        singularIdKey,
+					in:          'path',
+					description: `ID of the ${singular} to update`,
+					required:    true,
+					type:        'integer'
+				}, {
+					name:        toCamelCase(`new ${singular}`),
+					in:          'body',
+					description: `a (partial) ${singular} object with the data that should be updated`,
+					required:    true,
+					schema:      $ref(`partial_${type.name}`)
+				}],
+				responses: {
+					[OK]: {
+						description: `an array containing one element: the full ${singular} after the update`,
+						schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
+					}
+				}
+			},
+			delete: {
+				summary: `delete a given ${singular}`,
+				parameters: [{
+					name:        singularIdKey,
+					in:          'path',
+					description: `ID of the ${singular} to delete`,
+					required:    true,
+					type:        'integer'
+				}],
+				responses: {
+					[NO_CONTENT]: {
+						description: `successfully deleted the ${singular}`
+					}
 				}
 			}
-		},
-		delete: {
-			summary: `delete a given ${singular}`,
-			parameters: [{
-				name:        singularIdKey,
-				in:          'path',
-				description: `ID of the ${singular} to delete`,
-				required:    true,
-				type:        'integer'
-			}],
-			responses: {
-				[NO_CONTENT]: {
-					description: `successfully deleted the ${singular}`
-				}
-			}
-		}
-	});
+		})
+	};
 }
 
 for (let resourceName of Object.keys(resources)) {
@@ -196,13 +197,14 @@ function addRelationshipEndpoints(rel, direction) {
 
 	const pluralA   = relA.type.plural;
 	const singularA = relA.type.singular;
+	const abbreviationA = relA.type.abbreviation;
 	const pluralB   = relB.type.plural;
-	const singularB = (relA.type === relB.type ? "other " : "") + relB.type.singular;
-	const fieldName = relA.fieldName;
-	const {getSummary, putSummary, deleteSummary, readOnly} = relA;
+	const singularB = relB.type.singular;
+	const abbreviationB = relB.type.abbreviation;
+	const {fieldName, getSummary, putSummary, deleteSummary, readOnly} = relA;
 
-	const singularIdKeyA = toCamelCase(singularA) + 'ID';
-	const singularIdKeyB = toCamelCase(singularB) + 'ID';
+	const singularIdKeyA = `${toCamelCase(                                             abbreviationA||singularA )}ID`;
+	const singularIdKeyB = `${toCamelCase((relA.type === relB.type ? "other " : "") + (abbreviationB||singularB))}ID`;
 	const pluralKeyA     = toCamelCase(pluralA);
 
 	relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}`] = {
