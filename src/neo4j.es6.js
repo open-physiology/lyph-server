@@ -32,7 +32,7 @@ export default class Neo4j {
 	 * WARNING: This deletes all everythings!
 	 */
 	clear() {
-		this.query([`
+		return this.query([`
 			MATCH (n)
 			OPTIONAL MATCH (n) -[r]-> ()
 			DELETE n, r

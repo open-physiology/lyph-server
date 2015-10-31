@@ -12,6 +12,12 @@ Object.assign(SuperTest.Test.prototype, {
 				throw error;
 			}
 		}, cb);
+	},
+	resources(cb) {
+		return this.expect(({body}) => cb(body));
+	},
+	resource(cb) {
+		return this.resources(([resource]) => cb(resource));
 	}
 });
 
