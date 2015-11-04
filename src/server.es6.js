@@ -7,7 +7,8 @@ import _                 from 'lodash';
 import co                from 'co';
 import util              from 'util';
 import express           from 'express';
-import swaggerMiddleware from 'swagger-express-middleware';
+import promisify         from 'es6-promisify';
+const swaggerMiddleware = promisify(require('swagger-express-middleware'));
 
 /* local stuff */
 import LyphNeo4j from './LyphNeo4j.es6.js';
@@ -181,81 +182,68 @@ function doneWithError(err, req, res, next) {}
 // the server                                                                                                         //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export default (distDir, config) => new Promise((resolveServer, rejectServer) => {
+export default co.wrap(function* (distDir, config) {
 
 	/* the express application */
 	let server = express();
 
-	/* load and apply the middleware, configure paths, and start the server  */
-	//noinspection NodeModulesDependencies
-	swaggerMiddleware(`${distDir}/swagger.json`, server, (err, middleware) => {
-		try{
+	/* load the middleware */
+	let [middleware] = yield swaggerMiddleware(`${distDir}/swagger.json`, server);
 
-			/* report any immediate errors */
-			if (err) { throw err }
+	/* serve swagger-ui based documentation */
+	server.use('/docs', express.static(`${distDir}/docs/`));
 
+	/* use Swagger middleware */
+	server.use(
+		middleware.files({ apiPath: false, rawFilesPath: '/' }),
+		middleware.metadata(),
+		middleware.parseRequest(),
+		middleware.validateRequest()
+	);
 
-			/* serve swagger-ui based documentation */
-			server.use('/docs', express.static(`${distDir}/docs/`));
-
-
-			/* use Swagger middleware */
-			server.use(
-					middleware.files({ apiPath: false, rawFilesPath: '/' }),
-					middleware.metadata(),
-					middleware.parseRequest(),
-					middleware.validateRequest()
-			);
-
-			/* set up database */
-			let db = new LyphNeo4j({
-				user: config.dbUser,
-				pass: config.dbPass,
-				host: config.dbHost,
-				port: config.dbPort
-			});
-
-			/* create uniqueness constraints for all resource types (once per db) */
-			for (let typeName of Object.keys(resources)) {
-				db.createUniqueIdConstraintOn(typeName);
-			}
-
-			/* normalize parameter names */
-			server.use(parameterNormalizer);
-
-			/* request handling */
-			for (let path of Object.keys(swagger.paths)) {
-				let pathObj          = swagger.paths[path];
-				let expressStylePath = path.replace(/{(\w+)}/g, ':$1');
-				for (let method of Object.keys(pathObj).filter(p => !/x-/.test(p))) {
-					let info = (['resources', 'specificResource'].includes(pathObj['x-path-type'])) ? {
-						type: resources[pathObj['x-resource-type']]
-					} : {
-						type: relationships[pathObj['x-relationship-type']],
-						relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
-						relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
-					};
-					Object.assign(info, { db });
-					server[method](expressStylePath, (req, res, next) => {
-						try { requestHandler[pathObj['x-path-type']][method](info, req, res).catch(next) }
-						catch (err) { next(err) }
-					});
-				}
-			}
-
-			/* handling error messages */
-			server.use(errorNormalizer);
-			if (config.consoleLogging !== false) { server.use(errorLogger) }
-			server.use(errorTransmitter);
-			server.use(doneWithError);
-
-			/* return the server app and possibly database */
-			if (config.exposeDB) {
-				resolveServer({ database: db, server });
-			} else {
-				resolveServer(server);
-			}
-
-		} catch (err) { rejectServer(err) }
+	/* set up database */
+	let db = new LyphNeo4j({
+		user: config.dbUser,
+		pass: config.dbPass,
+		host: config.dbHost,
+		port: config.dbPort
 	});
+
+	/* create uniqueness constraints for all resource types (once per db) */
+	for (let typeName of Object.keys(resources)) {
+		db.createUniqueIdConstraintOn(typeName);
+	}
+
+	/* normalize parameter names */
+	server.use(parameterNormalizer);
+
+	/* request handling */
+	for (let path of Object.keys(swagger.paths)) {
+		let pathObj          = swagger.paths[path];
+		let expressStylePath = path.replace(/{(\w+)}/g, ':$1');
+		for (let method of Object.keys(pathObj).filter(p => !/x-/.test(p))) {
+			let info = (['resources', 'specificResource'].includes(pathObj['x-path-type'])) ? {
+				type: resources[pathObj['x-resource-type']]
+			} : {
+				type: relationships[pathObj['x-relationship-type']],
+				relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
+				relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
+			};
+			Object.assign(info, { db });
+			server[method](expressStylePath, (req, res, next) => {
+				try { requestHandler[pathObj['x-path-type']][method](info, req, res).catch(next) }
+				catch (err) { next(err) }
+			});
+		}
+	}
+
+	/* handling error messages */
+	server.use(errorNormalizer);
+	if (config.consoleLogging !== false) { server.use(errorLogger) }
+	server.use(errorTransmitter);
+	server.use(doneWithError);
+
+	/* return the server app and possibly database */
+	return config.exposeDB ? {database: db, server} : server;
+
 });

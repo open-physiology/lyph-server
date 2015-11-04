@@ -1,18 +1,2 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="PublishConfigData">
-    <serverData>
-      <paths name="Linode (lyph-server)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/app" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-          <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/src/test" />
-            <excludedPath local="true" path="$PROJECT_DIR$/dist/test" />
-          </excludedPaths>
-        </serverdata>
-      </paths>
-    </serverData>
-  </component>
-</project>
+<project version="4" />
