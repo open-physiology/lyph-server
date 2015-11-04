@@ -12,7 +12,7 @@ const swaggerMiddleware = promisify(require('swagger-express-middleware'));
 
 /* local stuff */
 import LyphNeo4j from './LyphNeo4j.es6.js';
-import swagger from './swagger.es6';
+import swagger   from './swagger.es6';
 import {
 	debugPromise,
 	customError,
@@ -210,9 +210,7 @@ export default co.wrap(function* (distDir, config) {
 	});
 
 	/* create uniqueness constraints for all resource types (once per db) */
-	for (let typeName of Object.keys(resources)) {
-		db.createUniqueIdConstraintOn(typeName);
-	}
+	yield Object.keys(resources).map(_.bindKey(db, 'createUniqueIdConstraintOn'));
 
 	/* normalize parameter names */
 	server.use(parameterNormalizer);

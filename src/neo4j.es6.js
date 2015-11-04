@@ -46,7 +46,7 @@ export default class Neo4j {
 	 * Wait for the given promise to resolve before performing any database actions.
 	 * @param p the promise to wait on
 	 */
-	waitFor(p) { this[_waitingFor] = this[_waitingFor].then(() => p) }
+	waitFor(p) { return this[_waitingFor] = this[_waitingFor].then(() => p) }
 
 
 	/**
@@ -129,14 +129,10 @@ export default class Neo4j {
 	}
 
 	createUniqueIdConstraintOn(label) {
-		this.waitFor(this.query(`
+		return this.waitFor(this.query(`
 			CREATE CONSTRAINT ON (n:${label})
 			ASSERT n.id IS UNIQUE
 		`));
 	}
 
-
 };
-
-
-//import config from './config.es6.js';
