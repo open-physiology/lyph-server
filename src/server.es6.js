@@ -3,11 +3,10 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _                 from 'lodash';
-import co                from 'co';
-import util              from 'util';
-import express           from 'express';
-import promisify         from 'es6-promisify';
+import _         from 'lodash';
+import util      from 'util';
+import express   from 'express';
+import promisify from 'es6-promisify';
 const swaggerMiddleware = promisify(require('swagger-express-middleware'));
 
 /* local stuff */
@@ -176,23 +175,23 @@ function doneWithError(err, req, res, next) {}
 // the server                                                                                                         //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export default co.wrap(function* (distDir, config) {
+export default async (distDir, config) => {
 
 	/* the express application */
 	let server = express();
 
 	/* load the middleware */
-	let [middleware] = yield swaggerMiddleware(`${distDir}/swagger.json`, server);
+	let [middleware] = await swaggerMiddleware(`${distDir}/swagger.json`, server);
 
 	/* serve swagger-ui based documentation */
 	server.use('/docs', express.static(`${distDir}/docs/`));
 
 	/* use Swagger middleware */
 	server.use(
-		middleware.files({ apiPath: false, rawFilesPath: '/' }),
-		middleware.metadata(),
-		middleware.parseRequest(),
-		middleware.validateRequest()
+			middleware.files({ apiPath: false, rawFilesPath: '/' }),
+			middleware.metadata(),
+			middleware.parseRequest(),
+			middleware.validateRequest()
 	);
 
 	/* set up database */
@@ -204,14 +203,14 @@ export default co.wrap(function* (distDir, config) {
 	});
 
 	/* create uniqueness constraints for all resource types (once per db) */
-	yield Object.keys(resources).map(_.bindKey(db, 'createUniqueIdConstraintOn'));
+	await* Object.keys(resources).map(_.bindKey(db, 'createUniqueIdConstraintOn'));
 
 	/* normalize parameter names */
 	server.use(parameterNormalizer);
 
 	/* request handling */
 	for (let path of Object.keys(swagger.paths)) {
-		let pathObj          = swagger.paths[path];
+		let pathObj = swagger.paths[path];
 		let expressStylePath = path.replace(/{(\w+)}/g, ':$1');
 		for (let method of Object.keys(pathObj).filter(p => !/x-/.test(p))) {
 			let info = (['resources', 'specificResource'].includes(pathObj['x-path-type'])) ? {
@@ -236,6 +235,6 @@ export default co.wrap(function* (distDir, config) {
 	server.use(doneWithError);
 
 	/* return the server app and possibly database */
-	return config.exposeDB ? {database: db, server} : server;
+	return config.exposeDB ? { database: db, server } : server;
 
-});
+};

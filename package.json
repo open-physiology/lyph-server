@@ -22,7 +22,6 @@
     "Samuel Alexander <rmhiale@ucl.ac.uk>"
   ],
   "dependencies": {
-    "co": "~4",
     "commander": "~2",
     "es6-promisify": "~3",
     "express": "~4",

@@ -3,11 +3,10 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* libraries */
-import _    from 'lodash';
-import co   from 'co';
+import _ from 'lodash';
 
 /* local stuff */
-import Neo4j from './neo4j.es6.js';
+import Neo4j from './Neo4j.es6.js';
 import {
 	customError,
 	pluckData,
@@ -540,10 +539,3 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 }
-
-///* wrapping the methods above with co.wrap */
-//for (let key of Object.keys(LyphNeo4j.prototype)) {
-//	if (typeof LyphNeo4j.prototype[key] === 'function') {
-//		LyphNeo4j.prototype[key] = co.wrap(LyphNeo4j.prototype[key]);
-//	}
-//}
