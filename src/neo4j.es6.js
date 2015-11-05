@@ -137,6 +137,3 @@ export default class Neo4j {
 
 
 };
-
-
-//import config from './config.es6.js';

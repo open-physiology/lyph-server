@@ -2,8 +2,7 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import co from 'co';
-import _  from 'lodash';
+import _    from 'lodash';
 import chai from 'chai';
 const {expect} = chai;
 
@@ -40,13 +39,6 @@ before(() => getServer(`${__dirname}/../`, {
 const createResource = (typeName, fields) => db.createResource(resources[typeName], fields);
 const getSingleResource = (typeName, id) => db.getSingleResource(resources[typeName], id);
 
-/* co-wrapped mocha test-functions */
-const coBefore = (generator) => { before(co.wrap(generator)) };
-const coAfter = (generator) => { after(co.wrap(generator)) };
-const coBeforeEach = (generator) => { beforeEach(co.wrap(generator)) };
-const coAfterEach = (generator) => { afterEach(co.wrap(generator)) };
-const coIt = (claim, generator) => { it(claim, co.wrap(generator)) };
-
 /* specialized describe-functions */
 let GET, POST, PUT, DELETE;
 let type;
@@ -70,8 +62,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 				/* the verb testers */
 				const verbTester = (verb) => (claim, expectations) => {
-					it(`${verb.toUpperCase()} ${claim}`, () =>
-							co.wrap(expectations)(api[verb](compiledPath)));
+					it(`${verb.toUpperCase()} ${claim}`, () => expectations(api[verb](compiledPath)));
 				};
 				GET    = verbTester('get');
 				POST   = verbTester('post');
@@ -165,28 +156,28 @@ let lyphTmp1,
 	lyph1,
 	layer1, layer2, layer3,
 	layer1plus, layer1minus, layer1outer, layer1inner;
-coBeforeEach(function* () {
+beforeEach(async () => {
 
 	/* initial database clearing */
-	yield db.clear();
+	await db.clear();
 
 	/* lyph template */
-	lyphTmp1 = yield createResource('LyphTemplate', { name: "lyph template 1" });
+	lyphTmp1 = await createResource('LyphTemplate', { name: "lyph template 1" });
 
 	/* layer templates */
 	[   layerTmp1,
 		layerTmp2,
 		layerTmp3
-	] = yield _.times(3, () => createResource('LayerTemplate', { lyphTemplate: lyphTmp1 }));
+	] = await* _.times(3, () => createResource('LayerTemplate', { lyphTemplate: lyphTmp1 }));
 
 	/* lyphs */
-	lyph1 = yield createResource('Lyph', { name: "lyph 1", species: "dragon", template: lyphTmp1 });
+	lyph1 = await createResource('Lyph', { name: "lyph 1", species: "dragon", template: lyphTmp1 });
 
 	/* layers */
 	[   [{instantiations:[layer1]}],
 		[{instantiations:[layer2]}],
 		[{instantiations:[layer3]}]
-	] = yield [layerTmp1, layerTmp2, layerTmp3].map((id) => getSingleResource('LayerTemplate', id));
+	] = await* [layerTmp1, layerTmp2, layerTmp3].map(id => getSingleResource('LayerTemplate', id));
 
 	/* borders */
 	[{
@@ -194,7 +185,7 @@ coBeforeEach(function* () {
 		minus: layer1minus,
 		outer: layer1outer,
 		inner: layer1inner
-	}] = yield getSingleResource('Layer', layer1);
+	}] = await getSingleResource('Layer', layer1);
 
 	// TODO: add other stuff to the database (at least one instance of each resource type)
 });

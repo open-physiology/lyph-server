@@ -43,54 +43,48 @@ import {
 
 const requestHandler = {
 	resources: {
-		*get({db, type}, req, res) {
-			res.status(OK).send( yield db.getAllResources(type) );
+		async get({db, type}, req, res) {
+			res.status(OK).send( await db.getAllResources(type) );
 		},
-		*post({db, type}, req, res) {
-			let id = yield db.createResource(type, req.body);
-			res.status(CREATED).send(yield db.getSingleResource(type, id));
+		async post({db, type}, req, res) {
+			let id = await db.createResource(type, req.body);
+			res.status(CREATED).send(await db.getSingleResource(type, id));
 		}
 	},
 	specificResource: {
-		*get({db, type}, req, res) {
-			res.status(OK).send(yield db.getSingleResource(type, req.pathParams.id));
+		async get({db, type}, req, res) {
+			res.status(OK).send(await db.getSingleResource(type, req.pathParams.id));
 		},
-		*post({db, type}, req, res) {
-			yield db.updateResource(type, req.pathParams.id, req.body);
-			res.status(OK).send(yield db.getSingleResource(type, req.pathParams.id));
+		async post({db, type}, req, res) {
+			await db.updateResource(type, req.pathParams.id, req.body);
+			res.status(OK).send(await db.getSingleResource(type, req.pathParams.id));
 		},
-		*put({db, type}, req, res) {
-			yield db.replaceResource(type, req.pathParams.id, req.body);
-			res.status(OK).send(yield db.getSingleResource(type, req.pathParams.id));
+		async put({db, type}, req, res) {
+			await db.replaceResource(type, req.pathParams.id, req.body);
+			res.status(OK).send(await db.getSingleResource(type, req.pathParams.id));
 		},
-		*delete({db, type, resources, relationships}, req, res) {
-			yield db.deleteResource(type, req.pathParams.id);
+		async delete({db, type, resources, relationships}, req, res) {
+			await db.deleteResource(type, req.pathParams.id);
 			res.status(NO_CONTENT).send();
 		}
 	},
 	relationships: {
-		*get({db, relA}, req, res) {
-			res.status(OK).send( yield db.getRelatedResources(relA, req.pathParams.idA) );
+		async get({db, relA}, req, res) {
+			res.status(OK).send( await db.getRelatedResources(relA, req.pathParams.idA) );
 		}
 	},
 	specificRelationship: {
-		*put({db, relA}, req, res) {
-			yield db.addNewRelationship(relA, req.pathParams.idA, req.pathParams.idB);
+		async put({db, relA}, req, res) {
+			await db.addNewRelationship(relA, req.pathParams.idA, req.pathParams.idB);
 			res.status(NO_CONTENT).send();
 		},
-		*delete({db, relA}, req, res) {
-			yield db.deleteRelationship(relA, req.pathParams.idA, req.pathParams.idB);
+		async delete({db, relA}, req, res) {
+			await db.deleteRelationship(relA, req.pathParams.idA, req.pathParams.idB);
 			res.status(NO_CONTENT).send();
 		}
 	}
 };
 
-/* wrapping the functions above with co.wrap */
-for (let type of Object.values(requestHandler)) {
-	for (let [verb, behavior] of Object.entries(type)) {
-		type[verb] = co.wrap(behavior);
-	}
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

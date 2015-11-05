@@ -50,10 +50,10 @@ export const resources = {
 				}
 			}
 		},
-		*afterCreate({db, id, fields, resources}) {
+		async afterCreate({db, id, fields, resources}) {
 
 			/* get that lyph template */
-			let [lyphTemplate] = yield db.getSingleResource(resources.LyphTemplate, fields.lyphTemplate);
+			let [lyphTemplate] = await db.getSingleResource(resources.LyphTemplate, fields.lyphTemplate);
 
 			/* calculate the position of the new layer */
 			let newPosition = Math.min(
@@ -62,7 +62,7 @@ export const resources = {
 			);
 
 			/* set correct positions for existing layer templates and layers, and return info on relevant lyphs */
-			let lyphsIdsToAddLayerTo = yield db.query([`
+			let lyphsIdsToAddLayerTo = await db.query([`
 				MATCH (layerTemplate:LayerTemplate { id: ${id} })
 				SET layerTemplate.position = ${newPosition}
 			`, `
@@ -86,7 +86,7 @@ export const resources = {
 			/* add the new layers */
 			for (let {id: lyphId} of lyphsIdsToAddLayerTo) {
 				try {
-					yield db.createResource(resources.Layer, {
+					await db.createResource(resources.Layer, {
 						position: newPosition,
 						lyph:     lyphId,
 						template: id
@@ -98,9 +98,9 @@ export const resources = {
 			}
 
 		},
-		*beforeDelete({db, id}) {
+		async beforeDelete({db, id}) {
 			/* shift layer positioning after deletion of this layer */
-			yield db.query(`
+			await db.query(`
 				MATCH (otherLayerTemplate:LayerTemplate)
 				      <-[:LyphTemplateLayer]-
 				      (lyphTemplate:LyphTemplate)
@@ -131,9 +131,9 @@ export const resources = {
 				}
 			}
 		},
-		*afterCreate({db, id, fields, resources}) {
+		async afterCreate({db, id, fields, resources}) {
 			/* get info on all relevant layer templates */
-			let layerTemplateIds = yield db.query(`
+			let layerTemplateIds = await db.query(`
 				MATCH (lyphTemplate:LyphTemplate { id: ${fields.template} })
 				      -[:LyphTemplateLayer]->
 				      (layerTemplate:LayerTemplate)
@@ -143,7 +143,7 @@ export const resources = {
 			/* and add layers to the new lyph corresponding to those layer templates */
 			for (let {id: layerTemplateId, position} of layerTemplateIds) {
 				try {
-					yield db.createResource(resources.Layer, {
+					await db.createResource(resources.Layer, {
 						position: position,
 						lyph:     id,
 						template: layerTemplateId

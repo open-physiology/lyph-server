@@ -26,8 +26,8 @@ module.exports = {
 	externals: nodeModules,
 	module: {
 		loaders: [
-			{ test: /\.es6\.js$/, loader: 'babel' },
-			{ test: /\.json$/,    loader: 'json'  }
+			{ test: /\.es6\.js$/, loader: 'babel?stage=2' },
+			{ test: /\.json$/,    loader: 'json'          }
 		]
 	}
 };
