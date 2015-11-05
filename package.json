@@ -12,7 +12,7 @@
     "stop": "forever stop dist/server/server.js",
     "prerestart": "npm run build",
     "restart": "forever restart -a ./dist/server/server.js",
-    "test": "mocha dist/test/test.js"
+    "test": "mocha --timeout 10000 dist/test/test.js"
   },
   "keywords": [
     "lyph"
@@ -24,10 +24,12 @@
   "dependencies": {
     "co": "~4",
     "commander": "~2",
+    "es6-promisify": "~3",
     "express": "~4",
     "forever": "~0.15",
     "lodash": "~3",
     "node-rest-client": "~1",
+    "promisify": "0.0.3",
     "swagger-express-middleware": "~0.4"
   },
   "devDependencies": {
