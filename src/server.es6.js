@@ -188,10 +188,10 @@ export default async (distDir, config) => {
 
 	/* use Swagger middleware */
 	server.use(
-			middleware.files({ apiPath: false, rawFilesPath: '/' }),
-			middleware.metadata(),
-			middleware.parseRequest(),
-			middleware.validateRequest()
+		middleware.files({ apiPath: false, rawFilesPath: '/' }),
+		middleware.metadata(),
+		middleware.parseRequest(),
+		middleware.validateRequest()
 	);
 
 	/* set up database */

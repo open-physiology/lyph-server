@@ -38,9 +38,11 @@
     "chai": "~3",
     "json-loader": "~0.5",
     "mocha": "~2",
+    "superagent": "^1.4.0",
+    "superagent-as-promised": "^3.2.0",
     "supertest": "~1",
     "supertest-as-promised": "~2",
-    "webpack": "~1",
-    "swagger-ui": "~2"
+    "swagger-ui": "~2",
+    "webpack": "~1"
   }
 }

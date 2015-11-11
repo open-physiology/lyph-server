@@ -50,6 +50,30 @@ export const resources = {
 				}
 			}
 		},
+		async _setPosition({db, id, newPosition}) {
+			await db.query([`
+				MATCH (layerTemplate:LayerTemplate { id: ${id} })
+				SET layerTemplate.position = ${newPosition}
+				WITH layerTemplate
+				MATCH (layerTemplate)
+				      -[:LayerTemplateInstantiation]->
+				      (layer:Layer)
+				SET layer.position = layerTemplate.position
+			`, `
+				MATCH (layerTemplate:LayerTemplate { id: ${id} })
+				      <-[:LyphTemplateLayer]-
+				      (:LyphTemplate)
+				      -[:LyphTemplateLayer]->
+				      (otherLayerTemplate:LayerTemplate)
+				WHERE otherLayerTemplate.position >= ${newPosition} AND NOT otherLayerTemplate = layerTemplate
+				SET otherLayerTemplate.position = otherLayerTemplate.position + 1
+				WITH otherLayerTemplate
+				MATCH (otherLayerTemplate)
+				      -[:LayerTemplateInstantiation]->
+				      (otherLayer:Layer)
+				SET otherLayer.position = otherLayerTemplate.position
+			`]);
+		},
 		async afterCreate({db, id, fields, resources}) {
 
 			/* get that lyph template */
@@ -62,26 +86,12 @@ export const resources = {
 			);
 
 			/* set correct positions for existing layer templates and layers, and return info on relevant lyphs */
-			let lyphsIdsToAddLayerTo = await db.query([`
-				MATCH (layerTemplate:LayerTemplate { id: ${id} })
-				SET layerTemplate.position = ${newPosition}
-			`, `
-				MATCH (lyphTemplate:LyphTemplate { id: ${lyphTemplate.id} })
-				      -[:LyphTemplateLayer]->
-				      (otherLayerTemplate:LayerTemplate)
-				WHERE otherLayerTemplate.position >= ${newPosition} AND NOT otherLayerTemplate.id = ${id}
-				SET otherLayerTemplate.position = otherLayerTemplate.position + 1
-				WITH otherLayerTemplate
-				MATCH (otherLayerTemplate) -[:LayerTemplateInstantiation]-> (layer:Layer)
-				SET layer.position = layer.position + 1
-			`, `
-				MATCH (layerTemplate:LayerTemplate { id: ${id} })
-				      <-[:LyphTemplateLayer]-
-				      (lyphTemplate:LyphTemplate   { id: ${lyphTemplate.id} })
+			let lyphsIdsToAddLayerTo = await db.query(`
+				MATCH (:LyphTemplate { id: ${lyphTemplate.id} })
 				      -[:LyphTemplateInstantiation]->
 				      (lyph:Lyph)
 				RETURN lyph.id AS id
-			`]);
+			`);
 
 			/* add the new layers */
 			for (let {id: lyphId} of lyphsIdsToAddLayerTo) {
@@ -96,6 +106,45 @@ export const resources = {
 					throw err;
 				}
 			}
+
+			/* shift all the layers around based on the new position */
+			await this._setPosition({db, id, newPosition});
+
+		},
+		async afterUpdate({db, id, fields, resources}) {
+
+			/* get this layer template */
+			let [layerTemplate] = await db.getSingleResource(resources.LayerTemplate, id);
+
+			/* get that lyph template */
+			let [lyphTemplate] = await db.getSingleResource(resources.LyphTemplate, layerTemplate.lyphTemplate);
+
+			/* calculate the new position of the layer */
+			let newPosition = Math.min(
+				lyphTemplate.layers.length,
+				_.isNumber(fields.position) ? fields.position : lyphTemplate.layers.length
+			);
+
+			/* shift all the layers around based on the new position */
+			await this._setPosition({db, id, newPosition});
+
+		},
+		async afterReplace({db, id, fields, resources}) {
+
+			/* get this layer template */
+			let [layerTemplate] = await db.getSingleResource(resources.LayerTemplate, id);
+
+			/* get that lyph template */
+			let [lyphTemplate] = await db.getSingleResource(resources.LyphTemplate, layerTemplate.lyphTemplate);
+
+			/* calculate the new position of the layer */
+			let newPosition = Math.min(
+				lyphTemplate.layers.length,
+				_.isNumber(fields.position) ? fields.position : lyphTemplate.layers.length
+			);
+
+			/* shift all the layers around based on the new position */
+			await this._setPosition({db, id, newPosition});
 
 		},
 		async beforeDelete({db, id}) {

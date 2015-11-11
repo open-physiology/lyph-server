@@ -62,9 +62,9 @@ export default class LyphNeo4j extends Neo4j {
 		/* throw the 404 error if 'exists' is false */
 		if (!exists) {
 			throw customError({
-				status: NOT_FOUND,
-				type:   type.name,
-				id:     id,
+				status:  NOT_FOUND,
+				type:    type.name,
+				id:      id,
 				message: humanMsg`The specified ${type.singular} does not exist.`
 			});
 		}
@@ -81,9 +81,9 @@ export default class LyphNeo4j extends Neo4j {
 		if (nonexisting.length > 0) {
 			let c = (rel.fieldCardinality === 'one') ? 'singular' : 'plural';
 			throw customError({
-				status:   NOT_FOUND,
-				type:     type.name,
-				ids:      nonexisting,
+				status:  NOT_FOUND,
+				type:    type.name,
+				ids:     nonexisting,
 				...(c === 'singular' ? { id: nonexisting[0] } : {}),
 				message: humanMsg`
 					The specified ${type[c]}
