@@ -44,43 +44,43 @@ import {
 const requestHandler = {
 	resources: {
 		async get({db, type}, req, res) {
-			res.status(OK).send( await db.getAllResources(type) );
+			res.status(OK).jsonp( await db.getAllResources(type) );
 		},
 		async post({db, type}, req, res) {
 			let id = await db.createResource(type, req.body);
-			res.status(CREATED).send(await db.getSingleResource(type, id));
+			res.status(CREATED).jsonp(await db.getSingleResource(type, id));
 		}
 	},
 	specificResource: {
 		async get({db, type}, req, res) {
-			res.status(OK).send(await db.getSingleResource(type, req.pathParams.id));
+			res.status(OK).jsonp(await db.getSingleResource(type, req.pathParams.id));
 		},
 		async post({db, type}, req, res) {
 			await db.updateResource(type, req.pathParams.id, req.body);
-			res.status(OK).send(await db.getSingleResource(type, req.pathParams.id));
+			res.status(OK).jsonp(await db.getSingleResource(type, req.pathParams.id));
 		},
 		async put({db, type}, req, res) {
 			await db.replaceResource(type, req.pathParams.id, req.body);
-			res.status(OK).send(await db.getSingleResource(type, req.pathParams.id));
+			res.status(OK).jsonp(await db.getSingleResource(type, req.pathParams.id));
 		},
 		async delete({db, type, resources, relationships}, req, res) {
 			await db.deleteResource(type, req.pathParams.id);
-			res.status(NO_CONTENT).send();
+			res.status(NO_CONTENT).jsonp();
 		}
 	},
 	relationships: {
 		async get({db, relA}, req, res) {
-			res.status(OK).send( await db.getRelatedResources(relA, req.pathParams.idA) );
+			res.status(OK).jsonp( await db.getRelatedResources(relA, req.pathParams.idA) );
 		}
 	},
 	specificRelationship: {
 		async put({db, relA}, req, res) {
 			await db.addNewRelationship(relA, req.pathParams.idA, req.pathParams.idB);
-			res.status(NO_CONTENT).send();
+			res.status(NO_CONTENT).jsonp();
 		},
 		async delete({db, relA}, req, res) {
 			await db.deleteRelationship(relA, req.pathParams.idA, req.pathParams.idB);
-			res.status(NO_CONTENT).send();
+			res.status(NO_CONTENT).jsonp();
 		}
 	}
 };
@@ -162,7 +162,7 @@ function errorLogger(err, req, res, next) {
 
 /* error transmission */
 function errorTransmitter(err, req, res, next) {
-	res.status(err.status).send(err);
+	res.status(err.status).jsonp(err);
 	return next(err);
 }
 
