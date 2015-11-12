@@ -152,12 +152,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* variables to store all resources created at the beginning of each test */
-let lyphTmp1,
-	layerTmp1, layerTmp2, layerTmp3,
-	initLayerTmp1, initLayerTmp2, initLayerTmp3,
-	lyph1,
-	layer1, layer2, layer3,
-	layer1plus, layer1minus, layer1outer, layer1inner;
+let initial = {};
 
 /* before each test, reset the database */
 beforeEach(async () => {
@@ -166,28 +161,31 @@ beforeEach(async () => {
 	await db.clear();
 
 	/* lyph template */
-	lyphTmp1 = await createResource('LyphTemplate', { name: "lyph template 1" });
+	initial.lyphTmp1 = await createResource('LyphTemplate', { name: "lyph template 1" });
 
 	/* lyphs */
-	lyph1 = await createResource('Lyph', { name: "lyph 1", species: "dragon", template: lyphTmp1.id });
+	initial.lyph1 = await createResource('Lyph', { name: "lyph 1", species: "dragon", template: initial.lyphTmp1.id });
 
 	/* layer templates (in sequential order, so their positions are predictable) */
-	layerTmp1 = await createResource('LayerTemplate', { lyphTemplate: lyphTmp1.id });
-	layerTmp2 = await createResource('LayerTemplate', { lyphTemplate: lyphTmp1.id });
-	layerTmp3 = await createResource('LayerTemplate', { lyphTemplate: lyphTmp1.id });
+	initial.layerTmp1 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id });
+	initial.layerTmp2 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id });
+	initial.layerTmp3 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id });
 
 	/* layers */
-	layer1 = await getSingleResource('Layer', layerTmp1.instantiations[0]);
-	layer2 = await getSingleResource('Layer', layerTmp2.instantiations[0]);
-	layer3 = await getSingleResource('Layer', layerTmp3.instantiations[0]);
+	initial.layer1 = await getSingleResource('Layer', initial.layerTmp1.instantiations[0]);
+	initial.layer2 = await getSingleResource('Layer', initial.layerTmp2.instantiations[0]);
+	initial.layer3 = await getSingleResource('Layer', initial.layerTmp3.instantiations[0]);
 
 	/* borders */
-	layer1plus  = await getSingleResource('Border', layer1.plus);
-	layer1minus = await getSingleResource('Border', layer1.minus);
-	layer1outer = await getSingleResource('Border', layer1.outer);
-	layer1inner = await getSingleResource('Border', layer1.inner);
+	initial.layer1plus  = await getSingleResource('Border', initial.layer1.plus);
+	initial.layer1minus = await getSingleResource('Border', initial.layer1.minus);
+	initial.layer1outer = await getSingleResource('Border', initial.layer1.outer);
+	initial.layer1inner = await getSingleResource('Border', initial.layer1.inner);
 
 	// TODO: add other stuff to the database (at least one instance of each resource type)
+
+	/* refresh all resource objects */
+	Object.values(initial).forEach(refreshResource);
 });
 
 
@@ -227,14 +225,14 @@ describeResourceType('LyphTemplate', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: layerTmp1.id }));
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.layerTmp1.id }));
 
-		withValidPathParams(()=>({ id: lyphTmp1.id }), () => {
+		withValidPathParams(()=>({ id: initial.lyphTmp1.id }), () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
 				expect(res).to.have.property('name'           ).that.equals("lyph template 1");
-				expect(res).to.have.property('layers'         ).with.members([ layerTmp1.id, layerTmp2.id, layerTmp3.id ]);
-				expect(res).to.have.property('instantiations' ).with.members([ lyph1.id ]);
+				expect(res).to.have.property('layers'         ).with.members([ initial.layerTmp1.id, initial.layerTmp2.id, initial.layerTmp3.id ]);
+				expect(res).to.have.property('instantiations' ).with.members([ initial.lyph1.id ]);
 				expect(res).to.have.property('materialIn'     ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('materialInLyphs').that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('materials'      ).that.is.instanceOf(Array); // TODO: make specific when appropriate
@@ -253,12 +251,12 @@ describeResourceType('LayerTemplate', () => {
 	/* local utility function */
 	async function requestLayerTemplatesAndLayers() {
 		return await* [
-			requestSingleResource(`/layerTemplates/${layerTmp1.id}`),
-			requestSingleResource(`/layerTemplates/${layerTmp2.id}`),
-			requestSingleResource(`/layerTemplates/${layerTmp3.id}`),
-			requestSingleResource(`/layers/${layer1.id}`),
-			requestSingleResource(`/layers/${layer2.id}`),
-			requestSingleResource(`/layers/${layer3.id}`)
+			requestSingleResource(`/layerTemplates/${initial.layerTmp1.id}`),
+			requestSingleResource(`/layerTemplates/${initial.layerTmp2.id}`),
+			requestSingleResource(`/layerTemplates/${initial.layerTmp3.id}`),
+			requestSingleResource(`/layers/${initial.layer1.id}`),
+			requestSingleResource(`/layers/${initial.layer2.id}`),
+			requestSingleResource(`/layers/${initial.layer3.id}`)
 		];
 	}
 
@@ -268,14 +266,14 @@ describeResourceType('LayerTemplate', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 
-		withValidPathParams(()=>({ id: layerTmp1.id }), () => {
+		withValidPathParams(()=>({ id: initial.layerTmp1.id }), () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-				expect(res).to.have.property('lyphTemplate'  ).that.equals(lyphTmp1.id);
+				expect(res).to.have.property('lyphTemplate'  ).that.equals(initial.lyphTmp1.id);
 				expect(res).to.have.property('position'      ).that.equals(1);
-				expect(res).to.have.property('instantiations').that.has.members([ layer1.id ]);
+				expect(res).to.have.property('instantiations').with.members([ initial.layer1.id ]);
 				expect(res).to.have.property('materials'     ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 			}));
 
@@ -283,34 +281,34 @@ describeResourceType('LayerTemplate', () => {
 				position: 2 // move position 1 to position 2
 			}).expect(200).then(async () => {
 				let [
-					n_layerTmp1, n_layerTmp2, n_layerTmp3,
-					n_layer1,    n_layer2,    n_layer3
+					layerTmp1, layerTmp2, layerTmp3,
+					layer1,    layer2,    layer3
 				] = await requestLayerTemplatesAndLayers();
-				expect(n_layerTmp1).to.have.property('position').that.equals(2);
-				expect(n_layerTmp2).to.have.property('position').that.equals(1);
-				expect(n_layerTmp3).to.have.property('position').that.equals(3);
-				expect(n_layer1)   .to.have.property('position').that.equals(2);
-				expect(n_layer2)   .to.have.property('position').that.equals(1);
-				expect(n_layer3)   .to.have.property('position').that.equals(3);
+				expect(layerTmp1).to.have.property('position').that.equals(2);
+				expect(layerTmp2).to.have.property('position').that.equals(1);
+				expect(layerTmp3).to.have.property('position').that.equals(3);
+				expect(layer1)   .to.have.property('position').that.equals(2);
+				expect(layer2)   .to.have.property('position').that.equals(1);
+				expect(layer3)   .to.have.property('position').that.equals(3);
 			}));
 
 		});
 
-		withValidPathParams(()=>({ id: layerTmp3.id }), () => {
+		withValidPathParams(()=>({ id: initial.layerTmp3.id }), () => {
 
 			POST("properly shifts layer positions around (2)", r=>r.send({
 				position: 1 // move position 3 to position 1
 			}).expect(200).then(async () => {
 				let [
-					n_layerTmp1, n_layerTmp2, n_layerTmp3,
-					n_layer1,    n_layer2,    n_layer3
+					layerTmp1, layerTmp2, layerTmp3,
+					layer1,    layer2,    layer3
 				] = await requestLayerTemplatesAndLayers();
-				expect(n_layerTmp1).to.have.property('position').that.equals(2);
-				expect(n_layerTmp2).to.have.property('position').that.equals(3);
-				expect(n_layerTmp3).to.have.property('position').that.equals(1);
-				expect(n_layer1)   .to.have.property('position').that.equals(2);
-				expect(n_layer2)   .to.have.property('position').that.equals(3);
-				expect(n_layer3)   .to.have.property('position').that.equals(1);
+				expect(layerTmp1).to.have.property('position').that.equals(2);
+				expect(layerTmp2).to.have.property('position').that.equals(3);
+				expect(layerTmp3).to.have.property('position').that.equals(1);
+				expect(layer1)   .to.have.property('position').that.equals(2);
+				expect(layer2)   .to.have.property('position').that.equals(3);
+				expect(layer3)   .to.have.property('position').that.equals(1);
 			}));
 
 		});
@@ -329,15 +327,15 @@ describeResourceType('Lyph', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 
-		withValidPathParams(()=>({ id: lyph1.id }), () => {
+		withValidPathParams(()=>({ id: initial.lyph1.id }), () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
 				expect(res).to.have.property('name'           ).that.equals("lyph 1");
 				expect(res).to.have.property('species'        ).that.equals("dragon");
-				expect(res).to.have.property('template'       ).that.equals(lyphTmp1.id);
-				expect(res).to.have.property('layers'         ).with.members([ layer1.id, layer2.id, layer3.id ]);
+				expect(res).to.have.property('template'       ).that.equals(initial.lyphTmp1.id);
+				expect(res).to.have.property('layers'         ).with.members([ initial.layer1.id, initial.layer2.id, initial.layer3.id ]);
 				expect(res).to.have.property('inLayers'       ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('inCompartments' ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('locatedMeasures').that.is.instanceOf(Array); // TODO: make specific when appropriate
@@ -359,13 +357,13 @@ describeResourceType('Layer', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 
-		withValidPathParams(()=>({ id: layer1.id }), () => {
+		withValidPathParams(()=>({ id: initial.layer1.id }), () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-				expect(res).to.have.property('template'     ).that.equals(layerTmp1.id);
-				expect(res).to.have.property('lyph'         ).that.equals(lyph1.id);
+				expect(res).to.have.property('template'     ).that.equals(initial.layerTmp1.id);
+				expect(res).to.have.property('lyph'         ).that.equals(initial.lyph1.id);
 				expect(res).to.have.property('position'     ).that.is.within(1, 3);
 				expect(res).to.have.property('coalescesWith').that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('childLyphs'   ).that.is.instanceOf(Array); // TODO: make specific when appropriate
@@ -387,7 +385,7 @@ describeResourceType('Compartments', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 
 		// TODO: uncomment and fill in when there is a compartment in the setup
 		//withValidPathParams(()=>({ id: SOME_ID }), () => {
@@ -412,12 +410,12 @@ describeResourceType('Border', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 
-		withValidPathParams(()=>({ id: layer1plus.id }), () => {
+		withValidPathParams(()=>({ id: initial.layer1plus.id }), () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-				expect(res).to.have.property('layer').that.equals(layer1.id);
+				expect(res).to.have.property('layer').that.equals(initial.layer1.id);
 				expect(res).to.have.property('nodes').that.is.instanceOf(Array); // TODO: make specific when appropriate
 			}));
 
@@ -437,7 +435,7 @@ describeResourceType('Border', () => {
 //
 //		withInvalidPathParams("non-existing",    { id: 999999   });
 //
-//		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+//		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 //
 //		withValidPathParams(()=>({ id: SOME_ID }), () => {
 //
@@ -461,7 +459,7 @@ describeResourceType('Border', () => {
 //
 //		withInvalidPathParams("non-existing", { id: 999999 });
 //
-//		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+//		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 //
 //		withValidPathParams(()=>({ id: SOME_ID }), () => {
 //
@@ -485,7 +483,7 @@ describeResourceType('Border', () => {
 //
 //		withInvalidPathParams("non-existing", { id: 999999 });
 //
-//		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+//		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 //
 //		withValidPathParams(()=>({ id: SOME_ID }), () => {
 //
@@ -509,7 +507,7 @@ describeResourceType('Border', () => {
 //
 //		withInvalidPathParams("non-existing", { id: 999999 });
 //
-//		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+//		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 //
 //		withValidPathParams(()=>({ id: SOME_ID }), () => {
 //
@@ -533,7 +531,7 @@ describeResourceType('Border', () => {
 //
 //		withInvalidPathParams("non-existing", { id: 999999 });
 //
-//		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+//		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 //
 //		withValidPathParams(()=>({ id: SOME_ID }), () => {
 //
@@ -557,7 +555,7 @@ describeResourceType('Border', () => {
 //
 //		withInvalidPathParams("non-existing", { id: 999999 });
 //
-//		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+//		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 //
 //		withValidPathParams(()=>({ id: SOME_ID }), () => {
 //
@@ -581,7 +579,7 @@ describeResourceType('Border', () => {
 //
 //		withInvalidPathParams("non-existing", { id: 999999 });
 //
-//		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+//		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 //
 //		withValidPathParams(()=>({ id: SOME_ID }), () => {
 //
@@ -605,7 +603,7 @@ describeResourceType('Border', () => {
 //
 //		withInvalidPathParams("non-existing", { id: 999999 });
 //
-//		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
+//		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 //
 //		withValidPathParams(()=>({ id: SOME_ID }), () => {
 //
