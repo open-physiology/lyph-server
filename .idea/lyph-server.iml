@@ -14,5 +14,7 @@
     <orderEntry type="library" name="lodash-DefinitelyTyped" level="application" />
     <orderEntry type="library" name="superagent-DefinitelyTyped" level="application" />
     <orderEntry type="library" name="express-DefinitelyTyped" level="application" />
+    <orderEntry type="library" name="progress-DefinitelyTyped" level="application" />
+    <orderEntry type="library" name="highland-DefinitelyTyped" level="application" />
   </component>
 </module>
