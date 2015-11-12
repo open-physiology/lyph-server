@@ -147,27 +147,6 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 };
 
 
-
-
-function* bla() {
-
-
-	let x = 5;
-
-	let y = 1 + 2 + yield foo();
-
-	x = 9;
-
-	console.log(y);
-	console.log(y);
-	console.log(y);
-
-
-
-}
-
-
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // before each test, reset the database                                                                               //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
