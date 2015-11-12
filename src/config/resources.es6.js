@@ -22,6 +22,10 @@ import {
 // the resource types                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/* symbols for private methods */
+const setPosition = ('setPosition');
+
+/* the resources object */
 export const resources = {
 
 	LyphTemplate: {
@@ -50,7 +54,9 @@ export const resources = {
 				}
 			}
 		},
-		async _setPosition({db, id, newPosition}) {
+		async [setPosition]({db, id, oldPosition, newPosition}) {
+			if (oldPosition === newPosition) { return }
+			//console.log(`oldPosition = ${oldPosition},  newPosition = ${newPosition}`);
 			await db.query([`
 				MATCH (layerTemplate:LayerTemplate { id: ${id} })
 				SET layerTemplate.position = ${newPosition}
@@ -65,8 +71,16 @@ export const resources = {
 				      (:LyphTemplate)
 				      -[:LyphTemplateLayer]->
 				      (otherLayerTemplate:LayerTemplate)
-				WHERE otherLayerTemplate.position >= ${newPosition} AND NOT otherLayerTemplate = layerTemplate
-				SET otherLayerTemplate.position = otherLayerTemplate.position + 1
+				${oldPosition < newPosition ? `
+					WHERE ${oldPosition} < otherLayerTemplate.position  AND
+					      otherLayerTemplate.position <= ${newPosition} AND
+					      NOT otherLayerTemplate.id = ${id}
+					SET otherLayerTemplate.position = otherLayerTemplate.position - 1
+				` : `
+					WHERE ${newPosition} <= otherLayerTemplate.position AND
+					      NOT otherLayerTemplate.id = layerTemplate.id
+					SET otherLayerTemplate.position = otherLayerTemplate.position + 1
+				`}
 				WITH otherLayerTemplate
 				MATCH (otherLayerTemplate)
 				      -[:LayerTemplateInstantiation]->
@@ -108,16 +122,13 @@ export const resources = {
 			}
 
 			/* shift all the layers around based on the new position */
-			await this._setPosition({db, id, newPosition});
+			await this[setPosition]({db, id, oldPosition: Infinity, newPosition});
 
 		},
-		async afterUpdate({db, id, fields, resources}) {
-
-			/* get this layer template */
-			let [layerTemplate] = await db.getSingleResource(resources.LayerTemplate, id);
+		async afterUpdate({db, id, oldResource, fields, resources}) {
 
 			/* get that lyph template */
-			let [lyphTemplate] = await db.getSingleResource(resources.LyphTemplate, layerTemplate.lyphTemplate);
+			let [lyphTemplate] = await db.getSingleResource(resources.LyphTemplate, oldResource.lyphTemplate);
 
 			/* calculate the new position of the layer */
 			let newPosition = Math.min(
@@ -126,7 +137,7 @@ export const resources = {
 			);
 
 			/* shift all the layers around based on the new position */
-			await this._setPosition({db, id, newPosition});
+			await this[setPosition]({db, id, oldPosition: oldResource.position, newPosition});
 
 		},
 		async afterReplace({db, id, fields, resources}) {
@@ -144,7 +155,7 @@ export const resources = {
 			);
 
 			/* shift all the layers around based on the new position */
-			await this._setPosition({db, id, newPosition});
+			await this[setPosition]({db, id, oldPosition: layerTemplate.position, newPosition});
 
 		},
 		async beforeDelete({db, id}) {

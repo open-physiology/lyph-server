@@ -2,12 +2,8 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import _       from 'lodash';
-import request from 'superagent';
-import sap     from 'superagent-as-promised';
-import chai    from 'chai';
-sap(request);
-const {expect} = chai;
+import _        from 'lodash';
+import {expect} from 'chai';
 
 import supertest                  from './custom-supertest.es6.js';
 import getServer                  from '../server.es6.js';
@@ -19,7 +15,7 @@ import {resources, relationships} from '../resources.es6.js';
 // setup                                                                                                              //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* before all tests: start server, wait for it, get the supertest library rolling */
+/* before testing: start server, wait for it, get the supertest library rolling */
 let api, db;
 before(() => getServer(`${__dirname}/../`, {
 	exposeDB: true,
@@ -29,7 +25,7 @@ before(() => getServer(`${__dirname}/../`, {
 	dbPort: 7474,
 	consoleLogging: false
 }).then(({database, server}) => {
-	db = database;
+	db  = database;
 	api = supertest(Promise)(server);
 }));
 
@@ -38,16 +34,15 @@ before(() => getServer(`${__dirname}/../`, {
 // utility                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* database operations */
-const getSingleResource = (typeName, id) => db.getSingleResource(resources[typeName], id);
-const createResource = async (typeName, fields) => {
-	console.log('=========================================================================================');
-	let id     = await db.createResource(resources[typeName], fields);
-	let result = await getSingleResource(typeName, id);
-	return result[0];
-};
+/* database operations (bypassing our REST server */
+const getSingleResource = async (typeName, id)     => (await db.getSingleResource(resources[typeName], id))[0];
+const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.type, res.id));
+const createResource    = async (typeName, fields) => await getSingleResource(typeName, await db.createResource(resources[typeName], fields));
 
-/* specialized describe-functions */
+/* server request api (through our REST server) */
+const requestSingleResource = async (path) => (await api.get(path)).body[0];
+
+/* dynamically created, specialized functions and variables used in describing our tests */
 let GET, POST, PUT, DELETE;
 let type;
 let setInvalidPathParams, setValidPathParams, withInvalidPathParams, withValidPathParams;
@@ -66,7 +61,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 				/* for setting the path parameters */
 				let compiledPath = givenPath;
-				let compilePath = _.template(compiledPath, { interpolate: /{(\w+?)}/g });
+				let compilePath  = _.template(compiledPath, { interpolate: /{(\w+?)}/g });
 
 				/* the verb testers */
 				const verbTester = (verb) => (claim, expectations) => {
@@ -107,8 +102,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 				withInvalidPathParams = (desc, params, runParamTests) => {
 					if (!_.isString(desc)) { [desc, params, runParamTests] = ["invalid", desc, params] }
 					describe(`(${desc} path parameters)`, () => {
-						/* set the compiled path */
-						compiledPath = compilePath(_.isFunction(params) ? params() : params);
+						/* set the compiled path before each test */
 						beforeEach(() => { compiledPath = compilePath(_.isFunction(params) ? params() : params) });
 
 						/* run tests common to all endpoints with invalid path params  */
@@ -153,17 +147,40 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 };
 
 
+
+
+function* bla() {
+
+
+	let x = 5;
+
+	let y = 1 + 2 + yield foo();
+
+	x = 9;
+
+	console.log(y);
+	console.log(y);
+	console.log(y);
+
+
+
+}
+
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// one-time setup                                                                                                     //
+// before each test, reset the database                                                                               //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* before each test, reset the database to a set of dummy data */
+/* variables to store all resources created at the beginning of each test */
 let lyphTmp1,
 	layerTmp1, layerTmp2, layerTmp3,
 	initLayerTmp1, initLayerTmp2, initLayerTmp3,
 	lyph1,
 	layer1, layer2, layer3,
 	layer1plus, layer1minus, layer1outer, layer1inner;
+
+/* before each test, reset the database */
 beforeEach(async () => {
 
 	/* initial database clearing */
@@ -172,32 +189,24 @@ beforeEach(async () => {
 	/* lyph template */
 	lyphTmp1 = await createResource('LyphTemplate', { name: "lyph template 1" });
 
-	/* layer templates */
-	[   layerTmp1,
-		layerTmp2,
-		layerTmp3
-	] = await* _.times(3, () => createResource('LayerTemplate', { lyphTemplate: lyphTmp1.id }));
-
 	/* lyphs */
 	lyph1 = await createResource('Lyph', { name: "lyph 1", species: "dragon", template: lyphTmp1.id });
 
+	/* layer templates (in sequential order, so their positions are predictable) */
+	layerTmp1 = await createResource('LayerTemplate', { lyphTemplate: lyphTmp1.id });
+	layerTmp2 = await createResource('LayerTemplate', { lyphTemplate: lyphTmp1.id });
+	layerTmp3 = await createResource('LayerTemplate', { lyphTemplate: lyphTmp1.id });
+
 	/* layers */
-	[   layer1,
-		layer2,
-		layer3
-	] = await* [
-		layerTmp1.instantiations[0],
-		layerTmp2.instantiations[0],
-		layerTmp3.instantiations[0]
-	].map(id => getSingleResource('Layer', id));
+	layer1 = await getSingleResource('Layer', layerTmp1.instantiations[0]);
+	layer2 = await getSingleResource('Layer', layerTmp2.instantiations[0]);
+	layer3 = await getSingleResource('Layer', layerTmp3.instantiations[0]);
 
 	/* borders */
-	[   layer1plus ,
-		layer1minus,
-		layer1outer,
-		layer1inner
-	] = await* _.at(layer1, 'plus', 'minus', 'outer', 'inner')
-	            .map(id => getSingleResource('Border', id));
+	layer1plus  = await getSingleResource('Border', layer1.plus);
+	layer1minus = await getSingleResource('Border', layer1.minus);
+	layer1outer = await getSingleResource('Border', layer1.outer);
+	layer1inner = await getSingleResource('Border', layer1.inner);
 
 	// TODO: add other stuff to the database (at least one instance of each resource type)
 });
@@ -222,7 +231,8 @@ describe("swagger.json", () => {
 describe("docs", () => {
 
 	it("is an html page available through the server", () => api
-		.get('/docs').redirects(5)
+		.get('/docs')
+		.redirects(5)
 		.expect(200)
 		.expect('Content-Type', /text\/html/));
 
@@ -236,7 +246,7 @@ describeResourceType('LyphTemplate', () => {
 
 	describeEndpoint('/lyphTemplates/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
-		withInvalidPathParams("non-existing",    { id: 999999       });
+		withInvalidPathParams("non-existing", { id: 999999 });
 
 		withInvalidPathParams("wrong-type", ()=>({ id: layerTmp1.id }));
 
@@ -244,8 +254,8 @@ describeResourceType('LyphTemplate', () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
 				expect(res).to.have.property('name'           ).that.equals("lyph template 1");
-				expect(res).to.have.property('layers'         ).that.has.members([layerTmp1.id, layerTmp2.id, layerTmp3.id]);
-				expect(res).to.have.property('instantiations' ).that.has.members([lyph1.id]);
+				expect(res).to.have.property('layers'         ).with.members([ layerTmp1.id, layerTmp2.id, layerTmp3.id ]);
+				expect(res).to.have.property('instantiations' ).with.members([ lyph1.id ]);
 				expect(res).to.have.property('materialIn'     ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('materialInLyphs').that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('materials'      ).that.is.instanceOf(Array); // TODO: make specific when appropriate
@@ -261,11 +271,23 @@ describeResourceType('LyphTemplate', () => {
 
 describeResourceType('LayerTemplate', () => {
 
+	/* local utility function */
+	async function requestLayerTemplatesAndLayers() {
+		return await* [
+			requestSingleResource(`/layerTemplates/${layerTmp1.id}`),
+			requestSingleResource(`/layerTemplates/${layerTmp2.id}`),
+			requestSingleResource(`/layerTemplates/${layerTmp3.id}`),
+			requestSingleResource(`/layers/${layer1.id}`),
+			requestSingleResource(`/layers/${layer2.id}`),
+			requestSingleResource(`/layers/${layer3.id}`)
+		];
+	}
+
 	describeEndpoint('/layerTemplates',      ['GET', 'POST']);
 
 	describeEndpoint('/layerTemplates/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
-		withInvalidPathParams("non-existing",    { id: 999999      });
+		withInvalidPathParams("non-existing", { id: 999999 });
 
 		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 
@@ -273,20 +295,43 @@ describeResourceType('LayerTemplate', () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
 				expect(res).to.have.property('lyphTemplate'  ).that.equals(lyphTmp1.id);
-				expect(res).to.have.property('position'      ).that.is.within(1, 3);
-				expect(res).to.have.property('instantiations').that.has.members([layer1.id]);
+				expect(res).to.have.property('position'      ).that.equals(1);
+				expect(res).to.have.property('instantiations').that.has.members([ layer1.id ]);
 				expect(res).to.have.property('materials'     ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 			}));
 
-			POST("properly shifts layer positions around", r=>r.send({
-				position: 2
-			}).then(async () => {
-				let n_layerTmp1 = await request.get(`/layerTemplates/${layerTmp1.id}`);
-				let n_layerTmp2 = await request.get(`/layerTemplates/${layerTmp2.id}`);
-				let n_layerTmp3 = await request.get(`/layerTemplates/${layerTmp3.id}`);
+			POST("properly shifts layer positions around (1)", r=>r.send({
+				position: 2 // move position 1 to position 2
+			}).expect(200).then(async () => {
+				let [
+					n_layerTmp1, n_layerTmp2, n_layerTmp3,
+					n_layer1,    n_layer2,    n_layer3
+				] = await requestLayerTemplatesAndLayers();
 				expect(n_layerTmp1).to.have.property('position').that.equals(2);
-				expect(n_layerTmp2).to.have.property('position').that.equals(layerTmp2.position === 2 ? layerTmp1.position : layerTmp2.position);
-				expect(n_layerTmp3).to.have.property('position').that.equals(layerTmp3.position === 2 ? layerTmp1.position : layerTmp3.position);
+				expect(n_layerTmp2).to.have.property('position').that.equals(1);
+				expect(n_layerTmp3).to.have.property('position').that.equals(3);
+				expect(n_layer1)   .to.have.property('position').that.equals(2);
+				expect(n_layer2)   .to.have.property('position').that.equals(1);
+				expect(n_layer3)   .to.have.property('position').that.equals(3);
+			}));
+
+		});
+
+		withValidPathParams(()=>({ id: layerTmp3.id }), () => {
+
+			POST("properly shifts layer positions around (2)", r=>r.send({
+				position: 1 // move position 3 to position 1
+			}).expect(200).then(async () => {
+				let [
+					n_layerTmp1, n_layerTmp2, n_layerTmp3,
+					n_layer1,    n_layer2,    n_layer3
+				] = await requestLayerTemplatesAndLayers();
+				expect(n_layerTmp1).to.have.property('position').that.equals(2);
+				expect(n_layerTmp2).to.have.property('position').that.equals(3);
+				expect(n_layerTmp3).to.have.property('position').that.equals(1);
+				expect(n_layer1)   .to.have.property('position').that.equals(2);
+				expect(n_layer2)   .to.have.property('position').that.equals(3);
+				expect(n_layer3)   .to.have.property('position').that.equals(1);
 			}));
 
 		});
@@ -303,7 +348,7 @@ describeResourceType('Lyph', () => {
 
 	describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
-		withInvalidPathParams("non-existing",    { id: 999999      });
+		withInvalidPathParams("non-existing", { id: 999999 });
 
 		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 
@@ -313,7 +358,7 @@ describeResourceType('Lyph', () => {
 				expect(res).to.have.property('name'           ).that.equals("lyph 1");
 				expect(res).to.have.property('species'        ).that.equals("dragon");
 				expect(res).to.have.property('template'       ).that.equals(lyphTmp1.id);
-				expect(res).to.have.property('layers'         ).that.has.members([layer1.id, layer2.id, layer3.id]);
+				expect(res).to.have.property('layers'         ).with.members([ layer1.id, layer2.id, layer3.id ]);
 				expect(res).to.have.property('inLayers'       ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('inCompartments' ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('locatedMeasures').that.is.instanceOf(Array); // TODO: make specific when appropriate
@@ -333,7 +378,7 @@ describeResourceType('Layer', () => {
 
 	describeEndpoint('/layers/{id}', ['GET'], () => {
 
-		withInvalidPathParams("non-existing",    { id: 999999      });
+		withInvalidPathParams("non-existing", { id: 999999 });
 
 		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 
@@ -361,7 +406,7 @@ describeResourceType('Compartments', () => {
 
 	describeEndpoint('/compartments/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
-		withInvalidPathParams("non-existing",    { id: 999999      });
+		withInvalidPathParams("non-existing", { id: 999999 });
 
 		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 
@@ -386,7 +431,7 @@ describeResourceType('Border', () => {
 
 	describeEndpoint('/borders/{id}', ['GET'], () => {
 
-		withInvalidPathParams("non-existing",    { id: 999999      });
+		withInvalidPathParams("non-existing", { id: 999999 });
 
 		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 
@@ -435,7 +480,7 @@ describeResourceType('Border', () => {
 //
 //	describeEndpoint('/PATH-1/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 //
-//		withInvalidPathParams("non-existing",    { id: 999999   });
+//		withInvalidPathParams("non-existing", { id: 999999 });
 //
 //		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 //
@@ -459,7 +504,7 @@ describeResourceType('Border', () => {
 //
 //	describeEndpoint('/PATH-1/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 //
-//		withInvalidPathParams("non-existing",    { id: 999999   });
+//		withInvalidPathParams("non-existing", { id: 999999 });
 //
 //		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 //
@@ -483,7 +528,7 @@ describeResourceType('Border', () => {
 //
 //	describeEndpoint('/PATH-1/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 //
-//		withInvalidPathParams("non-existing",    { id: 999999   });
+//		withInvalidPathParams("non-existing", { id: 999999 });
 //
 //		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 //
@@ -507,7 +552,7 @@ describeResourceType('Border', () => {
 //
 //	describeEndpoint('/PATH-1/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 //
-//		withInvalidPathParams("non-existing",    { id: 999999   });
+//		withInvalidPathParams("non-existing", { id: 999999 });
 //
 //		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 //
@@ -531,7 +576,7 @@ describeResourceType('Border', () => {
 //
 //	describeEndpoint('/PATH-1/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 //
-//		withInvalidPathParams("non-existing",    { id: 999999   });
+//		withInvalidPathParams("non-existing", { id: 999999 });
 //
 //		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 //
@@ -555,7 +600,7 @@ describeResourceType('Border', () => {
 //
 //	describeEndpoint('/PATH-1/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 //
-//		withInvalidPathParams("non-existing",    { id: 999999   });
+//		withInvalidPathParams("non-existing", { id: 999999 });
 //
 //		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 //
@@ -579,7 +624,7 @@ describeResourceType('Border', () => {
 //
 //	describeEndpoint('/PATH-1/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 //
-//		withInvalidPathParams("non-existing",    { id: 999999   });
+//		withInvalidPathParams("non-existing", { id: 999999 });
 //
 //		withInvalidPathParams("wrong-type", ()=>({ id: lyphTmp1.id }));
 //

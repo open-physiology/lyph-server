@@ -28,7 +28,7 @@
     "forever": "~0.15",
     "lodash": "~3",
     "node-rest-client": "~1",
-    "promisify": "0.0.3",
+    "promisify": "~0.0",
     "swagger-express-middleware": "~0.4"
   },
   "devDependencies": {
@@ -38,8 +38,6 @@
     "chai": "~3",
     "json-loader": "~0.5",
     "mocha": "~2",
-    "superagent": "^1.4.0",
-    "superagent-as-promised": "^3.2.0",
     "supertest": "~1",
     "supertest-as-promised": "~2",
     "swagger-ui": "~2",

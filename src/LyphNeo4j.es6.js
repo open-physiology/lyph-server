@@ -41,19 +41,33 @@ import {
 // LyphNeo4j class                                                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/* Symbols for private methods */
+const runTypeSpecificHook                 = Symbol('runTypeSpecificHook');
+const assertResourceExists                = Symbol('assertResourceExists');
+const assertRelatedResourcesExists        = Symbol('assertRelatedResourcesExists');
+const assertRequiredFieldsAreGiven        = Symbol('assertRequiredFieldsAreGiven');
+const assertProperCardinalityInFields     = Symbol('assertProperCardinalityInFields');
+const assertReferencedResourcesExist      = Symbol('assertReferencedResourcesExist');
+const createImplicitRelationshipResources = Symbol('createImplicitRelationshipResources');
+const createSpecifiedRelationships        = Symbol('createSpecifiedRelationships');
+const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
+const getResourcesToDelete                = Symbol('getResourcesToDelete');
+const anythingAnchoredFromOutside         = Symbol('anythingAnchoredFromOutside');
+
+/* The LyphNeo4j class */
 export default class LyphNeo4j extends Neo4j {
 
 	////////////////////////////////////////////
 	// Common functionality for other methods //
 	////////////////////////////////////////////
 
-	async runTypeSpecificHook(type, hook, info) {
+	async [runTypeSpecificHook](type, hook, info) {
 		if (!_.isUndefined(type[hook])) {
 			await type[hook]({...info, resources, relationships, db: this});
 		}
 	}
 
-	async assertResourceExists(type, id) {
+	async [assertResourceExists](type, id) {
 		/* a query for checking existence of this resource */
 		let [{exists}] = await this.query(`
 			MATCH (n:${type.name} { id: ${id} })
@@ -70,7 +84,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	async assertRelatedResourcesExists(ids, rel) {
+	async [assertRelatedResourcesExists](ids, rel) {
 		let type = rel.otherSide.type;
 		let [{existing}] = await this.query(`
 			MATCH (n:${type.name})
@@ -94,7 +108,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	async assertRequiredFieldsAreGiven(type, fields, relSummaries) {
+	async [assertRequiredFieldsAreGiven](type, fields, relSummaries) {
 		for (let [fieldName, fieldSchema] of Object.entries(type.schema.properties)) {
 			let rel = _.find(relSummaries, { fieldName });
 			if (fieldSchema['x-required'] && !(rel && rel.implicit) && _.isUndefined(fields[fieldName])) {
@@ -111,7 +125,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	async assertProperCardinalityInFields(type, fields, relSummaries) {
+	async [assertProperCardinalityInFields](type, fields, relSummaries) {
 		for (let {fieldName, rel, given} of _.filter(relSummaries, 'given')) {
 			let tooMany = ( Array.isArray(given) && rel.fieldCardinality === 'one' );
 			let tooFew  = (!Array.isArray(given) && rel.fieldCardinality === 'many');
@@ -128,9 +142,9 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	async assertReferencedResourcesExist(type, fields, relSummaries) {
+	async [assertReferencedResourcesExist](type, fields, relSummaries) {
 		for (let {fieldName, rel, ids} of _.filter(relSummaries, 'given')) {
-			try { this.assertRelatedResourcesExists(ids, rel) }
+			try { this[assertRelatedResourcesExists](ids, rel) }
 			catch (err) {
 				Object.assign(err, {
 					type: type,
@@ -141,7 +155,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	async createImplicitRelationshipResources(type, id, fields, relSummaries) {
+	async [createImplicitRelationshipResources](type, id, fields, relSummaries) {
 		for (let relSummary of _(relSummaries).filter('implicit').reject('given').value()) {
 			let rel = relSummary.rel.otherSide;
 			let implicitId = await this.createResource(rel.type, Object.assign({
@@ -151,7 +165,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	async createSpecifiedRelationships(type, id, fields, relSummaries) {
+	async [createSpecifiedRelationships](type, id, fields, relSummaries) {
 		let relCreationStatements = _(relSummaries).filter('given').map(({rel, ids}) => {
 			let [l, r] = arrowEnds(rel);
 			return ids.map(id => `
@@ -173,7 +187,7 @@ export default class LyphNeo4j extends Neo4j {
 		// TODO: run relationship-type-specific hooks, probably by creating each relationship individually
 	}
 
-	async removeUnspecifiedRelationships(type, id, fields, relSummaries, {includeUngivenFields = false} = {}) {
+	async [removeUnspecifiedRelationships](type, id, fields, relSummaries, {includeUngivenFields = false} = {}) {
 		let relDeletionStatements = _(relSummaries).filter(includeUngivenFields ? ()=>true : 'given').map(({rel, ids}) => {
 			let [l, r] = arrowEnds(rel);
 			return `
@@ -192,7 +206,7 @@ export default class LyphNeo4j extends Neo4j {
 		// TODO: run relationship-type-specific hooks, probably by deleting each relationship individually
 	}
 
-	async getResourcesToDelete(type, id) {
+	async [getResourcesToDelete](type, id) {
 
 		/* collect nodes to delete */
 		let markedNodes = new Map();
@@ -224,10 +238,10 @@ export default class LyphNeo4j extends Neo4j {
 
 	}
 
-	async anythingAnchoredFromOutside(ids) {
-		const symmetricAnchoring = anchoringRelationships .filter((relA) =>  relA.symmetric);
-		const l2rAnchoring       = anchoringRelationships .filter((relA) => !relA.symmetric && relA.side === 1);
-		const r2lAnchoring       = anchoringRelationships .filter((relA) => !relA.symmetric && relA.side === 2);
+	async [anythingAnchoredFromOutside](ids) {
+		const symmetricAnchoring = anchoringRelationships.filter((relA) =>  relA.symmetric);
+		const l2rAnchoring       = anchoringRelationships.filter((relA) => !relA.symmetric && relA.side === 1);
+		const r2lAnchoring       = anchoringRelationships.filter((relA) => !relA.symmetric && relA.side === 2);
 		return await this.query(`
 			WITH [${ids.join(',')}] AS ids
 			${ symmetricAnchoring.length ? `
@@ -260,7 +274,7 @@ export default class LyphNeo4j extends Neo4j {
 	async getSingleResource(type, id) {
 
 		/* throw a 404 if the resource doesn't exist */
-		await this.assertResourceExists(type, id);
+		await this[assertResourceExists](type, id);
 
 		/* preparing the part of the query that adds relationship info */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(type, 'n');
@@ -297,19 +311,19 @@ export default class LyphNeo4j extends Neo4j {
 	async createResource(type, fields) {
 
 		/* if given, run a type-specific hook */
-		await this.runTypeSpecificHook(type, 'beforeCreate', { fields });
+		await this[runTypeSpecificHook](type, 'beforeCreate', { fields });
 
 		/* process relevant relationships */
 		let relSummaries = relationshipTypeSummaries(type, fields);
 
 		/* assert that all required fields are given */
-		await this.assertRequiredFieldsAreGiven(type, fields, relSummaries);
+		await this[assertRequiredFieldsAreGiven](type, fields, relSummaries);
 
 		/* if relationship cardinality is confused in the request, error out */
-		await this.assertProperCardinalityInFields(type, fields, relSummaries);
+		await this[assertProperCardinalityInFields](type, fields, relSummaries);
 
 		/* for all relationships specified in the request, assert that those resources exist */
-		await this.assertReferencedResourcesExist(type, fields, relSummaries);
+		await this[assertReferencedResourcesExist](type, fields, relSummaries);
 
 		/* the main query for creating the resource */
 		let [{id}] = await this.creationQuery(({withNewId}) => ({
@@ -324,13 +338,13 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* for all un-given relationships that should be 'implicit':     */
 		/* create the other resource and adjust the 'relSummaries' array */
-		await this.createImplicitRelationshipResources(type, id, fields, relSummaries);
+		await this[createImplicitRelationshipResources](type, id, fields, relSummaries);
 
 		/* create the required relationships */
-		await this.createSpecifiedRelationships(type, id, fields, relSummaries);
+		await this[createSpecifiedRelationships](type, id, fields, relSummaries);
 
 		/* if given, run a type-specific hook */
-		await this.runTypeSpecificHook(type, 'afterCreate', { id, fields });
+		await this[runTypeSpecificHook](type, 'afterCreate', { id, fields });
 
 		return id;
 
@@ -339,19 +353,22 @@ export default class LyphNeo4j extends Neo4j {
 	async updateResource(type, id, fields) {
 
 		/* make sure the resource exist */
-		await this.assertResourceExists(type, id);
+		await this[assertResourceExists](type, id);
+
+		/* get the current fields of the resource */
+		let [oldResource] = await this.getSingleResource(type, id);
 
 		/* if given, run a type-specific hook */
-		await this.runTypeSpecificHook(type, 'beforeUpdate', { id, fields });
+		await this[runTypeSpecificHook](type, 'beforeUpdate', { id, oldResource, fields });
 
 		/* process relevant relationships */
 		let relSummaries = relationshipTypeSummaries(type, fields);
 
 		/* if relationship cardinality is confused in the request, error out */
-		await this.assertProperCardinalityInFields(type, fields, relSummaries);
+		await this[assertProperCardinalityInFields](type, fields, relSummaries);
 
 		/* for all relationships specified in the request, assert that those resources exist */
-		await this.assertReferencedResourcesExist(type, fields, relSummaries);
+		await this[assertReferencedResourcesExist](type, fields, relSummaries);
 
 		/* the main query for creating the resource */
 		await this.query({
@@ -366,38 +383,41 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* for all un-given relationships that should be 'implicit':     */
 		/* create the other resource and adjust the 'relSummaries' array */
-		await this.createImplicitRelationshipResources(type, id, fields, relSummaries);
+		await this[createImplicitRelationshipResources](type, id, fields, relSummaries);
 
 		/* remove the relationships explicitly left out */
-		await this.removeUnspecifiedRelationships(type, id, fields, relSummaries);
+		await this[removeUnspecifiedRelationships](type, id, fields, relSummaries);
 
 		/* create the required relationships */
-		await this.createSpecifiedRelationships(type, id, fields, relSummaries);
+		await this[createSpecifiedRelationships](type, id, fields, relSummaries);
 
 		/* if given, run a type-specific hook */
-		await this.runTypeSpecificHook(type, 'afterUpdate', { id, fields });
+		await this[runTypeSpecificHook](type, 'afterUpdate', { id, oldResource, fields });
 
 	}
 
 	async replaceResource(type, id, fields) {
 
 		/* make sure the resource exist */
-		await this.assertResourceExists(type, id);
+		await this[assertResourceExists](type, id);
+
+		/* get the current fields of the resource */
+		let [oldResource] = await this.getSingleResource(type, id);
 
 		/* if given, run a type-specific hook */
-		await this.runTypeSpecificHook(type, 'beforeReplace', { id, fields });
+		await this[runTypeSpecificHook](type, 'beforeReplace', { id, oldResource, fields });
 
 		/* process relevant relationships */
 		let relSummaries = relationshipTypeSummaries(type, fields);
 
 		/* assert that all required fields are given */
-		await this.assertRequiredFieldsAreGiven(type, fields, relSummaries);
+		await this[assertRequiredFieldsAreGiven](type, fields, relSummaries);
 
 		/* if relationship cardinality is confused in the request, error out */
-		await this.assertProperCardinalityInFields(type, fields, relSummaries);
+		await this[assertProperCardinalityInFields](type, fields, relSummaries);
 
 		/* for all relationships specified in the request, assert that those resources exist */
-		await this.assertReferencedResourcesExist(type, fields, relSummaries);
+		await this[assertReferencedResourcesExist](type, fields, relSummaries);
 
 		/* the main query for creating the resource */
 		await this.query({
@@ -412,29 +432,29 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* for all un-given relationships that should be 'implicit':     */
 		/* create the other resource and adjust the 'relSummaries' array */
-		await this.createImplicitRelationshipResources(type, id, fields, relSummaries);
+		await this[createImplicitRelationshipResources](type, id, fields, relSummaries);
 
 		/* remove the relationships explicitly left out */
-		await this.removeUnspecifiedRelationships(type, id, fields, relSummaries, { includeUngivenFields: true });
+		await this[removeUnspecifiedRelationships](type, id, fields, relSummaries, { includeUngivenFields: true });
 
 		/* create the required relationships */
-		await this.createSpecifiedRelationships(type, id, fields, relSummaries);
+		await this[createSpecifiedRelationships](type, id, fields, relSummaries);
 
 		/* if given, run a type-specific hook */
-		await this.runTypeSpecificHook(type, 'afterReplace', { id, fields });
+		await this[runTypeSpecificHook](type, 'afterReplace', { id, oldResource, fields });
 
 	}
 
 	async deleteResource(type, id) {
 
 		/* throw a 404 if the resource doesn't exist */
-		await this.assertResourceExists(type, id);
+		await this[assertResourceExists](type, id);
 
 		/* get all ids+types that would be auto-deleted by deleting this particular node */
-		let dResources = await this.getResourcesToDelete(type, id);
+		let dResources = await this[getResourcesToDelete](type, id);
 
 		/* then test whether of those are still anchored, and we have to abort the delete operation */
-		let anchors = await this.anythingAnchoredFromOutside(dResources.map(_.property('id')));
+		let anchors = await this[anythingAnchoredFromOutside](dResources.map(_.property('id')));
 		if (anchors.length > 0) {
 			throw customError({
 				status: CONFLICT,
@@ -448,10 +468,11 @@ export default class LyphNeo4j extends Neo4j {
 
 		// TODO: delete one at a time so that hooks are called properly
 		// TODO: also query the connected relationships first, and delete those with the individual function too
+		// TODO: provide 'oldResource' in hooks
 
 		/* if given, run a type-specific hook */
 		await* dResources.reverse().map(({id: dId, type: dType}) =>
-				this.runTypeSpecificHook(dType, 'beforeDelete', { id: dId }));
+				this[runTypeSpecificHook](dType, 'beforeDelete', { id: dId }));
 
 		/* the main query for deleting the node */
 		await this.query(`
@@ -463,7 +484,7 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* if given, run a type-specific hook */
 		await* dResources.reverse().map(({id: dId, type: dType}) =>
-				this.runTypeSpecificHook(dType, 'afterDelete', { id: dId }));
+				this[runTypeSpecificHook](dType, 'afterDelete', { id: dId }));
 
 	}
 
@@ -472,7 +493,7 @@ export default class LyphNeo4j extends Neo4j {
 		let relB = relA.otherSide;
 
 		/* throw a 404 if the resource doesn't exist */
-		await this.assertResourceExists(relA.type, idA);
+		await this[assertResourceExists](relA.type, idA);
 
 		/* formulating and sending the query */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(relB.type, 'B');
@@ -497,8 +518,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* throw a 404 if either of the resources doesn't exist */
 		await* [
-			this.assertResourceExists(relA.type, idA),
-			this.assertResourceExists(relB.type, idB)
+			this[assertResourceExists](relA.type, idA),
+			this[assertResourceExists](relB.type, idB)
 		];
 
 		// TODO: check whether adding or deleting any relationships below violates any constraints
@@ -521,8 +542,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* throw a 404 if either of the resources doesn't exist */
 		await* [
-			this.assertResourceExists(relA.type, idA),
-			this.assertResourceExists(relB.type, idB)
+			this[assertResourceExists](relA.type, idA),
+			this[assertResourceExists](relB.type, idB)
 		];
 
 		// TODO: check whether deleting this relationship violates any constraints
