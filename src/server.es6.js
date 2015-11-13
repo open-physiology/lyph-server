@@ -7,6 +7,7 @@ import _         from 'lodash';
 import util      from 'util';
 import express   from 'express';
 import promisify from 'es6-promisify';
+import cors      from 'cors';
 const swaggerMiddleware = promisify(require('swagger-express-middleware'));
 
 /* local stuff */
@@ -180,11 +181,14 @@ export default async (distDir, config) => {
 	/* the express application */
 	let server = express();
 
-	/* load the middleware */
-	let [middleware] = await swaggerMiddleware(`${distDir}/swagger.json`, server);
-
 	/* serve swagger-ui based documentation */
 	server.use('/docs', express.static(`${distDir}/docs/`));
+
+	/* enable CORS (Cross Origin Resource Sharing) */
+	server.use(cors());
+
+	/* load the middleware */
+	let [middleware] = await swaggerMiddleware(`${distDir}/swagger.json`, server);
 
 	/* use Swagger middleware */
 	server.use(
