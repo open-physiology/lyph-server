@@ -43,9 +43,11 @@ const locatedMeasureID = (x => `${x.location} - ${x.quality}`);
 /* progress bars */
 let progress;
 function newProgress(name, length) {
-	progress = new ProgressBar(`${_(name+':').padRight(_(COLLECTIONS).map('length').max()+1)} [:bar] (:current / :total) :etas`, {
+	progress = new ProgressBar(`${_(name+':').padRight(_(COLLECTIONS).map('length').max()+1)} :bar (:current / :total) :etas`, {
 		total: length,
-		width: 80
+		width: 80,
+		complete: '█',
+		incomplete: '░'
 	});
 }
 
