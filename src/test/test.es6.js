@@ -236,6 +236,7 @@ describeResourceType('LyphTemplate', () => {
 				expect(res).to.have.property('materialIn'     ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('materialInLyphs').that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('materials'      ).that.is.instanceOf(Array); // TODO: make specific when appropriate
+				expect(res).to.have.property('locatedMeasures').that.is.instanceOf(Array); // TODO: make specific when appropriate
 			}));
 
 		});
@@ -338,7 +339,6 @@ describeResourceType('Lyph', () => {
 				expect(res).to.have.property('layers'         ).with.members([ initial.layer1.id, initial.layer2.id, initial.layer3.id ]);
 				expect(res).to.have.property('inLayers'       ).that.is.instanceOf(Array); // TODO: make specific when appropriate
 				expect(res).to.have.property('inCompartments' ).that.is.instanceOf(Array); // TODO: make specific when appropriate
-				expect(res).to.have.property('locatedMeasures').that.is.instanceOf(Array); // TODO: make specific when appropriate
 			}));
 
 		});

@@ -112,14 +112,14 @@ export const relationships = {
 		},
 		'Compartment',      $, 'lyphs',          { anchors: true }
 	],
-	LyphLocatedMeasure: [
-		'Lyph',             $, 'locatedMeasures', {
+	LyphTemplateLocatedMeasure: [
+		'LyphTemplate',     $, 'locatedMeasures', { // TODO: this should probably be 'Lyph', but we need it to be 'LyphTemplate' right now for the correlation editor (should discuss)
 			sustains:      true,
-			getSummary:    "find all located measures associated with a given lyph",
-			putSummary:    "associate a given located measure with a given lyph",
-			deleteSummary: "remove a given located measure associated with a given lyph"
+			getSummary:    "find all located measures associated with a given lyph template",
+			putSummary:    "associate a given located measure with a given lyph template",
+			deleteSummary: "remove a given located measure associated with a given lyph template"
 		},
-		'LocatedMeasure',   1, 'lyph',            {}
+		'LocatedMeasure',   1, 'lyphTemplate',    {}
 	],
 	BorderNode: [
 		'Border',           $, 'nodes',   { sustains: true },
@@ -152,6 +152,10 @@ export const relationships = {
 	CorrelationClinicalIndex: [
 		'Correlation',      $, 'clinicalIndices', { anchors: true },
 		'ClinicalIndex',    $, 'correlations',    {}
+	],
+	ClinicalIndexChildren: [
+		'ClinicalIndex',    $, 'children', {},
+		'ClinicalIndex',    $, 'parents',  {}
 	],
 	LocatedMeasureBagOfPathologies: [
 		'BagOfPathologies', $, 'locatedMeasures',   { anchors: true },
