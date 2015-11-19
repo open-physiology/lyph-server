@@ -154,11 +154,11 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 /* variables to store all resources created at the beginning of each test */
 let initial = {};
 
+/* initial database clearing */
+before(() => db.clear());
+
 /* before each test, reset the database */
 beforeEach(async () => {
-
-	/* initial database clearing */
-	await db.clear();
 
 	/* lyph template */
 	initial.lyphTmp1 = await createResource('LyphTemplate', { name: "lyph template 1" });
@@ -185,8 +185,12 @@ beforeEach(async () => {
 	// TODO: add other stuff to the database (at least one instance of each resource type)
 
 	/* refresh all resource objects */
-	Object.values(initial).forEach(refreshResource);
+	await* Object.values(initial).map(refreshResource);
+
 });
+
+/* clear database for every tear-down */
+afterEach(() => db.clear());
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

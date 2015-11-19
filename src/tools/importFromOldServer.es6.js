@@ -64,7 +64,6 @@ async function collection(name, array, filter, fID, fObj) {
 		mapID(name, fID(x), id);
 		progress.tick();
 	}
-	console.log();
 }
 
 
