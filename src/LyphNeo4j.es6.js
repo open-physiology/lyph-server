@@ -231,7 +231,7 @@ export default class LyphNeo4j extends Neo4j {
 			`).then(pluckData('n'));
 			await* nResources.map(({id, type}) => ({id, type: resources[type]})).map(recurse);
 		};
-		await* recurse({ type, id });
+		await recurse({ type, id });
 
 		/* return the nodes that would be deleted */
 		return [...markedNodes.values()];
