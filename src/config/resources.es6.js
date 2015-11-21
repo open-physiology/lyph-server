@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* libraries */
-import _ from 'lodash';
+import _ from '../libs/lodash.es6.js';
 
 /* local stuff */
 import {
@@ -91,7 +91,7 @@ export const resources = {
 		async afterCreate({db, id, fields, resources}) {
 
 			/* get that lyph template */
-			let [lyphTemplate] = await db.getSingleResource(resources.LyphTemplate, fields.lyphTemplate);
+			let [lyphTemplate] = await db.getSpecificResources(resources.LyphTemplate, [fields.lyphTemplate]);
 
 			/* calculate the position of the new layer */
 			let newPosition = Math.min(
@@ -128,7 +128,7 @@ export const resources = {
 		async afterUpdate({db, id, oldResource, fields, resources}) {
 
 			/* get that lyph template */
-			let [lyphTemplate] = await db.getSingleResource(resources.LyphTemplate, oldResource.lyphTemplate);
+			let [lyphTemplate] = await db.getSpecificResources(resources.LyphTemplate, [oldResource.lyphTemplate]);
 
 			/* calculate the new position of the layer */
 			let newPosition = Math.min(
@@ -143,10 +143,10 @@ export const resources = {
 		async afterReplace({db, id, fields, resources}) {
 
 			/* get this layer template */
-			let [layerTemplate] = await db.getSingleResource(resources.LayerTemplate, id);
+			let [layerTemplate] = await db.getSpecificResources(resources.LayerTemplate, [id]);
 
 			/* get that lyph template */
-			let [lyphTemplate] = await db.getSingleResource(resources.LyphTemplate, layerTemplate.lyphTemplate);
+			let [lyphTemplate] = await db.getSpecificResources(resources.LyphTemplate, [layerTemplate.lyphTemplate]);
 
 			/* calculate the new position of the layer */
 			let newPosition = Math.min(

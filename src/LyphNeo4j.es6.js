@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* libraries */
-import _ from 'lodash';
+import _ from './libs/lodash.es6.js';
 
 /* local stuff */
 import Neo4j from './Neo4j.es6.js';
@@ -43,7 +43,6 @@ import {
 
 /* Symbols for private methods */
 const runTypeSpecificHook                 = Symbol('runTypeSpecificHook');
-const assertResourceExists                = Symbol('assertResourceExists');
 const assertRelatedResourcesExists        = Symbol('assertRelatedResourcesExists');
 const assertRequiredFieldsAreGiven        = Symbol('assertRequiredFieldsAreGiven');
 const assertProperCardinalityInFields     = Symbol('assertProperCardinalityInFields');
@@ -64,23 +63,6 @@ export default class LyphNeo4j extends Neo4j {
 	async [runTypeSpecificHook](type, hook, info) {
 		if (!_.isUndefined(type[hook])) {
 			await type[hook]({...info, resources, relationships, db: this});
-		}
-	}
-
-	async [assertResourceExists](type, id) {
-		/* a query for checking existence of this resource */
-		let [{exists}] = await this.query(`
-			MATCH (n:${type.name} { id: ${id} })
-			RETURN count(n) > 0 AS exists
-		`);
-		/* throw the 404 error if 'exists' is false */
-		if (!exists) {
-			throw customError({
-				status:  NOT_FOUND,
-				type:    type.name,
-				id:      id,
-				message: humanMsg`The specified ${type.singular} does not exist.`
-			});
 		}
 	}
 
@@ -126,7 +108,7 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	async [assertProperCardinalityInFields](type, fields, relSummaries) {
-		for (let {fieldName, rel, given} of _.filter(relSummaries, 'given')) {
+		for (let {fieldName, rel, given} of _(relSummaries).filter('given')) {
 			let tooMany = ( Array.isArray(given) && rel.fieldCardinality === 'one' );
 			let tooFew  = (!Array.isArray(given) && rel.fieldCardinality === 'many');
 			if (tooMany || tooFew) {
@@ -143,7 +125,7 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	async [assertReferencedResourcesExist](type, fields, relSummaries) {
-		for (let {fieldName, rel, ids} of _.filter(relSummaries, 'given')) {
+		for (let {fieldName, rel, ids} of _(relSummaries).filter('given')) {
 			try { this[assertRelatedResourcesExists](ids, rel) }
 			catch (err) {
 				Object.assign(err, {
@@ -156,7 +138,7 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	async [createImplicitRelationshipResources](type, id, fields, relSummaries) {
-		for (let relSummary of _(relSummaries).filter('implicit').reject('given').value()) {
+		for (let relSummary of _(relSummaries).filter('implicit').reject('given')) {
 			let rel = relSummary.rel.otherSide;
 			let implicitId = await this.createResource(rel.type, Object.assign({
 				[rel.fieldName]: id
@@ -173,8 +155,8 @@ export default class LyphNeo4j extends Neo4j {
 				MATCH (B:${rel.otherSide.type.name} { id: ${id} })
 				CREATE UNIQUE (A) ${l}[:${rel.relationship.name}]${r} (B)
 			`);
-		}).flatten().value();
-		if (relCreationStatements.length > 0) {
+		}).flatten();
+		if (relCreationStatements.size() > 0) {
 			try {
 				await this.query(`
 					MATCH (A:${type.name} { id: ${id} })
@@ -196,8 +178,8 @@ export default class LyphNeo4j extends Neo4j {
 				WHERE NOT B.id IN [${ids.join(', ')}]
 				DELETE rel
 			`;
-		}).value();
-		if (relDeletionStatements.length > 0) {
+		});
+		if (relDeletionStatements.size() > 0) {
 			await this.query(`
 				MATCH (A:${type.name} { id: ${id} })
 				${relDeletionStatements.join(' ')}
@@ -271,23 +253,48 @@ export default class LyphNeo4j extends Neo4j {
 	// Main methods used directly for lyph-server calls //
 	//////////////////////////////////////////////////////
 
-	async getSingleResource(type, id) {
+	async assertResourcesExist(type, ids) {
+		/* eliminate duplication */
+		ids = [...new Set(ids)];
 
-		/* throw a 404 if the resource doesn't exist */
-		await this[assertResourceExists](type, id);
+		/* a query for checking existence of these resources */
+		let [{count}] = await this.query(`
+			MATCH (n:${type.name})
+			WHERE n.id IN [${ids.join(',')}]
+			RETURN count(n) AS count
+		`);
+		/* throw the 404 error if 'exists' is false */
+		if (count < ids.length) {
+			throw customError({
+				status:  NOT_FOUND,
+				type:    type.name,
+				ids:     ids,
+				message: humanMsg`Not all specified ${type.plural} exist.` // TODO: make more specific
+			});
+		}
+	}
+
+	async getSpecificResources(type, ids) {
+
+		/* throw a 404 if any of the resources don't exist */
+		await this.assertResourcesExist(type, ids);
 
 		/* preparing the part of the query that adds relationship info */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(type, 'n');
 
 		/* formulating and sending the query */
 		let results = await this.query(`
-			MATCH (n:${type.name} { id: ${id} })
+			UNWIND [${ids.join(',')}] AS id WITH id
+			MATCH (n:${type.name} { id: id })
 			${optionalMatches.join(' ')}
 			RETURN n, { ${objectMembers.join(', ')} } AS rels
 		`);
 
 		/* integrate relationship data into the resource object */
-		return results.map(({n, rels}) => Object.assign(n, rels));
+		results = results.map(({n, rels}) => Object.assign(n, rels));
+
+
+		return ids.map((id1) => results.find(({id}) => id1 === id));
 
 	}
 
@@ -352,11 +359,8 @@ export default class LyphNeo4j extends Neo4j {
 
 	async updateResource(type, id, fields) {
 
-		/* make sure the resource exist */
-		await this[assertResourceExists](type, id);
-
 		/* get the current fields of the resource */
-		let [oldResource] = await this.getSingleResource(type, id);
+		let [oldResource] = await this.getSpecificResources(type, [id]);
 
 		/* if given, run a type-specific hook */
 		await this[runTypeSpecificHook](type, 'beforeUpdate', { id, oldResource, fields });
@@ -398,11 +402,8 @@ export default class LyphNeo4j extends Neo4j {
 
 	async replaceResource(type, id, fields) {
 
-		/* make sure the resource exist */
-		await this[assertResourceExists](type, id);
-
 		/* get the current fields of the resource */
-		let [oldResource] = await this.getSingleResource(type, id);
+		let [oldResource] = await this.getSpecificResources(type, [id]);
 
 		/* if given, run a type-specific hook */
 		await this[runTypeSpecificHook](type, 'beforeReplace', { id, oldResource, fields });
@@ -447,9 +448,6 @@ export default class LyphNeo4j extends Neo4j {
 
 	async deleteResource(type, id) {
 
-		/* throw a 404 if the resource doesn't exist */
-		await this[assertResourceExists](type, id);
-
 		/* get all ids+types that would be auto-deleted by deleting this particular node */
 		let dResources = await this[getResourcesToDelete](type, id);
 
@@ -492,9 +490,6 @@ export default class LyphNeo4j extends Neo4j {
 		let type = relA.relationship;
 		let relB = relA.otherSide;
 
-		/* throw a 404 if the resource doesn't exist */
-		await this[assertResourceExists](relA.type, idA);
-
 		/* formulating and sending the query */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(relB.type, 'B');
 		let [l, r] = arrowEnds(relA);
@@ -518,8 +513,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* throw a 404 if either of the resources doesn't exist */
 		await* [
-			this[assertResourceExists](relA.type, idA),
-			this[assertResourceExists](relB.type, idB)
+			this.assertResourcesExist(relA.type, [idA]),
+			this.assertResourcesExist(relB.type, [idB])
 		];
 
 		// TODO: check whether adding or deleting any relationships below violates any constraints
@@ -542,8 +537,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* throw a 404 if either of the resources doesn't exist */
 		await* [
-			this[assertResourceExists](relA.type, idA),
-			this[assertResourceExists](relB.type, idB)
+			this.assertResourcesExist(relA.type, [idA]),
+			this.assertResourcesExist(relB.type, [idB])
 		];
 
 		// TODO: check whether deleting this relationship violates any constraints

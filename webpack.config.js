@@ -9,10 +9,10 @@ fs.readdirSync('node_modules')
 module.exports = {
 	devtool: 'source-map',
 	entry: {
-		'server/server':             ['babel/polyfill', './src/server/server.es6.js'            ],
-		'tools/buildSwaggerJSON':    ['babel/polyfill', './src/tools/buildSwaggerJSON.es6.js'   ],
-		'tools/importFromOldServer': ['babel/polyfill', './src/tools/importFromOldServer.es6.js'],
-		'test/test':                 ['babel/polyfill', './src/test/test.es6.js'                ]
+		'server/server':             ['babel/polyfill', './src/shims.es6.js', './src/server/server.es6.js'            ],
+		'tools/buildSwaggerJSON':    ['babel/polyfill', './src/shims.es6.js', './src/tools/buildSwaggerJSON.es6.js'   ],
+		'tools/importFromOldServer': ['babel/polyfill', './src/shims.es6.js', './src/tools/importFromOldServer.es6.js'],
+		'test/test':                 ['babel/polyfill', './src/shims.es6.js', './src/test/test.es6.js'                ]
 	},
 	output: {
 		path:              './dist',

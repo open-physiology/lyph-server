@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _         from 'lodash';
+import _         from './libs/lodash.es6.js';
 import util      from 'util';
 import express   from 'express';
 import promisify from 'es6-promisify';
@@ -14,14 +14,16 @@ const swaggerMiddleware = promisify(require('swagger-express-middleware'));
 import LyphNeo4j from './LyphNeo4j.es6.js';
 import swagger   from './swagger.es6';
 import {
-	debugPromise,
+	inspect,
 	customError,
 	isCustomError,
-	cleanCustomError
+	cleanCustomError,
+	sw
 } from './utility.es6.js';
 import {
 	relationships,
-	resources
+	resources,
+	algorithms
 } from './resources.es6.js';
 import {
 	OK,
@@ -49,39 +51,72 @@ const requestHandler = {
 		},
 		async post({db, type}, req, res) {
 			let id = await db.createResource(type, req.body);
-			res.status(CREATED).jsonp(await db.getSingleResource(type, id));
+			res.status(CREATED).jsonp(await db.getSpecificResources(type, [id]));
 		}
 	},
-	specificResource: {
+	specificResources: {
 		async get({db, type}, req, res) {
-			res.status(OK).jsonp(await db.getSingleResource(type, req.pathParams.id));
+			await db.assertResourcesExist(type, req.pathParams.ids);
+			res.status(OK).jsonp(await db.getSpecificResources(type, req.pathParams.ids));
 		},
 		async post({db, type}, req, res) {
+			await db.assertResourcesExist(type, [req.pathParams.id]);
 			await db.updateResource(type, req.pathParams.id, req.body);
-			res.status(OK).jsonp(await db.getSingleResource(type, req.pathParams.id));
+			res.status(OK).jsonp(await db.getSpecificResources(type, [req.pathParams.id]));
 		},
 		async put({db, type}, req, res) {
+			await db.assertResourcesExist(type, [req.pathParams.id]);
 			await db.replaceResource(type, req.pathParams.id, req.body);
-			res.status(OK).jsonp(await db.getSingleResource(type, req.pathParams.id));
+			res.status(OK).jsonp(await db.getSpecificResources(type, [req.pathParams.id]));
 		},
 		async delete({db, type, resources, relationships}, req, res) {
+			await db.assertResourcesExist(type, [req.pathParams.id]);
 			await db.deleteResource(type, req.pathParams.id);
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
 	relationships: {
 		async get({db, relA}, req, res) {
+			await db.assertResourcesExist(relA.type, [req.pathParams.idA]);
 			res.status(OK).jsonp( await db.getRelatedResources(relA, req.pathParams.idA) );
 		}
 	},
 	specificRelationship: {
 		async put({db, relA}, req, res) {
-			await db.addNewRelationship(relA, req.pathParams.idA, req.pathParams.idB);
+			let {idA, idB} = req.pathParams;
+			await* [
+				db.assertResourcesExist(relA          .type, [idA]),
+				db.assertResourcesExist(relA.otherSide.type, [idB])
+			];
+			await db.addNewRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		},
 		async delete({db, relA}, req, res) {
-			await db.deleteRelationship(relA, req.pathParams.idA, req.pathParams.idB);
+			let {idA, idB} = req.pathParams;
+			await* [
+				db.assertResourcesExist(relA          .type, [idA]),
+				db.assertResourcesExist(relA.otherSide.type, [idB])
+			];
+			await db.deleteRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
+		}
+	},
+	algorithm: {
+		async get({db, algorithmName}, req, res) {
+
+			console.log();
+
+			let result = await algorithms[algorithmName].run({
+				resources,
+				relationships,
+				algorithms,
+				db,
+				..._.pick(req, [
+					'pathParams',
+					'body'
+				])
+			});
+			res.status(result ? OK : NO_CONTENT).jsonp(result);
 		}
 	}
 };
@@ -138,16 +173,16 @@ function errorNormalizer(err, req, res, next) {
 	if (_.isArray(err) && _.isString(err[0].code) && err[0].code.startsWith('Neo.')) {
 		if (Array.isArray(err) && err.length === 1) { err = err[0] }
 		return next({
-			status:        INTERNAL_SERVER_ERROR,
-			message:       "An error occurred in the database that we did not expect. Please let us know!",
+			status:  INTERNAL_SERVER_ERROR,
+			message: "An error occurred in the database that we did not expect. Please let us know!",
 			originalError: err
 		});
 	}
 
 	/* any other errors */
 	return next({
-		status:        INTERNAL_SERVER_ERROR,
-		message:       "An error occurred on the server that we did not expect. Please let us know!",
+		status:  INTERNAL_SERVER_ERROR,
+		message: "An error occurred on the server that we did not expect. Please let us know!",
 		originalError: err
 	});
 
@@ -191,6 +226,7 @@ export default async (distDir, config) => {
 	let [middleware] = await swaggerMiddleware(`${distDir}/swagger.json`, server);
 
 	/* use Swagger middleware */
+	//noinspection JSUnresolvedFunction (there is no .d.ts file for swagger-express-middleware)
 	server.use(
 		middleware.files({ apiPath: false, rawFilesPath: '/' }),
 		middleware.metadata(),
@@ -206,8 +242,8 @@ export default async (distDir, config) => {
 		port: config.dbPort
 	});
 
-	/* create uniqueness constraints for all resource types (once per db) */
-	await* Object.keys(resources).map(_.bindKey(db, 'createUniqueIdConstraintOn'));
+	/* create uniqueness constraints for all resource types (only if database is new) */
+	await* _(resources).keys().map(r => db.createUniqueIdConstraintOn(r));
 
 	/* normalize parameter names */
 	server.use(parameterNormalizer);
@@ -216,14 +252,20 @@ export default async (distDir, config) => {
 	for (let path of Object.keys(swagger.paths)) {
 		let pathObj = swagger.paths[path];
 		let expressStylePath = path.replace(/{(\w+)}/g, ':$1');
-		for (let method of Object.keys(pathObj).filter(p => !/x-/.test(p))) {
-			let info = (['resources', 'specificResource'].includes(pathObj['x-path-type'])) ? {
-				type: resources[pathObj['x-resource-type']]
-			} : {
-				type: relationships[pathObj['x-relationship-type']],
-				relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
-				relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
-			};
+		for (let method of _(pathObj).keys().intersection(['get', 'post', 'put', 'delete'])) {
+			let info = sw(pathObj['x-path-type'])(
+				[['resources', 'specificResources'], ()=>({
+					type: resources[pathObj['x-resource-type']]
+				})],
+				[['relationships', 'specificRelationship'], ()=>({
+					type: relationships[pathObj['x-relationship-type']],
+					relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
+					relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
+				})],
+				[['algorithm'], ()=>({
+					algorithmName: pathObj['x-algorithm-name']
+				})]
+			);
 			Object.assign(info, { db });
 			server[method](expressStylePath, (req, res, next) => {
 				try { requestHandler[pathObj['x-path-type']][method](info, req, res).catch(next) }

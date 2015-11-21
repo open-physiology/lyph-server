@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import _ from '../libs/lodash.es6.js';
 
 import SuperTest from 'supertest';
 

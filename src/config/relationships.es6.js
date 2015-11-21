@@ -34,14 +34,20 @@ export const relationships = {
 		'LyphTemplate',     $, 'layers',       { sustains: true },
 		'LayerTemplate',    1, 'lyphTemplate', { indexFieldName: 'position' }
 	], // TODO: somehow unify 'indexFieldName' (if only in style) with the 'disambiguation' property used at the bottom
+	LyphTemplateChildLyphTemplate: [
+		'LyphTemplate',     $, 'children', {},
+		'LyphTemplate',     $, 'parents',  {},
+		{
+			getSummary:    "find all lyph template children of a given lyph template",
+			putSummary:    "add a given lyph template to a given lyph template as a child",
+			deleteSummary: "remove a given lyph template from a given lyph template as a child"
+		}
+	],
 	LyphTemplateMaterial: [
-		'LyphTemplate',     $, 'materials',  {
-			getSummary:    "find all lyph templates acting as materials in a given lyph template",
-			putSummary:    "add a given lyph template to a given lyph template as a material",
-			deleteSummary: "remove a given lyph template from a given lyph template as material"
-		},
-		'LyphTemplate',     $, 'materialInLyphs', {
-			// TODO: what would go wrong if this was also called 'materialIn', overloaded with the relationship type below?
+		'LyphTemplate',     $, 'materials',       {},
+		'LyphTemplate',     $, 'materialInLyphs', {},
+		// TODO: what would go wrong if this ^ was also called 'materialIn', overloaded with the relationship type below?
+		{
 			getSummary:    "find the lyph templates in which a given lyph template is a material",
 			putSummary:    "add a given lyph template to a given lyph template as a material",
 			deleteSummary: "remove a given lyph template from a given lyph template as material"

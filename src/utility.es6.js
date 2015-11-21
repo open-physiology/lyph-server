@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _    from 'lodash';
+import _    from './libs/lodash.es6.js';
 import util from 'util';
 
 
@@ -37,7 +37,7 @@ export const simpleSpaced = (str) => str.replace(/\s+/mg, ' ');
 
 export const humanMsg = (strings, ...values) => {
 	let result = strings[0];
-	for (let [val, str] of _.zip(values, strings.slice(1))) {
+	for (let [val, str] of _(values).zip(strings.slice(1))) {
 		result += val + simpleSpaced(str);
 	}
 	return _.trim(result);
@@ -49,6 +49,18 @@ export const inspect = (obj, options = {}) => {
 		depth:  2
 	}, options)));
 };
+
+export const sw = (val) => (...map) => {
+	if (map.length === 1) { // one case per result
+		return ( (val in map[0]) ? map[0][val] : map[0].default );
+	} else { // multiple cases per result, array syntax
+		for (let [cases, result] of map) {
+			if      (!cases)              { return result() } // default
+			else if (cases.includes(val)) { return result() }
+		}
+	}
+};
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -122,43 +134,3 @@ export function relationshipQueryFragments(type, nodeName) {
 	}
 	return { optionalMatches, objectMembers };
 }
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// extending some core prototypes for convenience                                                                     //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-if (!_.isFunction(Error.prototype.toJSON)) {
-	Object.defineProperty(Error.prototype, 'toJSON', {
-		value: function () {
-			var alt = {};
-			Object.getOwnPropertyNames(this).forEach(function (key) {
-				alt[key] = this[key];
-			}, this);
-			return alt;
-		},
-		configurable: true
-	});
-}
-
-if (!_.isFunction(Object.entries)) {
-	Object.defineProperty(Object, 'entries', {
-		*value(obj) {
-			for (let key of Object.keys(obj)) {
-				yield [key, obj[key]];
-			}
-		}
-	});
-}
-
-if (!_.isFunction(Object.values)) {
-	Object.defineProperty(Object, 'values', {
-		*value(obj) {
-			for (let key of Object.keys(obj)) {
-				yield obj[key];
-			}
-		}
-	});
-}
-
-

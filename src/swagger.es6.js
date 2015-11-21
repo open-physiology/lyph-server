@@ -3,11 +3,11 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _ from 'lodash';
+import _ from './libs/lodash.es6.js';
 
 /* local stuff */
-import {toCamelCase}              from './utility.es6.js';
-import {resources, relationships} from './resources.es6.js';
+import {toCamelCase}                          from './utility.es6.js';
+import {resources, relationships, algorithms} from './resources.es6.js';
 import {
 	OK,
 	CREATED,
@@ -16,6 +16,13 @@ import {
 	PRECONDITION_FAILED,
 	INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// utilities                                                                                                          //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const $ref = (type) => ({ $ref: `#/definitions/${type}` });
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,14 +60,13 @@ for (let resName of Object.keys(resources)) {
 
 let resourceEndpoints = {};
 
-const $ref = (type) => ({ $ref: `#/definitions/${type}` });
-
 function addResourceEndpoint(type) {
 
 	const {singular, abbreviation, plural, readOnly} = type;
 
 	const singularIdKey = `${abbreviation||toCamelCase(singular)}ID`;
-	const pluralKey = toCamelCase(plural);
+	const pluralIdKey   = `${abbreviation||toCamelCase(singular)}IDs`;
+	const pluralKey     = toCamelCase(plural);
 
 	resourceEndpoints[`/${pluralKey}`] = {
 		'x-path-type': 'resources',
@@ -95,25 +101,31 @@ function addResourceEndpoint(type) {
 	};
 
 	resourceEndpoints[`/${pluralKey}/{${singularIdKey}}`] = {
-		'x-path-type': 'specificResource',
-		'x-param-map': { id: singularIdKey },
+		'x-path-type': 'specificResources',
 		'x-resource-type': type.name,
+		'x-param-map': {
+			id: singularIdKey,
+			ids: singularIdKey
+		},
 		get: {
 			summary: `retrieve ${plural} by id`,
 			parameters: [{
-				name:        singularIdKey,
-				in:          'path',
-				description: `ID of the ${singular} to retrieve`,
-				required:    true,
-				type:        'integer'
+				name: singularIdKey,
+				in: 'path',
+				description: `IDs of the ${plural} to retrieve`,
+				required: true,
+				type: 'array',
+				items: { type: 'number' },
+				collectionFormat: 'csv'
 			}],
 			responses: {
 				[OK]: {
-					description: `an array containing one element: the requested ${singular}`,
+					description: `an array containing the requested ${plural} in matching order`,
 					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
 				}
 			}
 		},
+
 		...(readOnly || {
 			put: {
 				summary: `replace a given ${singular}`,
@@ -178,8 +190,8 @@ function addResourceEndpoint(type) {
 	};
 }
 
-for (let resourceName of Object.keys(resources)) {
-	addResourceEndpoint(resources[resourceName]);
+for (let resource of _(resources).values()) {
+	addResourceEndpoint(resource);
 }
 
 
@@ -298,10 +310,33 @@ function addRelationshipEndpoints(rel, direction) {
 	}
 }
 
-for (let relName of Object.keys(relationships)) {
-	let rel = relationships[relName];
+for (let rel of _(relationships).values()) {
 	if (rel[1].fieldCardinality === 'many') { addRelationshipEndpoints(rel, FORWARD ) }
 	if (rel[2].fieldCardinality === 'many') { addRelationshipEndpoints(rel, BACKWARD) }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// algorithm endpoints                                                                                                //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+let algorithmEndpoints = {};
+
+function addAlgorithmEndpoint(algorithm) {
+	let pathParamNames = algorithm.parameters.filter(p => p.in === 'path').map(p => p.name);
+	algorithmEndpoints[`/${algorithm.name}${pathParamNames.map(p => `/{${p}}`)}`] = {
+		'x-path-type': 'algorithm',
+		'x-algorithm-name': algorithm.name,
+		get: _.pick(algorithm, [
+			'summary',
+			'parameters',
+			'responses'
+		])
+	};
+}
+
+for (let algorithm of _(algorithms).values()) {
+	addAlgorithmEndpoint(algorithm);
 }
 
 
@@ -326,6 +361,7 @@ export default {
 	},
 	paths: {
 		...resourceEndpoints,
-		...relationshipEndpoints
+		...relationshipEndpoints,
+		...algorithmEndpoints
 	}
 };

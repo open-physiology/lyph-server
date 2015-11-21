@@ -2,7 +2,7 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import _        from 'lodash';
+import _        from '../libs/lodash.es6.js';
 import {expect} from 'chai';
 
 import supertest                  from './custom-supertest.es6.js';
@@ -35,7 +35,8 @@ before(() => getServer(`${__dirname}/../`, {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* database operations (bypassing our REST server */
-const getSingleResource = async (typeName, id)     => (await db.getSingleResource(resources[typeName], id))[0];
+const getResources      = async (typeName, ids)    => await db.getSpecificResources(resources[typeName], ids);
+const getSingleResource = async (typeName, id)     => (await getResources(typeName, [id]))[0];
 const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.type, res.id));
 const createResource    = async (typeName, fields) => await getSingleResource(typeName, await db.createResource(resources[typeName], fields));
 
@@ -172,9 +173,17 @@ beforeEach(async () => {
 	initial.layerTmp3 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id });
 
 	/* layers */
-	initial.layer1 = await getSingleResource('Layer', initial.layerTmp1.instantiations[0]);
-	initial.layer2 = await getSingleResource('Layer', initial.layerTmp2.instantiations[0]);
-	initial.layer3 = await getSingleResource('Layer', initial.layerTmp3.instantiations[0]);
+	[   initial.layer1,
+		initial.layer2,
+		initial.layer3
+	] = await getResources('Layer', [
+		initial.layerTmp1.instantiations[0],
+		initial.layerTmp2.instantiations[0],
+		initial.layerTmp3.instantiations[0]
+	]);
+	//initial.layer1 = await getSingleResource('Layer', initial.layerTmp1.instantiations[0]);
+	//initial.layer2 = await getSingleResource('Layer', initial.layerTmp2.instantiations[0]);
+	//initial.layer3 = await getSingleResource('Layer', initial.layerTmp3.instantiations[0]);
 
 	/* borders */
 	initial.layer1plus  = await getSingleResource('Border', initial.layer1.plus);

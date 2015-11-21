@@ -6,7 +6,7 @@
 import thenifyAll  from 'thenify-all';
 import thenify     from 'thenify';
 import ProgressBar from 'progress';
-import _           from 'lodash';
+import _           from '../libs/lodash.es6.js';
 import __          from 'highland';
 const  request     =     require('superagent-promise')(require('superagent'), Promise);
 const  fs          =     thenifyAll(require('fs'));
@@ -25,9 +25,12 @@ import {humanMsg} from '../utility.es6.js';
 const HOST = 'localhost';
 const PORT = 8888;
 const COLLECTIONS = [
-	'lyphs',
-	'pubmeds',
-	'located measures'
+	'lyphTemplates',
+	'publications',
+	'clinicalIndices',
+	'locatedMeasures',
+	'correlations',
+	'lyphTmpl Hierarchy'
 ];
 
 
@@ -56,8 +59,8 @@ function newProgress(name, length) {
 
 /* collection accumulation management */
 async function collection(name, array, filter, fID, fObj) {
-	array = _.uniq(array, fID);
-	newProgress(name, array.length);
+	array = _(array).uniq(fID);
+	newProgress(name, array.size());
 	for (let x of array) {
 		if (!filter(x)) { continue }
 		let {body:[{id}]} = await request.post(`${HOST}:${PORT}/${name}`).send(fObj(x));
@@ -80,7 +83,7 @@ async function collection(name, array, filter, fID, fObj) {
 
 
 		/* import pubmed data from csv file */
-		// originally from http://www.ncbi.nlm.nih.gov/sites/batchentrez
+		// originally extracted using http://www.ncbi.nlm.nih.gov/sites/batchentrez
 		let csvPubmed = await csvParse(require('raw!./pubmed-records.csv'), { columns: true });
 		let pubmedMap = {};
 		for (let record of csvPubmed) {
@@ -115,8 +118,7 @@ async function collection(name, array, filter, fID, fObj) {
 				.flatten()
 				.filter({ type: 'clinical index' })
 				.concat(oldServerDump['clinical indices']
-					.map(x => ({ ...x, 'clindex': x.index, 'clindex label': x.label })))
-				.value(),
+					.map(x => ({ ...x, 'clindex': x.index, 'clindex label': x.label }))),
 			()=>true,
 			x => x.clindex,
 			x => ({
@@ -128,8 +130,7 @@ async function collection(name, array, filter, fID, fObj) {
 			_(oldServerDump.correlations)
 				.map('variables')
 				.flatten()
-				.filter({ type: 'located measure' })
-				.value(),
+				.filter({ type: 'located measure' }),
 			()=>true,
 			locatedMeasureID,
 			x => ({
@@ -148,6 +149,18 @@ async function collection(name, array, filter, fID, fObj) {
 				...(x.comment ? { comment: x.comment } : {})
 			})
 		);
+
+		/* register the lyph template hierarchy */
+		await (async () => {
+			let array = _.uniq(oldServerDump.lyphs, x => x.id);
+			newProgress('LyphTmpl Hierarchy', array.length);
+			for (let parent of array) {
+				for (let {child} of parent.children) {
+					await request.put(`${HOST}:${PORT}/lyphTemplates/${idMap.lyphTemplates[parent.id]}/children/${idMap.lyphTemplates[child.id]}`);
+				}
+				progress.tick();
+			}
+		})();
 
 		/* write the id mapping to a file */
 		await fs.writeFile('./old-new-server-id-mapping.json', JSON.stringify(idMap, null, '\t'));

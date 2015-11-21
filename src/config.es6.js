@@ -1,6 +1,6 @@
 import commander from 'commander';
 import fs        from 'fs';
-import _         from 'lodash';
+import _         from './libs/lodash.es6.js';
 
 function findConfig(filename) {
 	for (let path = fs.realpathSync('.'); path !== '/'; path = fs.realpathSync(path + '/../')) {

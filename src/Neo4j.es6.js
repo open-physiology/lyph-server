@@ -2,7 +2,7 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import _                      from 'lodash';
+import _                      from './libs/lodash.es6.js';
 import {Client as RestClient} from 'node-rest-client';
 
 
