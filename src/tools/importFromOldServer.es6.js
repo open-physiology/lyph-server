@@ -69,6 +69,17 @@ async function collection(name, array, filter, fID, fObj) {
 	}
 }
 
+/* clean up the different types of FMA strings in the old db */
+const FMA_REGEX = /^(?:FMA_)(\d+)$/;
+function cleanFMA(val) {
+	if (!val)       { return }
+	if (val === '') { return }
+	if (typeof val === 'number') { return val }
+	if (typeof val !== 'string') { return }
+	let [,result] = val.match(FMA_REGEX) || [];
+	return result && parseInt(result, 10);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // import the old lyph server data                                                                                    //
@@ -98,7 +109,9 @@ async function collection(name, array, filter, fID, fObj) {
 			()=>true,
 			x => x.id,
 			x => ({
-				name: x.name || ""
+				name:  x.name || "",
+				fmaID: cleanFMA(x.fma),
+				oldID: parseInt(x.id, 10)
 			})
 		);
 		await collection('publications',
@@ -143,7 +156,7 @@ async function collection(name, array, filter, fID, fObj) {
 			()=>true,
 			x => x.id,
 			x => ({
-				publication:     parseInt(idMap.publications[x.pubmed.id]),
+				publication:     parseInt(idMap.publications[x.pubmed.id], 10),
 				locatedMeasures: x.variables.filter(v=>v.type==='located measure').map(v=>idMap.locatedMeasures[locatedMeasureID(v)]),
 				clinicalIndices: x.variables.filter(v=>v.type==='clinical index' ).map(v=>idMap.clinicalIndices[v.clindex]),
 				...(x.comment ? { comment: x.comment } : {})

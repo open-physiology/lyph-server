@@ -293,7 +293,7 @@ export default class LyphNeo4j extends Neo4j {
 		/* integrate relationship data into the resource object */
 		results = results.map(({n, rels}) => Object.assign(n, rels));
 
-
+		/* return results in proper order */
 		return ids.map((id1) => results.find(({id}) => id1 === id));
 
 	}
