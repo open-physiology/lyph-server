@@ -312,7 +312,9 @@ export const resources = {
 		plural:       "processes",
 		abbreviation: "p",
 		schema: {
-			properties: {}
+			properties: {
+				// TODO: integrate potential processes here. no need for two types
+			}
 		}
 	},
 
