@@ -65,6 +65,18 @@ export const relationships = {
 			deleteSummary: "remove a given lyph template from a given layer template as material"
 		}
 	],
+	LayerTemplateLyphIdentity: [
+		'LayerTemplate',    $, 'lyphIdentity',  {
+			getSummary:    "find all lyph templates that are equated with a given layer template",
+			putSummary:    "equate a given lyph template with a given layer template",
+			deleteSummary: "remove the equation between a given lyph template and a given layer template"
+		},
+		'LyphTemplate',     $, 'layerIdentity', {
+			getSummary:    "find all lyph templates that are equated with a given layer template",
+			putSummary:    "equate a given lyph template with a given layer template",
+			deleteSummary: "remove the equation between a given lyph template and a given layer template"
+		}
+	],
 	LyphTemplateInstantiation: [
 		'LyphTemplate',     $, 'instantiations', {
 			sustains: true,
