@@ -17,13 +17,17 @@ const  csvParse    =     thenify(require('csv-parse'));
 /* local stuff */
 import {humanMsg} from '../utility.es6.js';
 
+/* argument parsing (could auto-exit the process when --help is asked) */
+import config from '../config.es6.js';
+
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // constants                                                                                                          //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const HOST = 'localhost';
-const PORT = 8888;
+const HOST = config.host;
+const PORT = config.port;
 const COLLECTIONS = [
 	'lyphTemplates',
 	'publications',
