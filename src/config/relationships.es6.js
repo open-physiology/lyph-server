@@ -43,6 +43,15 @@ export const relationships = {
 			deleteSummary: "remove a given lyph template from a given lyph template as a child"
 		}
 	],
+	LyphTemplateSubLyphTemplate: [
+		'LyphTemplate',     $, 'subTemplates',    {},
+		'LyphTemplate',     $, 'superTemplates',  {},
+		{
+			getSummary:    "find all sub-templates of a given lyph template",
+			putSummary:    "make a given lyph template a sub-template of another given lyph template",
+			deleteSummary: "remove a given lyph template as a sub-template from another given lyph template"
+		}
+	],
 	LyphTemplateMaterial: [
 		'LyphTemplate',     $, 'materials',       {},
 		'LyphTemplate',     $, 'materialInLyphs', {},
