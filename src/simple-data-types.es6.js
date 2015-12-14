@@ -25,3 +25,14 @@ export const polaritySchema = {
 	type: 'string',
 	enum: ['plus', 'minus']
 };
+
+export const distributionSchema = {
+	type: 'object',
+	properties: {
+		type: { type: 'string' }
+	},
+	required: ['type'],
+	additionalProperties: {
+		type: 'number'
+	}
+};

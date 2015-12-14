@@ -14,7 +14,8 @@ import {
 } from '../utility.es6.js';
 import {
 	uriSchema,
-	polaritySchema
+	polaritySchema,
+	distributionSchema
 } from '../simple-data-types.es6.js';
 
 
@@ -244,14 +245,6 @@ export const resources = {
 		}
 	},
 
-	Node: {
-		singular: "node",
-		plural:   "nodes",
-		schema: {
-			properties: {}
-		}
-	},
-
 	Correlation: {
 		singular:     "correlation",
 		plural:       "correlations",
@@ -307,6 +300,14 @@ export const resources = {
 		}
 	},
 
+	Node: {
+		singular: "node",
+		plural:   "nodes",
+		schema: {
+			properties: {}
+		}
+	},
+
 	Process: {
 		singular:     "process",
 		plural:       "processes",
@@ -318,6 +319,34 @@ export const resources = {
 		}
 	},
 
+	CanonicalNode: {
+		singular: "canonical node",
+		plural:   "canonical nodes",
+		abbreviation: "cn",
+		schema: {
+			properties: {}
+		}
+	},
+
+	CanonicalProcess: {
+		singular: "canonical process",
+		plural:   "canonical processes",
+		abbreviation: "cp",
+		schema: {
+			properties: {
+				sourceBranchingFactor: { type: 'number' },
+				sourceSkipProbability: { type: 'number' },
+				targetBranchingFactor: { type: 'number' },
+				targetSkipProbability: { type: 'number' },
+				lengthDistribution: { ...distributionSchema },
+				widthDistribution:  { ...distributionSchema }
+			}
+		}
+	},
+
+	// TODO: constraint: on the side of a canonical process where there are multiple endpoints,
+	//     :           : a canonical node must be connected
+
 	PotentialProcess: {
 		singular:     "potential process",
 		plural:       "potential processes",
@@ -325,7 +354,7 @@ export const resources = {
 		schema: {
 			properties: {}
 		}
-	}
+	},
 };
 
 // TODO: LyphMap     (a sort of superclass of LyphTemplate, which also knows about thickness distributions of layers)
