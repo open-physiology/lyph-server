@@ -176,6 +176,10 @@ export const relationships = {
 		'CanonicalProcess', 1, 'target',                     {},
 		'Node',             $, `incomingCanonicalProcesses`, { sustains: true }
 	],
+	CProcessLyphTemplate: [
+		'CanonicalProcess', 1, 'lyphTemplate',       { anchors: true },
+		'LyphTemplate',     $, 'canonicalProcesses', {}
+	],
 	// TODO: Unfortunately, we're currently lacking polymorphism, so the field-names (target, canonicalTarget) need to be distinct.
 	//     : We need this polymorphism on the Swagger side and on the Neo4j side.
 	NodePotentialProcess: [

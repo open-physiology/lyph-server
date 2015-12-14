@@ -2,7 +2,14 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="3d412aa5-13de-4d66-81ab-05f0c8cfc957" name="Linode (lyph-server) (project level)" url="http://178.79.140.159">
+      <webServer id="3d412aa5-13de-4d66-81ab-05f0c8cfc957" name="Linode (lyph-server:8888)" url="http://178.79.140.159">
+        <fileTransfer host="178.79.140.159" port="22" rootFolder="/home/lyph-server" accessType="SFTP" password="dfc7dfc2dfc7dfc2df9bdf99" username="lyph-server">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="f3df03ec-a128-492a-9bc6-3de78efe75ca" name="Linode (lyph-server:8889)" url="http://178.79.140.159">
         <fileTransfer host="178.79.140.159" port="22" rootFolder="/home/lyph-server" accessType="SFTP" password="dfc7dfc2dfc7dfc2df9bdf99" username="lyph-server">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" />
