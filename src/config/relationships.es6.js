@@ -160,28 +160,16 @@ export const relationships = {
 		'Process',          1, 'target',            {},
 		'Node',             $, `incomingProcesses`, { sustains: true }
 	],
-	CNodeCProcess: [
-		'CanonicalNode',    $, 'outgoingCanonicalProcesses', { sustains: true },
-		'CanonicalProcess', 1, 'canonicalSource',            {}
+
+	CanonicalTreeLevel: [
+		'CanonicalTree',      $, 'levels', { sustains: true             },
+		'CanonicalTreeLevel', 1, 'tree',   { indexFieldName: 'position' }
 	],
-	CProcessCNode: [ // swapped sides to directionally align with above
-		'CanonicalProcess', 1, 'canonicalTarget',            {},
-		'CanonicalNode',    $, `incomingCanonicalProcesses`, { sustains: true }
+	CanonicalTreeLevelTemplate: [
+		'CanonicalTreeLevel', 1, 'template',            {},
+		'LyphTemplate',       $, 'canonicalTreeLevels', { sustains: true }
 	],
-	NodeCProcess: [
-		'Node',             $, 'outgoingCanonicalProcesses', { sustains: true },
-		'CanonicalProcess', 1, 'source',                     {}
-	],
-	CProcessNode: [ // swapped sides to directionally align with above
-		'CanonicalProcess', 1, 'target',                     {},
-		'Node',             $, `incomingCanonicalProcesses`, { sustains: true }
-	],
-	CProcessLyphTemplate: [
-		'CanonicalProcess', 1, 'lyphTemplate',       { anchors: true },
-		'LyphTemplate',     $, 'canonicalProcesses', {}
-	],
-	// TODO: Unfortunately, we're currently lacking polymorphism, so the field-names (target, canonicalTarget) need to be distinct.
-	//     : We need this polymorphism on the Swagger side and on the Neo4j side.
+
 	NodePotentialProcess: [
 		'Node',             $, 'outgoingPotentialProcesses', { sustains: true },
 		'PotentialProcess', 1, 'source',                     {}
@@ -251,3 +239,5 @@ for (let side of ['plus', 'minus', 'inner', 'outer']) {
 		}
 	];
 }
+
+// TODO: We need polymorphism on the Swagger side and on the Neo4j side.

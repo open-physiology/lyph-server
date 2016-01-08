@@ -319,40 +319,35 @@ export const resources = {
 		}
 	},
 
-	CanonicalNode: {
-		singular: "canonical node",
-		plural:   "canonical nodes",
-		abbreviation: "cn",
-		schema: {
-			properties: {}
-		}
-	},
-
-	CanonicalProcess: {
-		singular: "canonical process",
-		plural:   "canonical processes",
-		abbreviation: "cp",
-		schema: {
-			properties: {
-				sourceBranchingFactor: { type: 'number' },
-				sourceSkipProbability: { type: 'number' },
-				targetBranchingFactor: { type: 'number' },
-				targetSkipProbability: { type: 'number' },
-				lengthDistribution: { ...distributionSchema },
-				widthDistribution:  { ...distributionSchema }
-			}
-		}
-	},
-
-	// TODO: constraint: on the side of a canonical process where there are multiple endpoints,
-	//     :           : a canonical node must be connected
-
 	PotentialProcess: {
 		singular:     "potential process",
 		plural:       "potential processes",
 		abbreviation: "pp",
 		schema: {
 			properties: {}
+		}
+	},
+
+	CanonicalTree: {
+		singular: "canonical tree",
+		plural: "canonical trees",
+		abbreviation: "ct",
+		schema: {
+			properties: {}
+		}
+	},
+
+	CanonicalTreeLevel: {
+		singular: "canonical tree level",
+		plural:   "canonical tree level",
+		abbreviation: "ctl",
+		schema: {
+			properties: {
+				branchingFactor:    { type: 'number' },
+				skipProbability:    { type: 'number' },
+				lengthDistribution: { ...distributionSchema },
+				widthDistribution:  { ...distributionSchema }
+			}
 		}
 	},
 };
