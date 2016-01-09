@@ -348,6 +348,89 @@ export const resources = {
 				lengthDistribution: { ...distributionSchema },
 				widthDistribution:  { ...distributionSchema }
 			}
+		},
+		async [setPosition]({db, id, oldPosition, newPosition}) {
+			if (oldPosition === newPosition) { return }
+			await db.query([`
+				MATCH (canonicalTreeLevel:CanonicalTreeLevel { id: ${id} })
+				SET canonicalTreeLevel.position = ${newPosition}
+			`, `
+				MATCH (canonicalTreeLevel:CanonicalTreeLevel { id: ${id} })
+				      <-[:CanonicalTreeLevel]-
+				      (:CanonicalTree)
+				      -[:CanonicalTreeLevel]->
+				      (otherCanonicalTreeLevel:CanonicalTreeLevel)
+				${oldPosition < newPosition ? `
+					WHERE ${oldPosition} < otherCanonicalTreeLevel.position  AND
+					      otherCanonicalTreeLevel.position <= ${newPosition} AND
+					      NOT otherCanonicalTreeLevel.id = ${id}
+					SET otherCanonicalTreeLevel.position = otherCanonicalTreeLevel.position - 1
+				` : `
+					WHERE ${newPosition} <= otherCanonicalTreeLevel.position AND
+					      NOT otherCanonicalTreeLevel.id = canonicalTreeLevel.id
+					SET otherCanonicalTreeLevel.position = otherCanonicalTreeLevel.position + 1
+				`}
+			`]);
+		},
+		async afterCreate({db, id, fields, resources}) {
+
+			/* get that tree level */
+			let [tree] = await db.getSpecificResources(resources.CanonicalTree, [fields.tree]);
+
+			/* calculate the position of the new tree level */
+			let newPosition = Math.min(
+				tree.levels.length,
+				_.isNumber(fields.position) ? fields.position : tree.levels.length
+			);
+
+			/* shift all the tree levels around based on the new position */
+			await this[setPosition]({db, id, oldPosition: Infinity, newPosition});
+
+		},
+		async afterUpdate({db, id, oldResource, fields, resources}) {
+
+			/* get that tree */
+			let [tree] = await db.getSpecificResources(resources.CanonicalTree, [oldResource.tree]);
+
+			/* calculate the new position of the tree level */
+			let newPosition = Math.min(
+				tree.levels.length,
+				_.isNumber(fields.position) ? fields.position : tree.levels.length
+			);
+
+			/* shift all the tree levels around based on the new position */
+			await this[setPosition]({db, id, oldPosition: oldResource.position, newPosition});
+
+		},
+		async afterReplace({db, id, fields, resources}) {
+
+			/* get this tree level */
+			let [treeLevel] = await db.getSpecificResources(resources.CanonicalTreeLevel, [id]);
+
+			/* get that tree */
+			let [tree] = await db.getSpecificResources(resources.CanonicalTree, [treeLevel.tree]);
+
+			/* calculate the new position of the tree level */
+			let newPosition = Math.min(
+				tree.levels.length,
+				_.isNumber(fields.position) ? fields.position : tree.levels.length
+			);
+
+			/* shift all the tree levels around based on the new position */
+			await this[setPosition]({db, id, oldPosition: treeLevel.position, newPosition});
+
+		},
+		async beforeDelete({db, id}) {
+			/* shift level positioning after deletion of this tree level */
+			await db.query(`
+				MATCH (otherCanonicalTreeLevel:CanonicalTreeLevel)
+				      <-[:CanonicalTreeLevel]-
+				      (:CanonicalTree)
+				      -[:CanonicalTreeLevel]->
+				      (canonicalTreeLevel:CanonicalTreeLevel { id: ${id} })
+				WHERE otherCanonicalTreeLevel.position > canonicalTreeLevel.position
+				SET otherCanonicalTreeLevel.position = otherCanonicalTreeLevel.position - 1
+			`);
 		}
 	},
 };
