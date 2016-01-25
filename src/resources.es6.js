@@ -6,7 +6,7 @@
 import _ from './libs/lodash.es6.js';
 
 /* local stuff */
-import {toCamelCase, a}                          from './utility.es6.js';
+import {a}                                       from './utility.es6.js';
 import {resources     as specifiedResources}     from './config/resources.es6.js';
 import {relationships as specifiedRelationships} from './config/relationships.es6.js';
 import {algorithms    as specifiedAlgorithms}    from './config/algorithms.es6.js';

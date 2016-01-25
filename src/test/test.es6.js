@@ -168,9 +168,9 @@ beforeEach(async () => {
 	initial.lyph1 = await createResource('Lyph', { name: "lyph 1", species: "dragon", template: initial.lyphTmp1.id });
 
 	/* layer templates (in sequential order, so their positions are predictable) */
-	initial.layerTmp1 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id });
-	initial.layerTmp2 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id });
-	initial.layerTmp3 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id });
+	initial.layerTmp1 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id, thickness: { min: 1, max: 2 } });
+	initial.layerTmp2 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id, thickness: { min: 2, max: 5 } });
+	initial.layerTmp3 = await createResource('LayerTemplate', { lyphTemplate: initial.lyphTmp1.id, thickness: { min: 3, max: 9 } });
 
 	/* layers */
 	[   initial.layer1,
@@ -289,6 +289,7 @@ describeResourceType('LayerTemplate', () => {
 				expect(res).to.have.property('position'      ).that.equals(1);
 				expect(res).to.have.property('instantiations').with.members([ initial.layer1.id ]);
 				expect(res).to.have.property('materials'     ).that.is.instanceOf(Array); // TODO: make specific when appropriate
+				expect(res).to.have.property('thickness'     ).that.deep.equals({ min: 1, max: 2 });
 			}));
 
 			POST("properly shifts layer positions around (1)", r=>r.send({

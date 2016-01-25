@@ -10,7 +10,8 @@ import Neo4j from './Neo4j.es6.js';
 import {
 	customError,
 	pluckData,
-	dbOnly,
+	dataToNeo4j,
+	neo4jToData,
 	arrowEnds,
 	relationshipQueryFragments,
 	humanMsg,
@@ -291,7 +292,7 @@ export default class LyphNeo4j extends Neo4j {
 		`);
 
 		/* integrate relationship data into the resource object */
-		results = results.map(({n, rels}) => Object.assign(n, rels));
+		results = results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(type, res));
 
 		/* return results in proper order */
 		return ids.map((id1) => results.find(({id}) => id1 === id));
@@ -311,7 +312,7 @@ export default class LyphNeo4j extends Neo4j {
 		`);
 
 		/* integrate relationship data into the resource object */
-		return results.map(({n, rels}) => Object.assign(n, rels));
+		return results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(type, res));
 
 	}
 
@@ -340,7 +341,7 @@ export default class LyphNeo4j extends Neo4j {
 				SET n += {dbProperties}
 				RETURN newID as id
 			`,
-			parameters: {  dbProperties: dbOnly(type, fields)  }
+			parameters: {  dbProperties: dataToNeo4j(type, fields)  } // TODO: serialize nested objects/arrays
 		}));
 
 		/* for all un-given relationships that should be 'implicit':     */
@@ -382,7 +383,7 @@ export default class LyphNeo4j extends Neo4j {
 				SET n.id   =  ${id}
 				SET n.type = "${type.name}"
 			`,
-			parameters: {  dbProperties: dbOnly(type, fields)  }
+			parameters: {  dbProperties: dataToNeo4j(type, fields)  } // TODO: serialize nested objects/arrays
 		});
 
 		/* for all un-given relationships that should be 'implicit':     */
@@ -428,7 +429,7 @@ export default class LyphNeo4j extends Neo4j {
 				SET n.id   =  ${id}
 				SET n.type = "${type.name}"
 			`,
-			parameters: {  dbProperties: dbOnly(type, fields)  }
+			parameters: {  dbProperties: dataToNeo4j(type, fields)  } // TODO: serialize nested objects/arrays
 		});
 
 		/* for all un-given relationships that should be 'implicit':     */
@@ -502,7 +503,7 @@ export default class LyphNeo4j extends Neo4j {
 		`);
 
 		/* integrate relationship data into the resource object */
-		return results.map(({B, rels}) => Object.assign(B, rels));
+		return results.map(({B, rels}) => Object.assign(B, rels)).map((res) => neo4jToData(relB.type, res));
 
 	}
 

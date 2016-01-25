@@ -17,7 +17,7 @@ export default class Neo4j {
 	constructor(config) {
 		/* set up */
 		this.config = config;
-		this[_restClient] = new RestClient({ user: this.config.user, password: this.config.pass});
+		this[_restClient] = new RestClient({ user: this.config.user, password: this.config.pass });
 		this[_waitingFor] = Promise.resolve();
 
 		/* initialize database if not yet done */
@@ -97,7 +97,7 @@ export default class Neo4j {
 	 * @returns {Promise} the promise representing the database query finishing (and its return value if applicable)
 	 */
 	creationQuery(statements) {
-		statements = statements({
+		let statements2 = statements({
 			withNewId: (newIdName) => `
 				MATCH (UID:UID)
 				SET UID.counter = UID.counter + 1
@@ -116,16 +116,16 @@ export default class Neo4j {
 				     ${preserve.map(p => `, ${p}`).join('')}
 			`
 		});
-		if (!Array.isArray(statements)) { statements = [statements] }
+		if (!Array.isArray(statements2)) { statements2 = [statements2] }
 		return this.query([`
 			MATCH (UID:UID)
 			SET UID.__lock = true
 			RETURN UID.__lock
-		`, ...statements, `
+		`, ...statements2, `
 			MATCH (UID:UID)
 			SET UID.__lock = false
 			RETURN UID.__lock
-		`], statements.length);
+		`], statements2.length);
 	}
 
 	createUniqueIdConstraintOn(label) {

@@ -50,10 +50,12 @@ export const resources = {
 			properties: {
 				name:      { type: 'string' },
 				thickness: {
-					type:     'array', // [min, max]
-					items:    { type: 'number', minimum: 0 },
-					minItems: 2,
-					maxItems: 2
+					type: 'object',
+					properties: {
+						min: { type: 'number' },
+						max: { type: 'number' }
+					},
+					required: ['min', 'max']
 				}
 			}
 		},
@@ -434,6 +436,3 @@ export const resources = {
 		}
 	},
 };
-
-// TODO: LyphMap     (a sort of superclass of LyphTemplate, which also knows about thickness distributions of layers)
-//     : LyphFactory (a superclass of LyphMap, which also has outside thickness distribution)

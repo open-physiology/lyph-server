@@ -82,11 +82,22 @@ export const pluckData  = (name) => (res) => res.map((obj) => obj[name]);
 /* get a specific field from the first row returned from a Neo4j response */
 export const pluckDatum = (name) => (res) => (res[0] ? res[0][name] : null);
 
-/* to pick only those properties that should not be skipped from the database */
-export const dbOnly = (type, allProperties) => _.omit(allProperties, (__, prop) =>
-	type.schema.properties[prop] &&
-	type.schema.properties[prop]['x-skip-db']
-);
+/* prepare an object to be sent directly to Neo4j */
+export const dataToNeo4j = (type, properties) => _(properties).omit((__, key) =>
+	type.schema.properties[key] &&
+	type.schema.properties[key]['x-skip-db']
+).mapValues((val, key) => sw(type.schema.properties[key] && type.schema.properties[key].type)(
+	[['object', 'array'],()=> JSON.stringify(val)],
+	[                   ,()=>                val ]
+)).value();
+
+/* get an object from Neo4j and prepare it to be sent over the lyph-server API */
+export const neo4jToData = (type, properties) => {
+	return _(properties).mapValues((val, key) => sw(type.schema.properties[key] && !type.schema.properties[key]['x-skip-db'] && type.schema.properties[key].type)(
+		[['object', 'array'],()=> JSON.parse(val)],
+		[                   ,()=>            val ]
+	)).value();
+};
 
 /* to get the arrow-parts for a Cypher relationship */
 export const arrowEnds = (relA) => (relA.symmetric)  ? [' -','- '] :
