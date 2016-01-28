@@ -335,7 +335,9 @@ export const resources = {
 		plural: "canonical trees",
 		abbreviation: "ct",
 		schema: {
-			properties: {}
+			properties: {
+				name: { type: 'string' }
+			}
 		}
 	},
 
@@ -345,6 +347,7 @@ export const resources = {
 		abbreviation: "ctl",
 		schema: {
 			properties: {
+				name:               { type: 'string' },
 				branchingFactor:    { type: 'number' },
 				skipProbability:    { type: 'number' },
 				lengthDistribution: { ...distributionSchema },
