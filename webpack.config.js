@@ -12,6 +12,7 @@ module.exports = {
 		'server/server':             ['babel/polyfill', './src/shims.es6.js', './src/server/server.es6.js'            ],
 		'tools/buildSwaggerJSON':    ['babel/polyfill', './src/shims.es6.js', './src/tools/buildSwaggerJSON.es6.js'   ],
 		'tools/importFromOldServer': ['babel/polyfill', './src/shims.es6.js', './src/tools/importFromOldServer.es6.js'],
+		'tools/exportRows':          ['babel/polyfill', './src/shims.es6.js', './src/tools/exportRows.es6.js'],
 		'test/test':                 ['babel/polyfill', './src/shims.es6.js', './src/test/test.es6.js'                ]
 	},
 	output: {
