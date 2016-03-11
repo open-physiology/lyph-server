@@ -20,7 +20,7 @@ let api, db;
 before(() => getServer(`${__dirname}/../`, {
 	exposeDB: true,
 	dbUser: 'neo4j',
-	dbPass: 'neo4j',
+	dbPass: 'mhmh13',
 	dbHost: 'localhost',
 	dbPort: 7474,
 	consoleLogging: false
@@ -194,7 +194,7 @@ beforeEach(async () => {
 	// TODO: add other stuff to the database (at least one instance of each resource type)
 
 	/* refresh all resource objects */
-	await* Object.values(initial).map(refreshResource);
+	await Promise.all(Object.values(initial).map(refreshResource));
 
 });
 
@@ -264,14 +264,14 @@ describeResourceType('LayerTemplate', () => {
 
 	/* local utility function */
 	async function requestLayerTemplatesAndLayers() {
-		return await* [
+		return await Promise.all([
 			requestSingleResource(`/layerTemplates/${initial.layerTmp1.id}`),
 			requestSingleResource(`/layerTemplates/${initial.layerTmp2.id}`),
 			requestSingleResource(`/layerTemplates/${initial.layerTmp3.id}`),
 			requestSingleResource(`/layers/${initial.layer1.id}`),
 			requestSingleResource(`/layers/${initial.layer2.id}`),
 			requestSingleResource(`/layers/${initial.layer3.id}`)
-		];
+		]);
 	}
 
 	describeEndpoint('/layerTemplates',      ['GET', 'POST']);

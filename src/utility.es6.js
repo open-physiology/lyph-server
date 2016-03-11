@@ -30,6 +30,11 @@ export function def(object, field, defaultValue) {
 	return object[field];
 }
 
+export const or = (v, ...rest) => {
+	if (typeof v !== undefined) { return v }
+	return or(rest);
+};
+
 export const a = (object, field) => def(object, field, []);
 export const o = (object, field) => def(object, field, {});
 

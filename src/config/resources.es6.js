@@ -60,6 +60,7 @@ export const resources = {
 			}
 		},
 		async [setPosition]({db, id, oldPosition, newPosition}) {
+			// TODO: Fix bug
 			if (oldPosition === newPosition) { return }
 			//console.log(`oldPosition = ${oldPosition},  newPosition = ${newPosition}`);
 			await db.query([`
@@ -355,6 +356,7 @@ export const resources = {
 			}
 		},
 		async [setPosition]({db, id, oldPosition, newPosition}) {
+			// TODO: Fix bug
 			if (oldPosition === newPosition) { return }
 			await db.query([`
 				MATCH (canonicalTreeLevel:CanonicalTreeLevel { id: ${id} })

@@ -8,6 +8,7 @@ import _ from './libs/lodash.es6.js';
 /* local stuff */
 import Neo4j from './Neo4j.es6.js';
 import {
+	or,
 	customError,
 	pluckData,
 	dataToNeo4j,
@@ -63,7 +64,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	async [runTypeSpecificHook](type, hook, info) {
 		if (!_.isUndefined(type[hook])) {
-			await type[hook]({...info, resources, relationships, db: this});
+			return or(await type[hook]({...info, resources, relationships, db: this}), {});
 		}
 	}
 
@@ -212,7 +213,7 @@ export default class LyphNeo4j extends Neo4j {
 				WITH DISTINCT n
 				RETURN { id: n.id, type: n.type } AS n
 			`).then(pluckData('n'));
-			await* nResources.map(({id, type}) => ({id, type: resources[type]})).map(recurse);
+			await Promise.all(nResources.map(({id, type}) => ({id, type: resources[type]})).map(recurse));
 		};
 		await recurse({ type, id });
 
@@ -255,6 +256,11 @@ export default class LyphNeo4j extends Neo4j {
 	//////////////////////////////////////////////////////
 
 	async assertResourcesExist(type, ids) {
+
+		/* is there a hook to completely replace entity retrieval? */
+		let result = await this[runTypeSpecificHook](type, 'assertResourcesExist', { ids });
+		if (result) { return Array.isArray() ? result : [result] }
+
 		/* eliminate duplication */
 		ids = [...new Set(ids)];
 
@@ -276,6 +282,10 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	async getSpecificResources(type, ids) {
+
+		/* is there a hook to completely replace entity retrieval? */
+		let result = await this[runTypeSpecificHook](type, 'getSpecific', { ids });
+		if (result) { return Array.isArray() ? result : [result] }
 
 		/* throw a 404 if any of the resources don't exist */
 		await this.assertResourcesExist(type, ids);
@@ -301,6 +311,10 @@ export default class LyphNeo4j extends Neo4j {
 
 	async getAllResources(type) {
 
+		/* is there a hook to completely replace entity retrieval? */
+		let result = await this[runTypeSpecificHook](type, 'getAll', {});
+		if (result) { return result }
+
 		/* preparing the part of the query that adds relationship info */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(type, 'n');
 
@@ -318,6 +332,10 @@ export default class LyphNeo4j extends Neo4j {
 
 	async createResource(type, fields) {
 
+		/* is there a hook to completely replace entity creation? */
+		let id = await this[runTypeSpecificHook](type, 'create', { fields });
+		if (id) { return id }
+
 		/* if given, run a type-specific hook */
 		await this[runTypeSpecificHook](type, 'beforeCreate', { fields });
 
@@ -334,7 +352,7 @@ export default class LyphNeo4j extends Neo4j {
 		await this[assertReferencedResourcesExist](type, fields, relSummaries);
 
 		/* the main query for creating the resource */
-		let [{id}] = await this.creationQuery(({withNewId}) => ({
+		[{id}] = await this.creationQuery(({withNewId}) => ({
 			statement: `
 				${withNewId('newID')}
 				CREATE (n:${type.name} { id: newID, type: "${type.name}" })
@@ -359,6 +377,10 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	async updateResource(type, id, fields) {
+
+		/* is there a hook to completely replace entity updates? */
+		let hooked = await this[runTypeSpecificHook](type, 'update', { id, fields });
+		if (hooked) { return }
 
 		/* get the current fields of the resource */
 		let [oldResource] = await this.getSpecificResources(type, [id]);
@@ -402,6 +424,10 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	async replaceResource(type, id, fields) {
+
+		/* is there a hook to completely replace entity replacement? */
+		let hooked = await this[runTypeSpecificHook](type, 'replace', { id, fields });
+		if (hooked) { return }
 
 		/* get the current fields of the resource */
 		let [oldResource] = await this.getSpecificResources(type, [id]);
@@ -449,6 +475,10 @@ export default class LyphNeo4j extends Neo4j {
 
 	async deleteResource(type, id) {
 
+		/* is there a hook to completely replace entity deletion? */
+		let hooked = await this[runTypeSpecificHook](type, 'delete', { id });
+		if (hooked) { return }
+
 		/* get all ids+types that would be auto-deleted by deleting this particular node */
 		let dResources = await this[getResourcesToDelete](type, id);
 
@@ -470,8 +500,8 @@ export default class LyphNeo4j extends Neo4j {
 		// TODO: provide 'oldResource' in hooks
 
 		/* if given, run a type-specific hook */
-		await* dResources.reverse().map(({id: dId, type: dType}) =>
-				this[runTypeSpecificHook](dType, 'beforeDelete', { id: dId }));
+		await Promise.all(dResources.reverse().map(({id: dId, type: dType}) =>
+				this[runTypeSpecificHook](dType, 'beforeDelete', { id: dId })));
 
 		/* the main query for deleting the node */
 		await this.query(`
@@ -482,8 +512,8 @@ export default class LyphNeo4j extends Neo4j {
 		`);
 
 		/* if given, run a type-specific hook */
-		await* dResources.reverse().map(({id: dId, type: dType}) =>
-				this[runTypeSpecificHook](dType, 'afterDelete', { id: dId }));
+		await Promise.all(dResources.reverse().map(({id: dId, type: dType}) =>
+				this[runTypeSpecificHook](dType, 'afterDelete', { id: dId })));
 
 	}
 
@@ -513,10 +543,10 @@ export default class LyphNeo4j extends Neo4j {
 		let relB = relA.otherSide;
 
 		/* throw a 404 if either of the resources doesn't exist */
-		await* [
+		await Promise.all([
 			this.assertResourcesExist(relA.type, [idA]),
 			this.assertResourcesExist(relB.type, [idB])
-		];
+		]);
 
 		// TODO: check whether adding or deleting any relationships below violates any constraints
 		// TODO: maybe an existing relationship with idB needs to be deleted because this one is added
@@ -537,10 +567,10 @@ export default class LyphNeo4j extends Neo4j {
 		let relB = relA.otherSide;
 
 		/* throw a 404 if either of the resources doesn't exist */
-		await* [
+		await Promise.all([
 			this.assertResourcesExist(relA.type, [idA]),
 			this.assertResourcesExist(relB.type, [idB])
-		];
+		]);
 
 		// TODO: check whether deleting this relationship violates any constraints
 

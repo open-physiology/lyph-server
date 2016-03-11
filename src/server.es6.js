@@ -84,19 +84,19 @@ const requestHandler = {
 	specificRelationship: {
 		async put({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await* [
+			await Promise.all([
 				db.assertResourcesExist(relA          .type, [idA]),
 				db.assertResourcesExist(relA.otherSide.type, [idB])
-			];
+			]);
 			await db.addNewRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		},
 		async delete({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await* [
+			await Promise.all([
 				db.assertResourcesExist(relA          .type, [idA]),
 				db.assertResourcesExist(relA.otherSide.type, [idB])
-			];
+			]);
 			await db.deleteRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		}
@@ -243,7 +243,7 @@ export default async (distDir, config) => {
 	});
 
 	/* create uniqueness constraints for all resource types (only if database is new) */
-	await* _(resources).keys().map(r => db.createUniqueIdConstraintOn(r));
+	await Promise.all(_(resources).keys().map(r => db.createUniqueIdConstraintOn(r)));
 
 	/* normalize parameter names */
 	server.use(parameterNormalizer);
