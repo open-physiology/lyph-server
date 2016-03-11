@@ -35,11 +35,11 @@ export const resources = {
 		abbreviation: "lyphTmp",
 		schema: {
 			properties: {
-				name:  { type: 'string', 'x-required': true },
-				fmaID: { type: 'number' },
-				oldID: { type: 'number' },
-				lengthDistribution: { ...distributionSchema },
-				widthDistribution:  { ...distributionSchema }
+				name:   { type: 'string', 'x-required': true },
+				fmaID:  { type: 'number' },
+				oldID:  { type: 'number' },
+				length: { ...distributionSchema },
+				radius: { ...distributionSchema }
 			}
 		}
 	},
