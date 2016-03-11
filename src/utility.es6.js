@@ -121,7 +121,7 @@ export function relationshipTypeSummaries(type, fields) {
 		fieldName: rel.fieldName,
 		given:     (!rel.disambiguation || _.matches(rel.disambiguation)(fields)) ? fields[rel.fieldName] : undefined,
 		implicit:  rel.implicit,
-		get ids()  { return (rel.fieldCardinality === 'one') ? [this.given] : this.given }
+		get ids()  { return (rel.fieldCardinality === 'many') ? this.given : [this.given] }
 	}));
 }
 

@@ -6,7 +6,7 @@
 import _ from './libs/lodash.es6.js';
 
 /* local stuff */
-import {a}                                       from './utility.es6.js';
+import {a, sw}                                   from './utility.es6.js';
 import {resources     as specifiedResources}     from './config/resources.es6.js';
 import {relationships as specifiedRelationships} from './config/relationships.es6.js';
 import {algorithms    as specifiedAlgorithms}    from './config/algorithms.es6.js';
@@ -39,10 +39,6 @@ for (let relName of Object.keys(specifiedRelationships)) {
 		typeName2, fieldCardinality2, fieldName2, options2,
 		options
 	] = specifiedRelationships[relName];
-
-	/* normalize the ONE cardinality (MANY is already good coming from 'config/relationships.es6.js') */
-	if (fieldCardinality1 === 1) { fieldCardinality1 = 'one' }
-	if (fieldCardinality2 === 1) { fieldCardinality2 = 'one' }
 
 	/* creating the relationship object */
 	if (!options1) { options1 = {} }
@@ -86,28 +82,32 @@ for (let relName of Object.keys(specifiedRelationships)) {
 		if (rel[i].anchors)  {  anchoringRelationships .push(rel[i])  }
 
 		/* a field pointing to the related entity|-ies */
-		if (rel[i].fieldCardinality === 'one') {
-			rel[i].type.schema.properties[rel[i].fieldName] = {
+		rel[i].type.schema.properties[rel[i].fieldName] = sw(rel[i].fieldCardinality)({
+			'one': {
 				...idSchema,
 				'x-skip-db':  true,
 				'x-required': true
-			};
-		} else {
-			rel[i].type.schema.properties[rel[i].fieldName] = {
+			},
+			'optional': {
+				...idSchema,
+				'x-skip-db':  true,
+				'x-required': false
+			},
+			'many': {
 				type: 'array',
 				items: idSchema,
 				'x-skip-db':  true,
 				default: []
 				//'x-required': true // TODO: an empty array is assumed
-			};
-		}
+			}
+		});
 
 		/* a field containing the index this entity occupies in the related entity */
-		if (rel[i].fieldCardinality === 'one' && rel[i].otherSide.fieldCardinality === 'many' && rel[i].indexFieldName) {
+		if (rel[i].fieldCardinality !== 'many' && rel[i].otherSide.fieldCardinality === 'many' && rel[i].indexFieldName) {
 			rel[i].type.schema.properties[rel[i].indexFieldName] = {
 				type: 'integer',
 				minimum: 0
-				//'x-required': true // TODO: the default value should be 'at the end'; how to express this?
+				//'x-required': true // TODO: the default value should be 'at the end'; how to express this? (maybe use Infinity?)
 			};
 		}
 

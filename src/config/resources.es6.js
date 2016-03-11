@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* libraries */
-import _ from '../libs/lodash.es6.js';
+import _, {isNumber} from '../libs/lodash.es6.js';
 
 /* local stuff */
 import {
@@ -102,7 +102,7 @@ export const resources = {
 			/* calculate the position of the new layer */
 			let newPosition = Math.min(
 				lyphTemplate.layers.length,
-				_.isNumber(fields.position) ? fields.position : lyphTemplate.layers.length
+				isNumber(fields.position) ? fields.position : lyphTemplate.layers.length
 			);
 
 			/* set correct positions for existing layer templates and layers, and return info on relevant lyphs */
@@ -139,7 +139,7 @@ export const resources = {
 			/* calculate the new position of the layer */
 			let newPosition = Math.min(
 				lyphTemplate.layers.length,
-				_.isNumber(fields.position) ? fields.position : oldResource.position
+				isNumber(fields.position) ? fields.position : oldResource.position
 			);
 
 			/* shift all the layers around based on the new position */
@@ -157,7 +157,7 @@ export const resources = {
 			/* calculate the new position of the layer */
 			let newPosition = Math.min(
 				lyphTemplate.layers.length,
-				_.isNumber(fields.position) ? fields.position : lyphTemplate.layers.length
+				isNumber(fields.position) ? fields.position : lyphTemplate.layers.length
 			);
 
 			/* shift all the layers around based on the new position */
@@ -188,7 +188,6 @@ export const resources = {
 			properties: {
 				name:     { type: 'string', 'x-required': true },
 				species:  { type: 'string', 'x-required': true },
-				length:   { type: 'number', minimum: 0 },
 				closedAt: {
 					type:        'array',
 					items:       polaritySchema,
@@ -242,7 +241,7 @@ export const resources = {
 	Border: {
 		singular: "border",
 		plural:   "borders",
-		readOnly: true, // four borders are added automatically to all layers
+		readOnly: true, // four borders are added automatically to all layers and lyphs
 		schema: {
 			properties: {}
 		}
@@ -384,7 +383,7 @@ export const resources = {
 			/* calculate the position of the new tree level */
 			let newPosition = Math.min(
 				tree.levels.length,
-				_.isNumber(fields.position) ? fields.position : tree.levels.length
+				isNumber(fields.position) ? fields.position : tree.levels.length
 			);
 
 			/* shift all the tree levels around based on the new position */
@@ -399,7 +398,7 @@ export const resources = {
 			/* calculate the new position of the tree level */
 			let newPosition = Math.min(
 				tree.levels.length,
-				_.isNumber(fields.position) ? fields.position : oldResource.position
+				isNumber(fields.position) ? fields.position : oldResource.position
 			);
 
 			/* shift all the tree levels around based on the new position */
@@ -417,7 +416,7 @@ export const resources = {
 			/* calculate the new position of the tree level */
 			let newPosition = Math.min(
 				tree.levels.length,
-				_.isNumber(fields.position) ? fields.position : tree.levels.length
+				isNumber(fields.position) ? fields.position : tree.levels.length
 			);
 
 			/* shift all the tree levels around based on the new position */

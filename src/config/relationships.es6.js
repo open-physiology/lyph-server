@@ -28,15 +28,20 @@
 // - options1.putSummary:    an explanation in English of the corresponding REST endpoint for HTTP PUT
 // - options1.deleteSummary: an explanation in English of the corresponding REST endpoint for HTTP DELETE
 
-const $ = 'many';
+/* cardinality abbreviations */
+const _$ = 'many';
+const _1 = 'one';
+const _0 = 'optional';
+
+/* the full list of relationships */
 export const relationships = {
 	LyphTemplateLayer: [
-		'LyphTemplate',     $, 'layers',       { sustains: true },
-		'LayerTemplate',    1, 'lyphTemplate', { indexFieldName: 'position' }
+		'LyphTemplate',     _$, 'layers',       { sustains: true },
+		'LayerTemplate',    _1, 'lyphTemplate', { indexFieldName: 'position' }
 	], // TODO: somehow unify 'indexFieldName' (if only in style) with the 'disambiguation' property used at the bottom
 	LyphTemplateChildLyphTemplate: [
-		'LyphTemplate',     $, 'children', {},
-		'LyphTemplate',     $, 'parents',  {},
+		'LyphTemplate',     _$, 'children', {},
+		'LyphTemplate',     _$, 'parents',  {},
 		{
 			getSummary:    "find all lyph template children of a given lyph template",
 			putSummary:    "add a given lyph template to a given lyph template as a child",
@@ -44,8 +49,8 @@ export const relationships = {
 		}
 	],
 	LyphTemplateSubLyphTemplate: [
-		'LyphTemplate',     $, 'subTemplates',    {},
-		'LyphTemplate',     $, 'superTemplates',  {},
+		'LyphTemplate',     _$, 'subTemplates',    {},
+		'LyphTemplate',     _$, 'superTemplates',  {},
 		{
 			getSummary:    "find all sub-templates of a given lyph template",
 			putSummary:    "make a given lyph template a sub-template of another given lyph template",
@@ -53,8 +58,8 @@ export const relationships = {
 		}
 	],
 	LyphTemplateMaterial: [
-		'LyphTemplate',     $, 'materials',       {},
-		'LyphTemplate',     $, 'materialInLyphs', {},
+		'LyphTemplate',     _$, 'materials',       {},
+		'LyphTemplate',     _$, 'materialInLyphs', {},
 		// TODO: what would go wrong if this ^ was also called 'materialIn', overloaded with the relationship type below?
 		{
 			getSummary:    "find the lyph templates in which a given lyph template is a material",
@@ -63,66 +68,66 @@ export const relationships = {
 		}
 	],
 	LayerTemplateMaterial: [
-		'LayerTemplate',    $, 'materials',  {
+		'LayerTemplate',    _$, 'materials',  {
 			getSummary:    "find all lyph templates acting as materials in a given layer template",
 			putSummary:    "add a given lyph template to a given layer template as a material",
 			deleteSummary: "remove a given lyph template from a given layer template as material"
 		},
-		'LyphTemplate',     $, 'materialIn', {
+		'LyphTemplate',     _$, 'materialIn', {
 			getSummary:    "find the layer templates in which a given lyph template is a material",
 			putSummary:    "add a given lyph template to a given layer template as a material",
 			deleteSummary: "remove a given lyph template from a given layer template as material"
 		}
 	],
 	LayerTemplateLyphIdentity: [
-		'LayerTemplate',    $, 'lyphIdentity',  {
+		'LayerTemplate',    _$, 'lyphIdentity',  {
 			getSummary:    "find all lyph templates that are equated with a given layer template",
 			putSummary:    "equate a given lyph template with a given layer template",
 			deleteSummary: "remove the equation between a given lyph template and a given layer template"
 		},
-		'LyphTemplate',     $, 'layerIdentity', {
+		'LyphTemplate',     _$, 'layerIdentity', {
 			getSummary:    "find all lyph templates that are equated with a given layer template",
 			putSummary:    "equate a given lyph template with a given layer template",
 			deleteSummary: "remove the equation between a given lyph template and a given layer template"
 		}
 	],
 	LyphTemplateInstantiation: [
-		'LyphTemplate',     $, 'instantiations', {
+		'LyphTemplate',     _$, 'instantiations', {
 			sustains: true,
 			getSummary: "find all lyphs instantiated from a given lyph template"
 		},
-		'Lyph',             1, 'template',       {},
+		'Lyph',             _1, 'template',       {},
 		{ readOnly: true } // instantiation has a single template from creation
 	],
 	LayerTemplateInstantiation: [
-		'LayerTemplate',    $, 'instantiations', {
+		'LayerTemplate',    _$, 'instantiations', {
 			sustains: true,
 			getSummary: "find all layers instantiated from a given layer template"
 		},
-		'Layer',            1, 'template',       {},
+		'Layer',            _1, 'template',       {},
 		{ readOnly: true } // instantiation has a single template from creation
 	],
 	LyphLayer: [
-		'Lyph',             $, 'layers', { sustains: true },
-		'Layer',            1, 'lyph',   { indexFieldName: 'position' },
+		'Lyph',             _$, 'layers', { sustains: true },
+		'Layer',            _1, 'lyph',   { indexFieldName: 'position' },
 		{ readOnly: true } // layers sync through templates
 	],
 	LayerChildLyph: [
-		'Layer',            $, 'childLyphs', {
+		'Layer',            _$, 'childLyphs', {
 			sustains:      true,
 			getSummary:    "find all lyphs that are located in a given layer",
 			putSummary:    "add a given lyph into a given layer",
 			deleteSummary: "remove a given lyph from inside a given layer"
 		},
-		'Lyph',             $, 'inLayers',   {
+		'Lyph',             _$, 'inLayers',   {
 			getSummary:    "find the layer(s) in which a given lyph is located",
 			putSummary:    "add a given lyph to a given layer location",
 			deleteSummary: "remove a given lyph from a given layer location"
 		}
 	],
 	LayerCoalescence: [
-		'Layer',            $, 'coalescesWith', {},
-		'Layer',            $, 'coalescesWith', {},
+		'Layer',            _$, 'coalescesWith', {},
+		'Layer',            _$, 'coalescesWith', {},
 		{
 			symmetric:     true,
 			antiReflexive: true,
@@ -132,93 +137,93 @@ export const relationships = {
 		}
 	],
 	LyphInCompartment: [
-		'Lyph',             $, 'inCompartments', {
+		'Lyph',             _$, 'inCompartments', {
 			getSummary:    "find all compartments in which a given lyph is a member",
 			putSummary:    "add a given lyph to a given compartment as a member",
 			deleteSummary: "remove a given lyph from a given compartment as a member"
 		},
-		'Compartment',      $, 'lyphs',          { anchors: true }
+		'Compartment',      _$, 'lyphs',          { anchors: true }
 	],
 	LyphTemplateLocatedMeasure: [
-		'LyphTemplate',     $, 'locatedMeasures', { // TODO: this should probably be 'Lyph', but we need it to be 'LyphTemplate' right now for the correlation editor (should discuss)
+		'LyphTemplate',     _$, 'locatedMeasures', { // TODO: this should probably be 'Lyph', but we need it to be 'LyphTemplate' right now for the correlation editor (should discuss)
 			sustains:      true,
 			getSummary:    "find all located measures associated with a given lyph template",
 			putSummary:    "associate a given located measure with a given lyph template",
 			deleteSummary: "remove a given located measure associated with a given lyph template"
 		},
-		'LocatedMeasure',   1, 'lyphTemplate',    {}
+		'LocatedMeasure',   _1, 'lyphTemplate',    {}
 	],
 	BorderNode: [
-		'Border',           $, 'nodes',   { sustains: true },
-		'Node',             $, 'borders', {}
+		'Border',           _$, 'nodes',   { sustains: true },
+		'Node',             _$, 'borders', {}
 	],
 	NodeProcess: [
-		'Node',             $, 'outgoingProcesses', { sustains: true },
-		'Process',          1, 'source',            {}
+		'Node',             _$, 'outgoingProcesses', { sustains: true },
+		'Process',          _1, 'source',            {}
 	],
 	ProcessNode: [ // swapped sides to directionally align with above
-		'Process',          1, 'target',            {},
-		'Node',             $, `incomingProcesses`, { sustains: true }
+		'Process',          _1, 'target',            {},
+		'Node',             _$, 'incomingProcesses', { sustains: true }
 	],
 
 	CanonicalTreeLevel: [
-		'CanonicalTree',      $, 'levels', { sustains: true             },
-		'CanonicalTreeLevel', 1, 'tree',   { indexFieldName: 'position' }
+		'CanonicalTree',      _$, 'levels', { sustains: true             },
+		'CanonicalTreeLevel', _1, 'tree',   { indexFieldName: 'position' }
 	],
 	CanonicalTreeLevelTemplate: [
-		'CanonicalTreeLevel', 1, 'template',            {},
-		'LyphTemplate',       $, 'canonicalTreeLevels', { sustains: true }
+		'CanonicalTreeLevel', _1, 'template',            {},
+		'LyphTemplate',       _$, 'canonicalTreeLevels', { sustains: true }
 	],
 
 	NodePotentialProcess: [
-		'Node',             $, 'outgoingPotentialProcesses', { sustains: true },
-		'PotentialProcess', 1, 'source',                     {}
+		'Node',             _$, 'outgoingPotentialProcesses', { sustains: true },
+		'PotentialProcess', _1, 'source',                     {}
 	],
 	PotentialProcessNode: [ // swapped sides to directionally align with above
-		'PotentialProcess', 1, 'target',                     {},
-		'Node',             $, `incomingPotentialProcesses`, { sustains: true }
+		'PotentialProcess', _1, 'target',                     {},
+		'Node',             _$, `incomingPotentialProcesses`, { sustains: true }
 	],
 	CorrelationPublication: [
-		'Correlation',      1, 'publication',   { anchors: true },
-		'Publication',      $, 'correlations',  {}
+		'Correlation',      _0, 'publication',   { anchors: true },
+		'Publication',      _$, 'correlations',  {}
 	],
 	CorrelationLocatedMeasure: [
-		'Correlation',      $, 'locatedMeasures', { anchors: true },
-		'LocatedMeasure',   $, 'correlations',    {}
+		'Correlation',      _$, 'locatedMeasures', { anchors: true },
+		'LocatedMeasure',   _$, 'correlations',    {}
 	],
 	CorrelationClinicalIndex: [
-		'Correlation',      $, 'clinicalIndices', { anchors: true },
-		'ClinicalIndex',    $, 'correlations',    {}
+		'Correlation',      _$, 'clinicalIndices', { anchors: true },
+		'ClinicalIndex',    _$, 'correlations',    {}
 	],
 	ClinicalIndexChildren: [
-		'ClinicalIndex',    $, 'children', {},
-		'ClinicalIndex',    $, 'parents',  {}
+		'ClinicalIndex',    _$, 'children', {},
+		'ClinicalIndex',    _$, 'parents',  {}
 	],
 	LocatedMeasureBagOfPathologies: [
-		'BagOfPathologies', $, 'locatedMeasures',   { anchors: true },
-		'LocatedMeasure',   $, 'bagsOfPathologies', {}
+		'BagOfPathologies', _$, 'locatedMeasures',   { anchors: true },
+		'LocatedMeasure',   _$, 'bagsOfPathologies', {}
 	],
 	BagOfPathologiesRemovedProcess: [
-		'BagOfPathologies', $, 'removedProcesses',           {
+		'BagOfPathologies', _$, 'removedProcesses',           {
 			anchors:       true,
 			getSummary:    "find all processes 'removed' by a given bag of pathologies",
 			putSummary:    "make a given bag of pathologies 'remove' a given process",
 			deleteSummary: "stop a given bag of pathologies from 'removing' a given process"
 		},
-		'Process',          $, 'removedByBagsOfPathologies', {
+		'Process',          _$, 'removedByBagsOfPathologies', {
 			getSummary:    "find all bags of pathologies that 'remove' a given process",
 			putSummary:    "make a given bag of pathologies 'remove' a given process",
 			deleteSummary: "stop a given bag of pathologies from 'removing' a given process"
 		}
 	],
 	BagOfPathologiesAddedProcess: [
-		'BagOfPathologies', $, 'addedProcesses',           {
+		'BagOfPathologies', _$, 'addedProcesses',           {
 			anchors:       true,
 			getSummary:    "find all potential processes 'added' by a given bag of pathologies",
 			putSummary:    "make a given bag of pathologies 'add' a given potential process",
 			deleteSummary: "stop a given bag of pathologies from 'adding' a given potential process"
 		},
-		'PotentialProcess', $, 'addedByBagsOfPathologies', {
+		'PotentialProcess', _$, 'addedByBagsOfPathologies', {
 			getSummary:    "find all bags of pathologies that 'add' a given potential process",
 			putSummary:    "make a given bag of pathologies 'add' a given potential process",
 			deleteSummary: "stop a given bag of pathologies from 'adding' a given potential process"
@@ -229,15 +234,26 @@ export const relationships = {
 /* adding these four relationships through a loop, to avoid duplication */
 for (let side of ['plus', 'minus', 'inner', 'outer']) {
 	relationships[`LayerBorder_${side}`] = [
-		'Layer',  1,  side,   {
+		'Layer',  _1,  side,   {
 			sustains: true,
 			anchors:  true,
 			implicit: true
 		},
-		'Border', 1, 'layer', {
+		'Border', _0, 'layer', { // a border is either of a layer or of a lyph
 			disambiguation: { side }
 		}
 	];
+	relationships[`LyphBorder_${side}`] = [
+		'Lyph',   _1,  side,   {
+			sustains: true,
+			anchors:  true,
+			implicit: true
+		},
+		'Border', _0, 'lyph', { // a border is either of a layer or of a lyph
+			disambiguation: { side }
+		}
+	];
+	// TODO: polymorphism on the field in Border would be better than this _0 optionality
 }
 
 // TODO: We need polymorphism on the Swagger side and on the Neo4j side.

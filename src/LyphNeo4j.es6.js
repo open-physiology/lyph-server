@@ -77,7 +77,7 @@ export default class LyphNeo4j extends Neo4j {
 		`);
 		let nonexisting = _.difference(ids, existing);
 		if (nonexisting.length > 0) {
-			let c = (rel.fieldCardinality === 'one') ? 'singular' : 'plural';
+			let c = (rel.fieldCardinality === 'many') ? 'plural' : 'singular';
 			throw customError({
 				status:  NOT_FOUND,
 				type:    type.name,
@@ -111,7 +111,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	async [assertProperCardinalityInFields](type, fields, relSummaries) {
 		for (let {fieldName, rel, given} of _(relSummaries).filter('given')) {
-			let tooMany = ( Array.isArray(given) && rel.fieldCardinality === 'one' );
+			let tooMany = ( Array.isArray(given) && rel.fieldCardinality !== 'many' );
 			let tooFew  = (!Array.isArray(given) && rel.fieldCardinality === 'many');
 			if (tooMany || tooFew) {
 				throw customError({
