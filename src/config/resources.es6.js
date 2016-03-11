@@ -62,9 +62,7 @@ export const resources = {
 			}
 		},
 		async [setPosition]({db, id, oldPosition, newPosition}) {
-			// TODO: Fix bug
 			if (oldPosition === newPosition) { return }
-			//console.log(`oldPosition = ${oldPosition},  newPosition = ${newPosition}`);
 			await db.query([`
 				MATCH (layerTemplate:LayerTemplate { id: ${id} })
 				SET layerTemplate.position = ${newPosition}
@@ -141,7 +139,7 @@ export const resources = {
 			/* calculate the new position of the layer */
 			let newPosition = Math.min(
 				lyphTemplate.layers.length,
-				_.isNumber(fields.position) ? fields.position : lyphTemplate.layers.length
+				_.isNumber(fields.position) ? fields.position : oldResource.position
 			);
 
 			/* shift all the layers around based on the new position */
@@ -356,7 +354,6 @@ export const resources = {
 			}
 		},
 		async [setPosition]({db, id, oldPosition, newPosition}) {
-			// TODO: Fix bug
 			if (oldPosition === newPosition) { return }
 			await db.query([`
 				MATCH (canonicalTreeLevel:CanonicalTreeLevel { id: ${id} })
@@ -402,7 +399,7 @@ export const resources = {
 			/* calculate the new position of the tree level */
 			let newPosition = Math.min(
 				tree.levels.length,
-				_.isNumber(fields.position) ? fields.position : tree.levels.length
+				_.isNumber(fields.position) ? fields.position : oldResource.position
 			);
 
 			/* shift all the tree levels around based on the new position */

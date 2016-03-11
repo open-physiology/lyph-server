@@ -307,6 +307,21 @@ describeResourceType('LayerTemplate', () => {
 				expect(layer3)   .to.have.property('position').that.equals(3);
 			}));
 
+			POST("properly keeps layers in place when position is not changed", r=>r.send({
+				name: "some other name"
+			}).expect(200).then(async () => {
+				let [
+					layerTmp1, layerTmp2, layerTmp3,
+					layer1,    layer2,    layer3
+				] = await requestLayerTemplatesAndLayers();
+				expect(layerTmp1).to.have.property('position').that.equals(1);
+				expect(layerTmp2).to.have.property('position').that.equals(2);
+				expect(layerTmp3).to.have.property('position').that.equals(3);
+				expect(layer1)   .to.have.property('position').that.equals(1);
+				expect(layer2)   .to.have.property('position').that.equals(2);
+				expect(layer3)   .to.have.property('position').that.equals(3);
+			}));
+
 		});
 
 		withValidPathParams(()=>({ id: initial.layerTmp3.id }), () => {
