@@ -1,4 +1,4 @@
-import _ from '../libs/lodash.es6.js';
+import {pick} from '../libs/lodash.es6.js';
 
 import SuperTest from 'supertest';
 
@@ -7,7 +7,7 @@ Object.assign(SuperTest.Test.prototype, {
 		return this.expect((res) => {
 			if (!Object.keys(fields).every((key) => res.body[0][key] === fields[key])) {
 				let error = new Error("Expected response body to have different field values.");
-				error.actual   = _.pick(res.body[0], Object.keys(fields));
+				error.actual   = pick(res.body[0], Object.keys(fields));
 				error.expected = fields;
 				throw error;
 			}

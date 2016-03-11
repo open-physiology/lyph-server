@@ -3,11 +3,10 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _         from './libs/lodash.es6.js';
-import util      from 'util';
-import express   from 'express';
-import promisify from 'es6-promisify';
-import cors      from 'cors';
+import _, {isArray, isString} from './libs/lodash.es6.js';
+import express                from 'express';
+import promisify              from 'es6-promisify';
+import cors                   from 'cors';
 const swaggerMiddleware = promisify(require('swagger-express-middleware'));
 
 /* local stuff */
@@ -111,7 +110,7 @@ const requestHandler = {
 				relationships,
 				algorithms,
 				db,
-				..._.pick(req, [
+				...pick(req, [
 					'pathParams',
 					'body'
 				])
@@ -170,7 +169,7 @@ function errorNormalizer(err, req, res, next) {
 	}
 
 	/* Neo4j errors */
-	if (_.isArray(err) && _.isString(err[0].code) && err[0].code.startsWith('Neo.')) {
+	if (isArray(err) && isString(err[0].code) && err[0].code.startsWith('Neo.')) {
 		if (Array.isArray(err) && err.length === 1) { err = err[0] }
 		return next({
 			status:  INTERNAL_SERVER_ERROR,

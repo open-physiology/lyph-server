@@ -3,8 +3,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _    from './libs/lodash.es6.js';
-import util from 'util';
+import _, {trim, matches} from './libs/lodash.es6.js';
+import util               from 'util';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,7 +45,7 @@ export const humanMsg = (strings, ...values) => {
 	for (let [val, str] of _(values).zip(strings.slice(1))) {
 		result += val + simpleSpaced(str);
 	}
-	return _.trim(result);
+	return trim(result);
 };
 
 export const inspect = (obj, options = {}) => {
@@ -119,7 +119,7 @@ export function relationshipTypeSummaries(type, fields) {
 	return type.relationships.map(rel => ({
 		rel,
 		fieldName: rel.fieldName,
-		given:     (!rel.disambiguation || _.matches(rel.disambiguation)(fields)) ? fields[rel.fieldName] : undefined,
+		given:     (!rel.disambiguation || matches(rel.disambiguation)(fields)) ? fields[rel.fieldName] : undefined,
 		implicit:  rel.implicit,
 		get ids()  { return (rel.fieldCardinality === 'many') ? this.given : [this.given] }
 	}));

@@ -1,7 +1,6 @@
 /* import lodash (and our Object shims) */
 import _ from '../../node_modules/lodash';
 import '../shims.es6.js';
-import util from 'util';
 
 
 /* remove _ from global context */
@@ -13,20 +12,27 @@ const LodashWrapper = _([]).constructor;
 
 
 /* make it @@iterator compatible */
-Object.assign(LodashWrapper.prototype, {
+if (!LodashWrapper.prototype[Symbol.iterator]) {
+	Object.assign(LodashWrapper.prototype, {
 
-	[Symbol.iterator]() {
-		let value = this.value();
-		if (_.isPlainObject(value)) {
-			return Object.entries(value)[Symbol.iterator]();
-		} else {
-			return value[Symbol.iterator]();
+		[Symbol.iterator]() {
+			let value = this.value();
+			if (_.isPlainObject(value)) {
+				return Object.entries(value)[Symbol.iterator]();
+			} else {
+				return value[Symbol.iterator]();
+			}
 		}
-	},
+		
+	});
+}
+if (!LodashWrapper.prototype.entries) {
+	Object.assign(LodashWrapper.prototype, {
 
-	entries() { return this.pairs() }
+		entries() { return this.pairs() }
 
-});
+	});
+}
 
 
 /* re-export */

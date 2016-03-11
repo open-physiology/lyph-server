@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libraries */
-import _ from './libs/lodash.es6.js';
+import {cloneDeep} from './libs/lodash.es6.js';
 
 /* local stuff */
 import {a, sw}                                   from './utility.es6.js';
@@ -17,7 +17,7 @@ import {idSchema}                                from './simple-data-types.es6.j
 // processing resources                                                                                               //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export let resources = _.cloneDeep(specifiedResources);
+export let resources = cloneDeep(specifiedResources);
 
 for (let resName of Object.keys(resources)) {
 	resources[resName].name = resName;
@@ -83,15 +83,15 @@ for (let relName of Object.keys(specifiedRelationships)) {
 
 		/* a field pointing to the related entity|-ies */
 		rel[i].type.schema.properties[rel[i].fieldName] = sw(rel[i].fieldCardinality)({
-			'one': {
-				...idSchema,
-				'x-skip-db':  true,
-				'x-required': true
-			},
 			'optional': {
 				...idSchema,
 				'x-skip-db':  true,
 				'x-required': false
+			},
+			'one': {
+				...idSchema,
+				'x-skip-db':  true,
+				'x-required': true
 			},
 			'many': {
 				type: 'array',
@@ -127,7 +127,7 @@ for (let relName of Object.keys(specifiedRelationships)) {
 // processing algorithms                                                                                              //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export let algorithms = _.cloneDeep(specifiedAlgorithms);
+export let algorithms = cloneDeep(specifiedAlgorithms);
 
 for (let algName of Object.keys(algorithms)) {
 	algorithms[algName].name = algName;

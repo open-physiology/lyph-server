@@ -6,8 +6,7 @@
 import thenifyAll  from 'thenify-all';
 import thenify     from 'thenify';
 import ProgressBar from 'progress';
-import _           from '../libs/lodash.es6.js';
-import __          from 'highland';
+import _, {uniq}   from '../libs/lodash.es6.js';
 const  request     =     require('superagent-promise')(require('superagent'), Promise);
 const  fs          =     thenifyAll(require('fs'));
 const  csvParse    =     thenify(require('csv-parse'));
@@ -169,7 +168,7 @@ function cleanFMA(val) {
 
 		/* register the lyph template hierarchy */
 		await (async () => {
-			let array = _.uniq(oldServerDump.lyphs, x => x.id);
+			let array = uniq(oldServerDump.lyphs, x => x.id);
 			newProgress('LyphTmpl Hierarchy', array.length);
 			for (let parent of array) {
 				for (let {child} of parent.children) {

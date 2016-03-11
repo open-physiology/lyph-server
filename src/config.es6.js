@@ -1,6 +1,6 @@
 import commander from 'commander';
 import fs        from 'fs';
-import _         from './libs/lodash.es6.js';
+import {without} from './libs/lodash.es6.js';
 
 function findConfig(filename) {
 	for (let path = fs.realpathSync('.'); path !== '/'; path = fs.realpathSync(path + '/../')) {
@@ -15,7 +15,7 @@ function findConfig(filename) {
 
 commander
 	.option('-c, --config [file]', "a JSON configuration file", 'config.json')
-	.parse(_.without(process.argv, 'help', '--help', 'h')); // do not trigger help yet at this stage
+	.parse(without(process.argv, 'help', '--help', 'h')); // do not trigger help yet at this stage
 
 let config = findConfig(commander.config);
 

@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _ from './libs/lodash.es6.js';
+import _, {cloneDeep, pick} from './libs/lodash.es6.js';
 
 /* local stuff */
 import {toCamelCase}                          from './utility.es6.js';
@@ -36,7 +36,7 @@ for (let resName of Object.keys(resources)) {
 	swaggerDataTypes[resName] = {
 		'x-resource-type': type.name,
 		type:       'object',
-		properties: _.cloneDeep(type.schema.properties)
+		properties: cloneDeep(type.schema.properties)
 	};
 	let required = [...Object.entries(type.schema.properties)]
 			.filter(([fieldName, {'x-required': required}]) => required)
@@ -46,7 +46,7 @@ for (let resName of Object.keys(resources)) {
 		'x-resource-type': type.name,
 		type: 'object',
 		properties: (() => {
-			let properties = _.cloneDeep(type.schema.properties);
+			let properties = cloneDeep(type.schema.properties);
 			for (let prop of Object.values(properties)) { delete prop.default }
 			return properties;
 		})()
@@ -327,7 +327,7 @@ function addAlgorithmEndpoint(algorithm) {
 	algorithmEndpoints[`/${algorithm.name}${pathParamNames.map(p => `/{${p}}`)}`] = {
 		'x-path-type': 'algorithm',
 		'x-algorithm-name': algorithm.name,
-		get: _.pick(algorithm, [
+		get: pick(algorithm, [
 			'summary',
 			'parameters',
 			'responses'

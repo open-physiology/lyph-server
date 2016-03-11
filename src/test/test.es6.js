@@ -2,8 +2,8 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import _        from '../libs/lodash.es6.js';
-import {expect} from 'chai';
+import {template, isString, isFunction, isArray} from '../libs/lodash.es6.js';
+import {expect}                                  from 'chai';
 
 import supertest                  from './custom-supertest.es6.js';
 import getServer                  from '../server.es6.js';
@@ -62,7 +62,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 				/* for setting the path parameters */
 				let compiledPath = givenPath;
-				let compilePath  = _.template(compiledPath, { interpolate: /{(\w+?)}/g });
+				let compilePath  = template(compiledPath, { interpolate: /{(\w+?)}/g });
 
 				/* the verb testers */
 				const verbTester = (verb) => (claim, expectations) => {
@@ -76,15 +76,15 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 				/* DESCRIBE BLOCK: given valid path parameters */
 				withValidPathParams = (desc, params, runParamTests) => {
-					if (!_.isString(desc)) { [desc, params, runParamTests] = ["valid", desc, params] }
+					if (!isString(desc)) { [desc, params, runParamTests] = ["valid", desc, params] }
 					describe(`(${desc} path parameters)`, () => {
-						beforeEach(() => { compiledPath = compilePath(_.isFunction(params) ? params() : params) });
+						beforeEach(() => { compiledPath = compilePath(isFunction(params) ? params() : params) });
 
 						/* run tests common to all endpoints with valid path params */
 						if (/^\/\w+\/{\w+}$/.test(givenPath)) {
 							GET("returns an array with at least one resource of the expected type", r=>r
 								.expect(200)
-								.expect(_.isArray)
+								.expect(isArray)
 								.resources((resources) => {
 									expect(resources).to.have.length.of.at.least(1);
 									for (let res of resources) {
@@ -101,10 +101,10 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 				/* DESCRIBE BLOCK: given invalid path parameters */
 				withInvalidPathParams = (desc, params, runParamTests) => {
-					if (!_.isString(desc)) { [desc, params, runParamTests] = ["invalid", desc, params] }
+					if (!isString(desc)) { [desc, params, runParamTests] = ["invalid", desc, params] }
 					describe(`(${desc} path parameters)`, () => {
 						/* set the compiled path before each test */
-						beforeEach(() => { compiledPath = compilePath(_.isFunction(params) ? params() : params) });
+						beforeEach(() => { compiledPath = compilePath(isFunction(params) ? params() : params) });
 
 						/* run tests common to all endpoints with invalid path params  */
 						if (/^\/\w+\/{\w+}$/.test(givenPath)) {
@@ -125,7 +125,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 				if (/^\/\w+$/.test(givenPath)) {
 					GET("returns an array with resources of the expected type", r=>r
 						.expect(200)
-						.expect(_.isArray)
+						.expect(isArray)
 						.resources((resources) => {
 							expect(resources).to.have.instanceOf(Array);
 							for (let res of resources) {

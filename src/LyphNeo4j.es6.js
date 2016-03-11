@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* libraries */
-import _ from './libs/lodash.es6.js';
+import _, {isUndefined, difference, find, property} from './libs/lodash.es6.js';
 
 /* local stuff */
 import Neo4j from './Neo4j.es6.js';
@@ -63,7 +63,7 @@ export default class LyphNeo4j extends Neo4j {
 	////////////////////////////////////////////
 
 	async [runTypeSpecificHook](type, hook, info) {
-		if (!_.isUndefined(type[hook])) {
+		if (!isUndefined(type[hook])) {
 			return or(await type[hook]({...info, resources, relationships, db: this}), {});
 		}
 	}
@@ -75,7 +75,7 @@ export default class LyphNeo4j extends Neo4j {
 			WHERE n.id IN [${ids.join(',')}]
 			RETURN collect(n.id) as existing
 		`);
-		let nonexisting = _.difference(ids, existing);
+		let nonexisting = difference(ids, existing);
 		if (nonexisting.length > 0) {
 			let c = (rel.fieldCardinality === 'many') ? 'plural' : 'singular';
 			throw customError({
@@ -94,8 +94,8 @@ export default class LyphNeo4j extends Neo4j {
 
 	async [assertRequiredFieldsAreGiven](type, fields, relSummaries) {
 		for (let [fieldName, fieldSchema] of Object.entries(type.schema.properties)) {
-			let rel = _.find(relSummaries, { fieldName });
-			if (fieldSchema['x-required'] && !(rel && rel.implicit) && _.isUndefined(fields[fieldName])) {
+			let rel = find(relSummaries, { fieldName });
+			if (fieldSchema['x-required'] && !(rel && rel.implicit) && isUndefined(fields[fieldName])) {
 				throw customError({
 					status: BAD_REQUEST,
 					type:   type.name,
@@ -483,7 +483,7 @@ export default class LyphNeo4j extends Neo4j {
 		let dResources = await this[getResourcesToDelete](type, id);
 
 		/* then test whether of those are still anchored, and we have to abort the delete operation */
-		let anchors = await this[anythingAnchoredFromOutside](dResources.map(_.property('id')));
+		let anchors = await this[anythingAnchoredFromOutside](dResources.map(property('id')));
 		if (anchors.length > 0) {
 			throw customError({
 				status: CONFLICT,
@@ -506,7 +506,7 @@ export default class LyphNeo4j extends Neo4j {
 		/* the main query for deleting the node */
 		await this.query(`
 			MATCH (n)
-			WHERE n.id IN [${dResources.map(_.property('id')).join(',')}]
+			WHERE n.id IN [${dResources.map(property('id')).join(',')}]
 			OPTIONAL MATCH (n)-[r]-()
 			DELETE n, r
 		`);

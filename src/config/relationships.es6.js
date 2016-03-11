@@ -29,9 +29,9 @@
 // - options1.deleteSummary: an explanation in English of the corresponding REST endpoint for HTTP DELETE
 
 /* cardinality abbreviations */
-const _$ = 'many';
-const _1 = 'one';
 const _0 = 'optional';
+const _1 = 'one';
+const _$ = 'many';
 
 /* the full list of relationships */
 export const relationships = {
@@ -253,7 +253,7 @@ for (let side of ['plus', 'minus', 'inner', 'outer']) {
 			disambiguation: { side }
 		}
 	];
-	// TODO: polymorphism on the field in Border would be better than this _0 optionality
+	// TODO: polymorphism on the field in Border would be better than this _0 optionality thing
 }
 
 // TODO: We need polymorphism on the Swagger side and on the Neo4j side.

@@ -2,8 +2,8 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import _                      from './libs/lodash.es6.js';
-import {Client as RestClient} from 'node-rest-client';
+import {isObject, isString, isUndefined, zipObject} from './libs/lodash.es6.js';
+import {Client as RestClient}                       from 'node-rest-client';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,8 +59,8 @@ export default class Neo4j {
 		/* normalize main Cypher statements */
 		if (!Array.isArray(statements)) { statements = [statements] }
 		statements = statements.map((stmt) => {
-			if (_.isObject(stmt) && _.isString(stmt.statement)) { return stmt                }
-			if (_.isString(stmt))                               { return { statement: stmt } }
+			if (isObject(stmt) && isString(stmt.statement)) { return stmt                }
+			if (isString(stmt))                               { return { statement: stmt } }
 			throw new Error(`Invalid query parameter: ${statements}`);
 		});
 
@@ -81,9 +81,9 @@ export default class Neo4j {
 				if (errors.length > 0) {
 					reject(errors);
 				} else {
-					if (_.isUndefined(returnIndex)) { returnIndex = statements.length-1 }
+					if (isUndefined(returnIndex)) { returnIndex = statements.length-1 }
 					let result = results[returnIndex];
-					resolve(result.data.map(({row}) => _.zipObject(result.columns, row)));
+					resolve(result.data.map(({row}) => zipObject(result.columns, row)));
 				}
 			}).on('error', (err) => {
 				reject(err);
