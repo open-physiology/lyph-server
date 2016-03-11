@@ -37,7 +37,9 @@ export const resources = {
 			properties: {
 				name:  { type: 'string', 'x-required': true },
 				fmaID: { type: 'number' },
-				oldID: { type: 'number' }
+				oldID: { type: 'number' },
+				lengthDistribution: { ...distributionSchema },
+				widthDistribution:  { ...distributionSchema }
 			}
 		}
 	},
@@ -350,9 +352,7 @@ export const resources = {
 			properties: {
 				name:               { type: 'string' },
 				branchingFactor:    { type: 'number' },
-				skipProbability:    { type: 'number' },
-				lengthDistribution: { ...distributionSchema },
-				widthDistribution:  { ...distributionSchema }
+				skipProbability:    { type: 'number' }
 			}
 		},
 		async [setPosition]({db, id, oldPosition, newPosition}) {
