@@ -36,7 +36,7 @@ export const resources = {
 		schema: {
 			properties: {
 				name:   { type: 'string', 'x-required': true },
-				fmaID:  { type: 'number' },
+				fmaID:  { type: 'string' },
 				oldID:  { type: 'number' },
 				length: { ...distributionSchema },
 				radius: { ...distributionSchema }

@@ -174,6 +174,10 @@ export const relationships = {
 		'CanonicalTreeLevel', _1, 'template',            {},
 		'LyphTemplate',       _$, 'canonicalTreeLevels', { sustains: true }
 	],
+	CanonicalTreeLevelSubtree: [
+		'CanonicalTreeLevel', _$, 'connectedTrees', {},
+		'CanonicalTree',      _$, 'connectedAt',    {}
+	],
 
 	NodePotentialProcess: [
 		'Node',             _$, 'outgoingPotentialProcesses', { sustains: true },
