@@ -3,12 +3,54 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import {template, isString, isFunction, isArray} from '../libs/lodash.es6.js';
-import {expect}                                  from 'chai';
+import chai, {expect}                            from 'chai';
 
-import supertest                  from './custom-supertest.es6.js';
-import getServer                  from '../server.es6.js';
-import swaggerSpec                from '../swagger.es6.js';
-import {resources, relationships} from '../resources.es6.js';
+import supertest   from './custom-supertest.es6.js';
+import getServer   from '../server.es6.js';
+import swaggerSpec from '../swagger.es6.js';
+import {resources} from '../resources.es6.js';
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// chai helpers                                                                                                       //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+chai.use((_chai, utils) => {
+	utils.addProperty(chai.Assertion.prototype, 'sole', function () {
+		/* object must be an array */
+		this.assert(
+			Array.isArray(this._obj)
+			, 'expected #{this} to be an array'
+			, 'expected #{this} not to be an array'
+		);
+		/* set 'sole' flag */
+		utils.flag(this, 'sole', true);
+	});
+	utils.addProperty(chai.Assertion.prototype, 'element', function () {
+		/* object must be an array */
+		this.assert(
+			Array.isArray(this._obj)
+			, 'expected #{this} to be an array'
+			, 'expected #{this} not to be an array'
+		);
+		/* array must have at least one element */
+		this.assert(
+			this._obj.length >= 1
+			, 'expected #{this} to have at least one element'
+			, 'expected #{this} not to have at least one element'
+		);
+		/* if 'sole' is set, array must have exactly one element */
+		let sole = utils.flag(this, 'sole');
+		if (sole) {
+			this.assert(
+				this._obj.length === 1
+				, 'expected #{this} to have exactly one element'
+				, 'expected #{this} not to have exactly one element'
+			);
+		}
+		utils.flag(this, 'object', this._obj[0]);
+	});
+});
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,13 +77,15 @@ before(() => getServer(`${__dirname}/../`, {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* database operations (bypassing our REST server */
+const getAllResources   = async (typeName)         => await db.getAllResources(resources[typeName]);
 const getResources      = async (typeName, ids)    => await db.getSpecificResources(resources[typeName], ids);
 const getSingleResource = async (typeName, id)     => (await getResources(typeName, [id]))[0];
 const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.type, res.id));
 const createResource    = async (typeName, fields) => await getSingleResource(typeName, await db.createResource(resources[typeName], fields));
 
 /* server request api (through our REST server) */
-const requestSingleResource = async (path) => (await api.get(path)).body[0];
+const requestResources      = async (path) => (await api.get(path)).body;
+const requestSingleResource = async (path) => (await requestResources(path))[0];
 
 /* dynamically created, specialized functions and variables used in describing our tests */
 let GET, POST, PUT, DELETE;
@@ -51,7 +95,9 @@ let describeEndpoint;
 
 /* DESCRIBE BLOCK: given resource type */
 const describeResourceType = (typeName, runResourceTypeTests) => {
-	describe(typeName, () => {
+	let only = (typeName[0] === '*');
+	if (only) { typeName = typeName.slice(1) }
+	(only ? describe.only : describe)(typeName, () => {
 
 		/* set useful variables */
 		before(() => { type = resources[typeName] });
@@ -163,6 +209,7 @@ beforeEach(async () => {
 
 	/* lyph template */
 	initial.lyphTmp1 = await createResource('LyphTemplate', { name: "lyph template 1" });
+	initial.lyphTmp2 = await createResource('LyphTemplate', { name: "lyph template 2" });
 
 	/* lyphs */
 	initial.lyph1 = await createResource('Lyph', { name: "lyph 1", species: "dragon", template: initial.lyphTmp1.id });
@@ -190,6 +237,14 @@ beforeEach(async () => {
 	initial.layer1minus = await getSingleResource('Border', initial.layer1.minus);
 	initial.layer1outer = await getSingleResource('Border', initial.layer1.outer);
 	initial.layer1inner = await getSingleResource('Border', initial.layer1.inner);
+
+	/* canonical tree */
+	initial.cTree1 = await createResource('CanonicalTree', { name: "canonical tree 1" });
+
+	/* canonical tree levels */
+	initial.cTreeLevel1 = await createResource('CanonicalTreeLevel', { name: "canonical tree level 1", tree: initial.cTree1.id, template: initial.lyphTmp1.id });
+	initial.cTreeLevel2 = await createResource('CanonicalTreeLevel', { name: "canonical tree level 2", tree: initial.cTree1.id, template: initial.lyphTmp1.id });
+	initial.cTreeLevel3 = await createResource('CanonicalTreeLevel', { name: "canonical tree level 3", tree: initial.cTree1.id, template: initial.lyphTmp1.id });
 
 	// TODO: add other stuff to the database (at least one instance of each resource type)
 
@@ -265,12 +320,12 @@ describeResourceType('LayerTemplate', () => {
 	/* local utility function */
 	async function requestLayerTemplatesAndLayers() {
 		return await Promise.all([
-			requestSingleResource(`/layerTemplates/${initial.layerTmp1.id}`),
-			requestSingleResource(`/layerTemplates/${initial.layerTmp2.id}`),
-			requestSingleResource(`/layerTemplates/${initial.layerTmp3.id}`),
-			requestSingleResource(`/layers/${initial.layer1.id}`),
-			requestSingleResource(`/layers/${initial.layer2.id}`),
-			requestSingleResource(`/layers/${initial.layer3.id}`)
+			requestResources(`/layerTemplates/${initial.layerTmp1.id}`),
+			requestResources(`/layerTemplates/${initial.layerTmp2.id}`),
+			requestResources(`/layerTemplates/${initial.layerTmp3.id}`),
+			requestResources(`/layers/${initial.layer1.id}`),
+			requestResources(`/layers/${initial.layer2.id}`),
+			requestResources(`/layers/${initial.layer3.id}`)
 		]);
 	}
 
@@ -297,14 +352,14 @@ describeResourceType('LayerTemplate', () => {
 			}).expect(200).then(async () => {
 				let [
 					layerTmp1, layerTmp2, layerTmp3,
-					layer1,    layer2,    layer3
+					layer1,    layer2,    layer3,
 				] = await requestLayerTemplatesAndLayers();
-				expect(layerTmp1).to.have.property('position').that.equals(2);
-				expect(layerTmp2).to.have.property('position').that.equals(1);
-				expect(layerTmp3).to.have.property('position').that.equals(3);
-				expect(layer1)   .to.have.property('position').that.equals(2);
-				expect(layer2)   .to.have.property('position').that.equals(1);
-				expect(layer3)   .to.have.property('position').that.equals(3);
+				expect(layerTmp1).sole.element.to.have.property('position').that.equals(2);
+				expect(layerTmp2).sole.element.to.have.property('position').that.equals(1);
+				expect(layerTmp3).sole.element.to.have.property('position').that.equals(3);
+				expect(layer1)   .sole.element.to.have.property('position').that.equals(2);
+				expect(layer2)   .sole.element.to.have.property('position').that.equals(1);
+				expect(layer3)   .sole.element.to.have.property('position').that.equals(3);
 			}));
 
 			POST("properly keeps layers in place when position is not changed", r=>r.send({
@@ -312,14 +367,14 @@ describeResourceType('LayerTemplate', () => {
 			}).expect(200).then(async () => {
 				let [
 					layerTmp1, layerTmp2, layerTmp3,
-					layer1,    layer2,    layer3
+					layer1,    layer2,    layer3,
 				] = await requestLayerTemplatesAndLayers();
-				expect(layerTmp1).to.have.property('position').that.equals(1);
-				expect(layerTmp2).to.have.property('position').that.equals(2);
-				expect(layerTmp3).to.have.property('position').that.equals(3);
-				expect(layer1)   .to.have.property('position').that.equals(1);
-				expect(layer2)   .to.have.property('position').that.equals(2);
-				expect(layer3)   .to.have.property('position').that.equals(3);
+				expect(layerTmp1).sole.element.to.have.property('position').that.equals(1);
+				expect(layerTmp2).sole.element.to.have.property('position').that.equals(2);
+				expect(layerTmp3).sole.element.to.have.property('position').that.equals(3);
+				expect(layer1)   .sole.element.to.have.property('position').that.equals(1);
+				expect(layer2)   .sole.element.to.have.property('position').that.equals(2);
+				expect(layer3)   .sole.element.to.have.property('position').that.equals(3);
 			}));
 
 		});
@@ -331,14 +386,14 @@ describeResourceType('LayerTemplate', () => {
 			}).expect(200).then(async () => {
 				let [
 					layerTmp1, layerTmp2, layerTmp3,
-					layer1,    layer2,    layer3
+					layer1,    layer2,    layer3,
 				] = await requestLayerTemplatesAndLayers();
-				expect(layerTmp1).to.have.property('position').that.equals(2);
-				expect(layerTmp2).to.have.property('position').that.equals(3);
-				expect(layerTmp3).to.have.property('position').that.equals(1);
-				expect(layer1)   .to.have.property('position').that.equals(2);
-				expect(layer2)   .to.have.property('position').that.equals(3);
-				expect(layer3)   .to.have.property('position').that.equals(1);
+				expect(layerTmp1).sole.element.to.have.property('position').that.equals(2);
+				expect(layerTmp2).sole.element.to.have.property('position').that.equals(3);
+				expect(layerTmp3).sole.element.to.have.property('position').that.equals(1);
+				expect(layer1)   .sole.element.to.have.property('position').that.equals(2);
+				expect(layer2)   .sole.element.to.have.property('position').that.equals(3);
+				expect(layer3)   .sole.element.to.have.property('position').that.equals(1);
 			}));
 
 		});
@@ -449,6 +504,110 @@ describeResourceType('Border', () => {
 			}));
 
 		});
+
+	});
+
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+describeResourceType('CanonicalTree', () => {
+
+	describeEndpoint('/canonicalTrees',      ['GET', 'POST']);
+
+	describeEndpoint('/canonicalTrees/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyph1.id }));
+
+		withValidPathParams(()=>({ id: initial.cTree1.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('name'           ).that.equals("canonical tree 1");
+				expect(res).to.have.property('levels'         ).with.members([ initial.cTreeLevel1.id, initial.cTreeLevel2.id, initial.cTreeLevel3.id ]);
+				expect(res).to.have.property('connectedAt'    ).that.is.instanceOf(Array); // TODO: make specific when appropriate
+			}));
+
+		});
+
+	});
+
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+describeResourceType('CanonicalTreeLevel', () => {
+
+	/* local utility function */
+	async function requestTreeLevelCount() {
+		return (await requestResources(`/canonicalTrees/${initial.cTree1.id}/levels`)).length;
+	}
+	async function requestTreeLevels() {
+		return await Promise.all([
+			requestSingleResource(`/canonicalTreeLevel/${initial.cTreeLevel1.id}`),
+			requestSingleResource(`/canonicalTreeLevel/${initial.cTreeLevel2.id}`),
+			requestSingleResource(`/canonicalTreeLevel/${initial.cTreeLevel3.id}`)
+		]);
+	}
+
+	// describeEndpoint('/canonicalTreeLevel',      ['GET', 'POST']);
+
+	describeEndpoint('/canonicalTreeLevel/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		// withInvalidPathParams("non-existing", { id: 999999 });
+		//
+		// withInvalidPathParams("wrong-type", ()=>({ id: initial.lyph1.id }));
+
+		withValidPathParams(()=>({ id: initial.cTreeLevel1.id }), () => {
+
+			// GET("returns a resource with expected fields", r=>r.resource((res) => {
+			// 	expect(res).to.have.property('name'          ).that.equals("canonical tree level 1");
+			// 	expect(res).to.have.property('position'      ).that.equals(1);
+			// 	expect(res).to.have.property('connectedTrees').that.is.instanceOf(Array); // TODO: make specific when appropriate
+			// }));
+			//
+			// POST("properly shifts layer positions around (1)", r=>r.send({
+			// 	position: 2 // move position 1 to position 2
+			// }).expect(200).then(async () => {
+			// 	expect(await requestTreeLevelCount()).to.equal(3);
+			// 	let [cTreeLevel1, cTreeLevel2, cTreeLevel3] = await requestTreeLevels();
+			// 	expect(cTreeLevel1).to.have.property('position').that.equals(2);
+			// 	expect(cTreeLevel2).to.have.property('position').that.equals(1);
+			// 	expect(cTreeLevel3).to.have.property('position').that.equals(3);
+			// }));
+
+			POST("properly keeps layers in place when only 'template' is changed and 'tree' is provided redundantly", r=>r.send({
+				template: initial.lyphTmp2.id,
+				tree:     initial.cTree1.id
+			}).expect(200).then(async () => {
+				expect(await requestTreeLevelCount()).to.equal(3);
+				let [cTreeLevel1, cTreeLevel2, cTreeLevel3] = await requestTreeLevels();
+				expect(cTreeLevel1).to.have.property('position').that.equals(1);
+				expect(cTreeLevel2).to.have.property('position').that.equals(2);
+				expect(cTreeLevel3).to.have.property('position').that.equals(3);
+			}));
+
+		});
+		//
+		// withValidPathParams(()=>({ id: initial.layerTmp3.id }), () => {
+		//
+		// 	POST("properly shifts layer positions around (2)", r=>r.send({
+		// 		position: 1 // move position 3 to position 1
+		// 	}).expect(200).then(async () => {
+		// 		let [
+		// 			layerTmp1, layerTmp2, layerTmp3,
+		// 			layer1,    layer2,    layer3
+		// 		] = await requestTreeLevels();
+		// 		expect(layerTmp1).sole.element.to.have.property('position').that.equals(2);
+		// 		expect(layerTmp2).sole.element.to.have.property('position').that.equals(3);
+		// 		expect(layerTmp3).sole.element.to.have.property('position').that.equals(1);
+		// 		expect(layer1)   .sole.element.to.have.property('position').that.equals(2);
+		// 		expect(layer2)   .sole.element.to.have.property('position').that.equals(3);
+		// 		expect(layer3)   .sole.element.to.have.property('position').that.equals(1);
+		// 	}));
+		//
+		// });
 
 	});
 

@@ -152,21 +152,13 @@ export default class LyphNeo4j extends Neo4j {
 	async [createSpecifiedRelationships](type, id, fields, relSummaries) {
 		let relCreationStatements = _(relSummaries).filter('given').map(({rel, ids}) => {
 			let [l, r] = arrowEnds(rel);
-			return ids.map(id => `
-				WITH A
-				MATCH (B:${rel.otherSide.type.name} { id: ${id} })
-				CREATE UNIQUE (A) ${l}[:${rel.relationship.name}]${r} (B)
+			return ids.map(idB => `
+				MATCH (A:${type.name} { id: ${id} }), (B:${rel.otherSide.type.name} { id: ${idB} })
+				CREATE (A) ${l}[:${rel.relationship.name}]${r} (B)
 			`);
-		}).flatten();
-		if (relCreationStatements.size() > 0) {
-			try {
-				await this.query(`
-					MATCH (A:${type.name} { id: ${id} })
-					${relCreationStatements.join(' ')}
-				`);
-			} catch (err) {
-				inspect(err);
-			}
+		}).flatten().value();
+		if (relCreationStatements.length > 0) {
+			await this.query(relCreationStatements);
 		}
 		// TODO: run relationship-type-specific hooks, probably by creating each relationship individually
 	}
@@ -175,17 +167,13 @@ export default class LyphNeo4j extends Neo4j {
 		let relDeletionStatements = _(relSummaries).filter(includeUngivenFields ? ()=>true : 'given').map(({rel, ids}) => {
 			let [l, r] = arrowEnds(rel);
 			return `
-				WITH A
-				MATCH (A) ${l}[rel:${rel.relationship.name}]${r} (B:${rel.otherSide.type.name})
+				MATCH (A:${type.name} { id: ${id} }) ${l}[rel:${rel.relationship.name}]${r} (B:${rel.otherSide.type.name})
 				WHERE NOT B.id IN [${ids.join(', ')}]
 				DELETE rel
 			`;
-		});
-		if (relDeletionStatements.size() > 0) {
-			await this.query(`
-				MATCH (A:${type.name} { id: ${id} })
-				${relDeletionStatements.join(' ')}
-			`);
+		}).value();
+		if (relDeletionStatements.length > 0) {
+			await this.query(relDeletionStatements);
 		}
 		// TODO: run relationship-type-specific hooks, probably by deleting each relationship individually
 	}

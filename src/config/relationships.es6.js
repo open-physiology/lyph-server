@@ -171,8 +171,8 @@ export const relationships = {
 		'CanonicalTreeLevel', _1, 'tree',   { indexFieldName: 'position' }
 	],
 	CanonicalTreeLevelTemplate: [
-		'CanonicalTreeLevel', _1, 'template',            {},
-		'LyphTemplate',       _$, 'canonicalTreeLevels', { sustains: true }
+		'CanonicalTreeLevel', _1, 'template',            { anchors: true },
+		'LyphTemplate',       _$, 'canonicalTreeLevels', {}
 	],
 	CanonicalTreeLevelSubtree: [
 		'CanonicalTreeLevel', _$, 'connectedTrees', {},
