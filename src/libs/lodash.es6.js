@@ -11,6 +11,11 @@ _.noConflict();
 const LodashWrapper = _([]).constructor;
 
 
+
+// TODO: remove this file and use the lodash library directly; it now supports @@iterator
+
+
+
 /* make it @@iterator compatible */
 if (!LodashWrapper.prototype[Symbol.iterator]) {
 	Object.assign(LodashWrapper.prototype, {
