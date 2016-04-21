@@ -41,7 +41,7 @@ export const relationships = {
 	], // TODO: somehow unify 'indexFieldName' (if only in style) with the 'disambiguation' property used at the bottom
 	LyphTemplateChildLyphTemplate: [
 		'LyphTemplate',     _$, 'children', {},
-		'LyphTemplate',     _$, 'parents',  {},
+		'LyphTemplate',     _0, 'parent',   {},
 		{
 			getSummary:    "find all lyph template children of a given lyph template",
 			putSummary:    "add a given lyph template to a given lyph template as a child",
