@@ -202,7 +202,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 let initial = {};
 
 /* initial database clearing */
-before(() => db.clear());
+before(() => db.clear('Yes! Delete all everythings!'));
 
 /* before each test, reset the database */
 beforeEach(async () => {
@@ -254,7 +254,7 @@ beforeEach(async () => {
 });
 
 /* clear database for every tear-down */
-afterEach(() => db.clear());
+afterEach(() => db.clear('Yes! Delete all everythings!'));
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

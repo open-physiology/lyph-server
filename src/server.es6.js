@@ -102,9 +102,6 @@ const requestHandler = {
 	},
 	algorithm: {
 		async get({db, algorithmName}, req, res) {
-
-			console.log();
-
 			let result = await algorithms[algorithmName].run({
 				resources,
 				relationships,
@@ -190,7 +187,7 @@ function errorNormalizer(err, req, res, next) {
 
 /* error logging */
 function errorLogger(err, req, res, next) {
-	console.error(JSON.stringify(err, null, 4));
+	console.error(`[Server] [${Date()}]`, JSON.stringify(err, null, 4));
 	return next(err);
 }
 
@@ -235,10 +232,11 @@ export default async (distDir, config) => {
 
 	/* set up database */
 	let db = new LyphNeo4j({
-		user: config.dbUser,
-		pass: config.dbPass,
-		host: config.dbHost,
-		port: config.dbPort
+		user:   config.dbUser,
+		pass:   config.dbPass,
+		host:   config.dbHost,
+		port:   config.dbPort,
+		docker: config.dbDocker
 	});
 
 	/* create uniqueness constraints for all resource types (only if database is new) */

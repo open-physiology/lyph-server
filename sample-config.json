@@ -1,0 +1,9 @@
+{
+	"host":      "localhost",
+	"port":       8888,
+	"db-docker": "neo4j",
+	"db-user":   "neo4j",
+	"db-pass":   "mhmh13",
+	"db-host":   "localhost",
+	"db-port":    7474
+}
