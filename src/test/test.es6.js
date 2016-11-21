@@ -326,54 +326,30 @@ describe("docs", () => {
 
 });
 
-/*describeResourceType('ExternalResource', () => {
+describeResourceType('ExternalResource', () => {
 
- describeEndpoint('/externalResources',      ['GET', 'POST']);
+	 describeEndpoint('/externalResources',      ['GET', 'POST']);
 
- describeEndpoint('/externalResources/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+	 describeEndpoint('/externalResources/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
- withInvalidPathParams("non-existing", { id: 999999 });
+	 withInvalidPathParams("non-existing", { id: 999999 });
 
- withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
+	 withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
 
- withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
+	 withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
 
- GET("returns a resource with expected fields", r=>r.resource((res) => {
- expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
- expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
- expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
- expect(res).to.have.property('name');  //{ type: 'string' }
- expect(res).to.have.property('uri');   //{ ...uriSchema, required: true },
- expect(res).to.have.property('type');  //{ type: 'string'}
- }));
+		 GET("returns a resource with expected fields", r=>r.resource((res) => {
+			 expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+			 expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+			 expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+			 expect(res).to.have.property('name');  //{ type: 'string' }
+			 expect(res).to.have.property('uri');   //{ ...uriSchema, required: true },
+			 expect(res).to.have.property('type');  //{ type: 'string'}
+			 }));
+		 });
+	 });
  });
- });
- });*/
 
-
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// describeResourceType('ExternalResource', () => {
-//
-// 	describeEndpoint('/externalResources',      ['GET', 'POST']);
-//
-// 	describeEndpoint('/externalResources/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-//
-// 		withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
-//
-// 		withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
-//
-// 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 				expect(res).to.have.property('name');
-// 				expect(res).to.have.property('href');
-// 			}));
-//
-// 		});
-//
-// 	});
-//
-// });
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -578,28 +554,28 @@ describe("docs", () => {
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// describeResourceType('Border', () => {
-//
-// 	describeEndpoint('/borders',      ['GET']);
-//
-// 	describeEndpoint('/borders/{id}', ['GET'], () => {
-//
-// 		withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
-//
-// 		withValidPathParams(()=>({ id: initial.layer1plus.id }), () => {
-//
-// 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 				expect(res).to.have.property('layer').that.equals(initial.layer1.id);
-// 				expect(res).to.have.property('nodes').that.is.instanceOf(Array); // TODO: make specific when appropriate
-// 			}));
-//
-// 		});
-//
-// 	});
-//
-// });
+/*describeResourceType('Border', () => {
+
+	describeEndpoint('/borders',      ['GET']);
+
+	describeEndpoint('/borders/{id}', ['GET'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
+
+		withValidPathParams(()=>({ id: initial.layer1plus.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('layer').that.equals(initial.layer1.id);
+				expect(res).to.have.property('nodes').that.is.instanceOf(Array); // TODO: make specific when appropriate
+			}));
+
+		});
+
+	});
+
+});*/
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
