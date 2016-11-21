@@ -214,7 +214,7 @@ before(() => db.clear('Yes! Delete all everythings!'));
 beforeEach(async () => {
 
 	/* external resources */
-	initial.vein = await createResource('ExternalResource', {
+	initial.fma44539 = await createResource('ExternalResource', {
 		name: "Third plantar metatarsal vein",
 		href: "href 1",
 		uri : "http://purl.obolibrary.org/obo/FMA_44539"
@@ -261,7 +261,7 @@ beforeEach(async () => {
 		name: "Kidney",
 		href: "href 5",
 		layers: [initial.renalH, initial.renalP, initial.renalC],
-		externals: [initial.vein],
+		externals: [initial.fma44539],
 		longitudinalBorders: [initial.border1, initial.border2],
 		materials: [initial.blood]
 	});
@@ -327,6 +327,9 @@ describe("docs", () => {
 
 });
 
+//
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 describeResourceType('ExternalResource', () => {
 
 	 describeEndpoint('/externalResources',      ['GET', 'POST']);
@@ -335,9 +338,9 @@ describeResourceType('ExternalResource', () => {
 
 	 withInvalidPathParams("non-existing", { id: 999999 });
 
-	 withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
+	 withInvalidPathParams("wrong-type", ()=>({ id: initial.border1.id }));
 
-	 withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
+	 withValidPathParams(()=>({ id: initial.fma44539.id }), () => {
 
 		 GET("returns a resource with expected fields", r=>r.resource((res) => {
 			 expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
@@ -354,6 +357,58 @@ describeResourceType('ExternalResource', () => {
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+describeResourceType('Border', () => {
+
+	describeEndpoint('/borders',      ['GET', 'POST']);
+
+	describeEndpoint('/borders/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.fma44539.id }));
+
+		withValidPathParams(()=>({ id: initial.border1.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+				expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+				expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+				expect(res).to.have.property('name');  //{ type: 'string' }
+				expect(res).to.have.property('nature');   //{ ...},
+			}));
+		});
+	});
+});
+
+//
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+describeResourceType('Material', () => {
+
+	describeEndpoint('/materials',      ['GET', 'POST']);
+
+	describeEndpoint('/materials/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.fma44539.id }));
+
+		withValidPathParams(()=>({ id: initial.blood.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+				expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+				expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+				expect(res).to.have.property('name');  //{ type: 'string' }
+			}));
+		});
+	});
+});
+
+//
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+
 describeResourceType('Lyph', () => {
 
 	describeEndpoint('/lyphs',      ['GET', 'POST']);
@@ -370,7 +425,7 @@ describeResourceType('Lyph', () => {
 				expect(res).to.have.property('name'               );
 				expect(res).to.have.property('layers'             ).with.members([ initial.renalP.id, initial.renalH.id, initial.renalC.id ]);
 				//expect(res).to.have.property('parts'              ).with.members([ initial.renalP.id, initial.renalH.id, initial.renalC.id ]);
-				expect(res).to.have.property('externals'          ).with.members([ initial.vein.id]);
+				expect(res).to.have.property('externals'          ).with.members([ initial.fma44539.id]);
 				expect(res).to.have.property('longitudinalBorders').with.members([ initial.border1.id, initial.border2.id]);
 				expect(res).to.have.property('materials'          ).with.members([ initial.blood.id]);
 			}));
