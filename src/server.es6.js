@@ -239,11 +239,12 @@ export default async (distDir, config) => {
 
 	/* set up database */
 	let db = new LyphNeo4j({
-		user:   config.dbUser,
-		pass:   config.dbPass,
-		host:   config.dbHost,
-		port:   config.dbPort,
-		docker: config.dbDocker
+		user:           config.dbUser,
+		pass:           config.dbPass,
+		host:           config.dbHost,
+		port:           config.dbPort,
+		docker:         config.dbDocker,
+		consoleLogging: config.dbConsoleLogging
 	});
 
 	/* create uniqueness constraints for all resource types (only if database is new) */

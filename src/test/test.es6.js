@@ -66,6 +66,7 @@ before(() => getServer(`${__dirname}/../`, {
 	dbPass: 'nknk14',
 	dbHost: '192.168.99.100',//localhost
 	dbPort: 32769, //7474
+	dbConsoleLogging: false,
 	consoleLogging: false
 }).then(({database, server}) => {
 	db  = database;
@@ -214,7 +215,7 @@ before(() => db.clear('Yes! Delete all everythings!'));
 beforeEach(async () => {
 
 	/* external resources */
-	initial.fma44539 = await createResource('ExternalResource', {
+	initial.externalResource1 = await createResource('ExternalResource', {
 		name: "Third plantar metatarsal vein",
 		href: "href 1",
 		uri : "http://purl.obolibrary.org/obo/FMA_44539"
@@ -234,36 +235,36 @@ beforeEach(async () => {
 	});
 
 	/* materials */
-	initial.blood = await createResource('Material', {
+	initial.material1 = await createResource('Material', {
 		name: "Blood"
 	});
 
 	/* lyphs */
-	initial.renalH = await createResource('Lyph', {
+	initial.lyph1 = await createResource('Lyph', {
 		name: "Renal hilum",
 		href: "href 2",
 		longitudinalBorders: [initial.border1, initial.border2]
 	});
 
-	initial.renalP = await createResource('Lyph', {
+	initial.lyph2 = await createResource('Lyph', {
 		name: "Renal parenchyma",
 		href: "href 3",
 		longitudinalBorders: [initial.border1, initial.border2]
 	});
 
-	initial.renalC = await createResource('Lyph', {
+	initial.lyph3 = await createResource('Lyph', {
 		name: "Renal capsule",
 		href: "href 4",
 		longitudinalBorders: [initial.border1, initial.border2]
 	});
 
-	initial.kidney = await createResource('Lyph', {
+	initial.mainLyph = await createResource('Lyph', {
 		name: "Kidney",
 		href: "href 5",
-		layers: [initial.renalH, initial.renalP, initial.renalC],
-		externals: [initial.fma44539],
+		layers: [initial.lyph1, initial.lyph2, initial.lyph3],
+		externals: [initial.externalResource1],
 		longitudinalBorders: [initial.border1, initial.border2],
-		materials: [initial.blood]
+		materials: [initial.material1]
 	});
 
 	/* processes */
@@ -277,7 +278,7 @@ beforeEach(async () => {
 	/* groups */
 
 	/* omega trees */
-	initial.slp = await createResource ('OmegaTree',
+	initial.omegaTree1 = await createResource ('OmegaTree',
 		{name: "Short Looped Nephrone"
 	});
 
@@ -327,6 +328,8 @@ describe("docs", () => {
 
 });
 
+console.log("Test resources", initial);
+
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -340,7 +343,7 @@ describeResourceType('ExternalResource', () => {
 
 	 withInvalidPathParams("wrong-type", ()=>({ id: initial.border1.id }));
 
-	 withValidPathParams(()=>({ id: initial.fma44539.id }), () => {
+	 withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
 
 		 GET("returns a resource with expected fields", r=>r.resource((res) => {
 			 expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
@@ -365,7 +368,7 @@ describeResourceType('Border', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.fma44539.id }));
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
 
 		withValidPathParams(()=>({ id: initial.border1.id }), () => {
 
@@ -391,9 +394,9 @@ describeResourceType('Material', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.fma44539.id }));
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
 
-		withValidPathParams(()=>({ id: initial.blood.id }), () => {
+		withValidPathParams(()=>({ id: initial.material1.id }), () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
 				expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
@@ -423,11 +426,11 @@ describeResourceType('Lyph', () => {
 
 			GET("returns a resource with expected fields", r=>r.resource((res) => {
 				expect(res).to.have.property('name'               );
-				expect(res).to.have.property('layers'             ).with.members([ initial.renalP.id, initial.renalH.id, initial.renalC.id ]);
+				expect(res).to.have.property('layers'             ).with.members([ initial.lyph2.id, initial.lyph1.id, initial.lyph3.id ]);
 				//expect(res).to.have.property('parts'              ).with.members([ initial.renalP.id, initial.renalH.id, initial.renalC.id ]);
-				expect(res).to.have.property('externals'          ).with.members([ initial.fma44539.id]);
+				expect(res).to.have.property('externals'          ).with.members([ initial.externalResource1.id]);
 				expect(res).to.have.property('longitudinalBorders').with.members([ initial.border1.id, initial.border2.id]);
-				expect(res).to.have.property('materials'          ).with.members([ initial.blood.id]);
+				expect(res).to.have.property('materials'          ).with.members([ initial.material1.id]);
 			}));
 		});
 	});

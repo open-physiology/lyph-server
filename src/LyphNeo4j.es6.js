@@ -4,8 +4,8 @@
 
 /* libraries */
 import _, {isUndefined, difference, find, property} from 'lodash';
-import isSet from 'lodash/isSet';
-import isArray from 'lodash/isArray';
+import isSet from 'lodash-bound/isSet';
+import isArray from 'lodash-bound/isArray';
 
 /* local stuff */
 import Neo4j from './Neo4j.es6.js';
@@ -80,8 +80,7 @@ export default class LyphNeo4j extends Neo4j {
 		let [{existing}] = await this.query(q);
 		let nonexisting = difference(ids, existing);
 		if (nonexisting.length > 0) {
-			let c = (fieldSpec.cardinality && fieldSpec.cardinality.max && (fieldSpec.cardinality.max !== 1))?
-				'plural' : 'singular';
+			let c = (fieldSpec.cardinality.max === 1) ? 'singular' : 'plural';
 			throw customError({
 				status:  NOT_FOUND,
 				type:    type.name,
@@ -118,20 +117,20 @@ export default class LyphNeo4j extends Neo4j {
 	async [assertProperCardinalityInFields](type, fields) {
 		let allRelationFields = Object.entries(type.relationshipShortcuts);
 		for (let [fieldName, fieldSpec] of allRelationFields) {
-			let cardinality_min = (fieldSpec.cardinality)? fieldSpec.cardinality.min: 0;
-			let cardinality_max = (fieldSpec.cardinality)? fieldSpec.cardinality.max: 1;
 			let value = fields[fieldName];
 			let cardinality =
 				isUndefined(value)? 0:
-				(value::isArray)? value.length:
-				(value::isSet)? value.size: 1;
-			if ((cardinality < cardinality_min) || (cardinality > cardinality_max)){
+				(value::isArray())? value.length:
+				(value::isSet())? value.size: 1;
+			if ((cardinality < fieldSpec.cardinality.min) || (cardinality > (fieldSpec.cardinality.max || Infinity))){
 				throw customError({
 					status:  BAD_REQUEST,
 					type:    type.name,
 					field:   fieldName,
-					message: humanMsg`The '${fieldName}' expects cardinality 
-						${cardinality_min}..${cardinality_max === Infinity ? '*' : cardinality_max}.`
+					message: humanMsg`
+						The '${fieldName}' expects cardinality 
+						${fieldSpec.cardinality.min}..${fieldSpec.cardinality.max || '*'}.
+					`
 				});
 			}
 		}
@@ -143,7 +142,7 @@ export default class LyphNeo4j extends Neo4j {
 		for (let [fieldName, fieldSpec] of allRelationFields) {
 			let val = fields[fieldName];
 			if (isUndefined(val)) continue;
-			if (val::isSet) val = Object.entries(val);
+			if (val::isSet()) val = Object.entries(val);
 			try { this[assertRelatedResourcesExists](fields[fieldName].filter(x => x.id).map(x => x.id), fieldSpec) }
 			catch (err) {
 				Object.assign(err, {
@@ -162,12 +161,11 @@ export default class LyphNeo4j extends Neo4j {
 		for (let [fieldName, fieldSpec] of allRelationFields){
 			let val = fields[fieldName];
 			if (isUndefined(val)) continue;
-			if (val::isSet) val = Object.entries(val);
+			if (val::isSet()) val = Object.entries(val);
 			let ids = val.filter(x => x.id).map(x => x.id);
-			let [l, r] = [' -', '->'] ;
+			let [l, r] = arrowEnds(fieldSpec); //TODO check that the right variable is called
 			for (let idB of ids){
-				let q =
-					`MATCH (A:${type.name} { id: ${id} }), (B:${fieldSpec.resourceClass.name} { id: ${idB} })
+				let q = `MATCH (A:${type.name} { id: ${id} }), (B:${fieldSpec.resourceClass.name} { id: ${idB} })
 			 		CREATE (A) ${l}[:${rel.relationship.name}]${r} (B)`;
 				relCreationStatements.push(q);
 			}
@@ -185,7 +183,7 @@ export default class LyphNeo4j extends Neo4j {
 		for (let [fieldName, fieldSpec] of allRelationFields) {
 			let val = fields[fieldName];
 			if (isUndefined(val)) continue;
-			let [l, r] = [" -", " ->"];
+			let [l, r] = arrowEnds(fieldSpec);
 			var q = `MATCH (A:${type.name} { id: ${id} }) ${l}[rel:${fieldSpec.relationshipClass.name}]${r} 
 			 	(B:${fieldSpec.codomain.resourceClass.name})
 			 	WHERE NOT B.id IN [${ids.join(', ')}]
@@ -528,7 +526,7 @@ export default class LyphNeo4j extends Neo4j {
 	//NK modified
 	async getRelatedResources(relA, idA) {
 		let type = relA.relationshipClass;
-		let relB = relA.codomain.resourceClass;
+		let relB = relA.codomain;
 
 		console.log("NK deleteRelationship.relA", relA);
 		console.log("NK deleteRelationship.type", type);
@@ -537,7 +535,7 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* formulating and sending the query */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(relB, 'B');
-		let [l, r] = [' -', '->'];
+		let [l, r] = arrowEnds(relA);
 		let q  = `
 			MATCH (A:${relA.name} { id: ${idA} })
 			      ${l}[:${type.name}]${r}
@@ -560,12 +558,11 @@ export default class LyphNeo4j extends Neo4j {
 	async addNewRelationship(relA, idA, idB) {
 
 		let type = relA.relationshipClass;
-		let relB = relA.codomain.resourceClass;
+		let relB = relA.codomain;
 
 		console.log("NK deleteRelationship.relA", relA);
 		console.log("NK deleteRelationship.type", type);
 		console.log("NK deleteRelationship.relB", relB);
-
 
 		/* throw a 404 if either of the resources doesn't exist */
 		await Promise.all([
@@ -577,7 +574,7 @@ export default class LyphNeo4j extends Neo4j {
 		// TODO: maybe an existing relationship with idB needs to be deleted because this one is added
 
 		/* the main query for adding the new relationship */
-		let [l, r] = [' -', '->'];
+		let [l, r] = arrowEnds(relA);
 		await this.query(`
 			MATCH (A:${relA.name} { id: ${idA} }),
 			      (B:${relB.name} { id: ${idB} })
@@ -605,7 +602,8 @@ export default class LyphNeo4j extends Neo4j {
 		// TODO: check whether deleting this relationship violates any constraints
 
 		/* the main query for removing the relationship */
-		let [l, r] = ['-', '->'];
+		let [l, r] = arrowEnds(relA);
+
 		await this.query(`
 			MATCH (A:${relA.name} { id: ${idA} })
 			      ${l}[rel:${type.name}]${r}

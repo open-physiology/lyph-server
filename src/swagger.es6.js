@@ -40,13 +40,9 @@ for (let resName of Object.keys(resources)) {
 		type:       'object',
 		properties: (() => {
 			let properties = cloneDeep(type.properties);
-
-			//console.log("NK TEST Swagger Properties", properties);
-
 			for (let prop of Object.values(properties)) {
 				delete prop.key;
 				if (prop.readonly) {
-					//TODO NK: can readonly be recursive?
 					prop['x-readonly'] = prop.readonly;
 					delete prop.readonly;
 				}
@@ -58,19 +54,16 @@ for (let resName of Object.keys(resources)) {
 			.filter(([fieldName, {'x-required': required}]) => required)
 			.map(([fieldName]) => fieldName);
 	if (required.length > 0) { swaggerDataTypes[resName].required = required; }
-	swaggerDataTypes[`partial_${resName}`] = { // partial = allow required fields to be absent for update commands
+	swaggerDataTypes[`partial_${resName}`] = {
+		// partial = allow required fields to be absent for update commands
 		'x-resource-type': type.name,
 		type: 'object',
 		properties: (() => {
 			let properties = cloneDeep(type.properties);
-
-			//console.log("NK TEST Swagger Properties 2", properties);
-
 			for (let prop of Object.values(properties)) {
 				delete prop.default;
 				delete prop.key;
 				if (prop.readonly) {
-					//TODO NK: can readonly be recursive?
 					prop['x-readonly'] = prop.readonly;
 					delete prop.readonly;
 				}
@@ -230,123 +223,120 @@ let relationshipEndpoints = {};
 const FORWARD  = Symbol('FORWARD' );
 const BACKWARD = Symbol('BACKWARD');
 
-//NK TODO: fails?
-function addRelationshipEndpoints(rel, direction) {
-	const relA = rel[direction === FORWARD ? 1 : 2];
-	const relB = rel[direction === FORWARD ? 2 : 1];
-
-	const pluralA   = relA.type.plural;
-	const singularA = relA.type.singular;
-	const abbreviationA = relA.type.abbreviation;
-	const pluralB   = relB.type.plural;
-	const singularB = relB.type.singular;
-	const abbreviationB = relB.type.abbreviation;
-	const {fieldName, getSummary, putSummary, deleteSummary, abstract} = relA;
-
-	const singularIdKeyA = `${toCamelCase(abbreviationA||singularA )}ID`;
-	const singularIdKeyB = `${toCamelCase((relA.type === relB.type ? "other " : "") + (abbreviationB||singularB))}ID`;
-	const pluralKeyA     = toCamelCase(pluralA);
-
-	relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}`] = {
-		'x-path-type': 'relationships',
-		'x-param-map': {
-			idA: singularIdKeyA,
-			[direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA
-		},
-		'x-A': (direction === FORWARD ? 1 : 2),
-		'x-B': (direction === FORWARD ? 2 : 1),
-		'x-relationship-type': rel.name,
-		get: {
-			summary: getSummary || `retrieve all the ${pluralB} of a given ${singularA}`,
-			parameters: [
-				{
-					name:        singularIdKeyA,
-					in:          'path',
-					description: `ID of the ${singularA} of which to retrieve the ${pluralB}`,
-					required:    true,
-					type:        'integer'
-				}
-			],
-			responses: {
-				[OK]: {
-					description: `an array containing the ${pluralB} of the given ${singularA}`,
-					schema: { type: 'array', items: $ref(relB.type.name), minItems: 1, maxItems: 1 }
-				}
-			}
-		}
-	};
-
-	if (!abstract) {
-		relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}/{${singularIdKeyB}}`] = {
-			'x-path-type': 'specificRelationship',
-			'x-param-map': {
-				idA: singularIdKeyA,
-				idB: singularIdKeyB,
-				[direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA,
-				[direction === FORWARD ? 'id2' : 'id1']: singularIdKeyB
-			},
-			'x-A': (direction === FORWARD ? 1 : 2),
-			'x-B': (direction === FORWARD ? 2 : 1),
-			'x-relationship-type': rel.name,
-			put: {
-				summary: putSummary || `add a given ${pluralB} to a given ${singularA}`,
-				parameters: [
-					{
-						name:        singularIdKeyA,
-						in:          'path',
-						description: `ID of the ${singularA} to which to add the '${fieldName}' ${singularB}`,
-						required:    true,
-						type:        'integer'
-					}, {
-						name:        singularIdKeyB,
-						in:          'path',
-						description: `ID of the '${fieldName}' ${singularB} to add to the given ${singularA}`,
-						required:    true,
-						type:        'integer'
-					}
-				],
-				responses: {
-					[NO_CONTENT]: {
-						description: `successfully added the ${singularB}`
-					}
-				}
-			},
-			//TODO NK: deal with relationships with properties
-			delete: {
-				summary: deleteSummary || `remove a ${pluralB} from a given ${singularA}`,
-				parameters: [
-					{
-						name:        singularIdKeyA,
-						in:          'path',
-						description: `ID of the ${singularA} from which to remove the '${fieldName}' ${singularB}`,
-						required:    true,
-						type:        'integer'
-					}, {
-						name:        singularIdKeyB,
-						in:          'path',
-						description: `ID of the '${fieldName}' ${singularB} to remove from the given ${singularA}`,
-						required:    true,
-						type:        'integer'
-					}
-				],
-				responses: {
-					[NO_CONTENT]: {
-						description: `successfully removed the ${singularB}`
-					}
-				}
-			}
-		}
-	}
-}
+//NK TODO: Rewrite to use new manifest
+// function addRelationshipEndpoints(rel, direction) {
+// 	const relA = rel[direction === FORWARD ? 1 : 2];
+// 	const relB = rel[direction === FORWARD ? 2 : 1];
+//
+// 	const pluralA   = relA.type.plural;
+// 	const singularA = relA.type.singular;
+// 	const abbreviationA = relA.type.abbreviation;
+// 	const pluralB   = relB.type.plural;
+// 	const singularB = relB.type.singular;
+// 	const abbreviationB = relB.type.abbreviation;
+// 	const {fieldName, getSummary, putSummary, deleteSummary, abstract} = relA;
+//
+// 	const singularIdKeyA = `${toCamelCase(abbreviationA||singularA )}ID`;
+// 	const singularIdKeyB = `${toCamelCase((relA.type === relB.type ? "other " : "") + (abbreviationB||singularB))}ID`;
+// 	const pluralKeyA     = toCamelCase(pluralA);
+//
+// 	relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}`] = {
+// 		'x-path-type': 'relationships',
+// 		'x-param-map': {
+// 			idA: singularIdKeyA,
+// 			[direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA
+// 		},
+// 		'x-A': (direction === FORWARD ? 1 : 2),
+// 		'x-B': (direction === FORWARD ? 2 : 1),
+// 		'x-relationship-type': rel.name,
+// 		get: {
+// 			summary: getSummary || `retrieve all the ${pluralB} of a given ${singularA}`,
+// 			parameters: [
+// 				{
+// 					name:        singularIdKeyA,
+// 					in:          'path',
+// 					description: `ID of the ${singularA} of which to retrieve the ${pluralB}`,
+// 					required:    true,
+// 					type:        'integer'
+// 				}
+// 			],
+// 			responses: {
+// 				[OK]: {
+// 					description: `an array containing the ${pluralB} of the given ${singularA}`,
+// 					schema: { type: 'array', items: $ref(relB.type.name), minItems: 1, maxItems: 1 }
+// 				}
+// 			}
+// 		}
+// 	};
+//
+// 	if (!abstract) {
+// 		relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}/{${singularIdKeyB}}`] = {
+// 			'x-path-type': 'specificRelationship',
+// 			'x-param-map': {
+// 				idA: singularIdKeyA,
+// 				idB: singularIdKeyB,
+// 				[direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA,
+// 				[direction === FORWARD ? 'id2' : 'id1']: singularIdKeyB
+// 			},
+// 			'x-A': (direction === FORWARD ? 1 : 2),
+// 			'x-B': (direction === FORWARD ? 2 : 1),
+// 			'x-relationship-type': rel.name,
+// 			put: {
+// 				summary: putSummary || `add a given ${pluralB} to a given ${singularA}`,
+// 				parameters: [
+// 					{
+// 						name:        singularIdKeyA,
+// 						in:          'path',
+// 						description: `ID of the ${singularA} to which to add the '${fieldName}' ${singularB}`,
+// 						required:    true,
+// 						type:        'integer'
+// 					}, {
+// 						name:        singularIdKeyB,
+// 						in:          'path',
+// 						description: `ID of the '${fieldName}' ${singularB} to add to the given ${singularA}`,
+// 						required:    true,
+// 						type:        'integer'
+// 					}
+// 				],
+// 				responses: {
+// 					[NO_CONTENT]: {
+// 						description: `successfully added the ${singularB}`
+// 					}
+// 				}
+// 			},
+// 			//TODO NK: deal with relationships with properties
+// 			delete: {
+// 				summary: deleteSummary || `remove a ${pluralB} from a given ${singularA}`,
+// 				parameters: [
+// 					{
+// 						name:        singularIdKeyA,
+// 						in:          'path',
+// 						description: `ID of the ${singularA} from which to remove the '${fieldName}' ${singularB}`,
+// 						required:    true,
+// 						type:        'integer'
+// 					}, {
+// 						name:        singularIdKeyB,
+// 						in:          'path',
+// 						description: `ID of the '${fieldName}' ${singularB} to remove from the given ${singularA}`,
+// 						required:    true,
+// 						type:        'integer'
+// 					}
+// 				],
+// 				responses: {
+// 					[NO_CONTENT]: {
+// 						description: `successfully removed the ${singularB}`
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 for (let rel of _(relationships).values()) {
-	//TODO NK: Handle multiple domain pairs
-	//NK "many" does not exist, addRelationshipEndpoints are never called
-	if (rel.domainPairs[0][1].cardinality === 'many') { addRelationshipEndpoints(rel, FORWARD ) }
-	if (rel.domainPairs[0][2].cardinality === 'many') { addRelationshipEndpoints(rel, BACKWARD) }
-	//if (rel.domainPairs[0][1].cardinality.max && rel.domainPairs[0][1].cardinality.max !== 1) { addRelationshipEndpoints(rel, FORWARD ) }
-	//if (rel.domainPairs[0][1].cardinality.max && rel.domainPairs[0][2].cardinality.max !== 1) { addRelationshipEndpoints(rel, BACKWARD) }
-
+	//TODO: Handle multiple domain pairs
+	//TODO: Uncomment when addRelationshipEndpoints is fixed
+	//if (rel.domainPairs[0][1].cardinality.max && (rel.domainPairs[0][1].cardinality.max !== 1)) { addRelationshipEndpoints(rel, FORWARD ) }
+	//if (rel.domainPairs[0][2].cardinality.max && (rel.domainPairs[0][2].cardinality.max !== 1)) { addRelationshipEndpoints(rel, BACKWARD) }
 }
 
 

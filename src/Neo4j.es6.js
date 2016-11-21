@@ -100,16 +100,16 @@ export default class Neo4j {
 		/* try a number of times, possibly (re)starting Neo4j itself if necessary */
 		for (let tries = 1; tries <= MAX_TRIES; ++tries) {
 			try {
-				console.log(`[Neo4j] [${Date()}] Sending query (try ${tries})...`);
+				if (this.config.consoleLogging) {console.log(`[Neo4j] [${Date()}] Sending query (try ${tries})...`);}
 				let result = await attemptRestCall();
-				console.log(`[Neo4j] [${Date()}] Query succeeded!`);
+				if (this.config.consoleLogging) { console.log(`[Neo4j] [${Date()}] Query succeeded!`) }
 				return result;
 			} catch (err) {
 				if (err && err.code && err.code === 'ECONNREFUSED') {
 					console.error(`[Neo4j] [${Date()}] Connection to Neo4j failed.`);
-					console.log  (`[Neo4j] [${Date()}] Restarting Neo4j...`);
+					if (this.config.consoleLogging) { console.log(`[Neo4j] [${Date()}] Restarting Neo4j...`) }
 					await new Promise((resolve, reject) => {
-						console.log("CONFIG", this.config);
+						if (this.config.consoleLogging) {console.log("CONFIG", this.config);}
 						exec(`docker start ${this.config.docker}`, (error) => {
 							if (error) { reject(error) }
 							else       { resolve()     }

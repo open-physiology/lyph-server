@@ -101,11 +101,9 @@ export const neo4jToData = (type, properties) => {
 };
 
 /* to get the arrow-parts for a Cypher relationship */
-/*
-export const arrowEnds = (relA) => (relA.symmetric)  ? [' -','- '] :
-                                   (relA.side === 1) ? [' -','->'] :
-	                                                   ['<-','- '] ;
-*/
+export const arrowEnds = (relA) => (relA.symmetric)               ? [' -','- '] :
+                                   (relA.keyInRelationship === 1) ? [' -','->'] :
+	                                                   				['<-','- '] ;
 
 /* creating a Neo4j arrow matcher with nicer syntax */
 export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
@@ -124,7 +122,7 @@ export function relationshipQueryFragments(type, nodeName) {
 
 		//TODO:
 		//let [l, r] = arrowEnds(relA);
-		let [l, r] = ['-', '->'];
+		let [l, r] = arrowEnds(type);
         var q = `OPTIONAL MATCH (${nodeName})
 			               ${l}[:${fieldSpec.relationshipClass.name}]${r}
 			               (rel_${fieldName}:${fieldSpec.codomain.resourceClass.name})`;
