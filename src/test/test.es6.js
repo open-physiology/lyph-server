@@ -233,6 +233,11 @@ beforeEach(async () => {
 		nature: "closed"
 	});
 
+	/* materials */
+	initial.blood = await createResource('Material', {
+		name: "Blood"
+	});
+
 	/* lyphs */
 	initial.renalH = await createResource('Lyph', {
 		name: "Renal hilum",
@@ -257,12 +262,8 @@ beforeEach(async () => {
 		href: "href 5",
 		layers: [initial.renalH, initial.renalP, initial.renalC],
 		externals: [initial.vein],
-		longitudinalBorders: [initial.border1, initial.border2]
-	});
-
-	/* materials */
-	initial.blood = await createResource('Material', {
-		name: "Blood"
+		longitudinalBorders: [initial.border1, initial.border2],
+		materials: [initial.blood]
 	});
 
 	/* processes */
@@ -353,33 +354,30 @@ describeResourceType('ExternalResource', () => {
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// describeResourceType('LyphTemplate', () => {
-//
-// 	describeEndpoint('/lyphTemplates',      ['GET', 'POST']);
-//
-// 	describeEndpoint('/lyphTemplates/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-//
-// 		withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.layerTmp1.id }));
-//
-// 		withValidPathParams(()=>({ id: initial.lyphTmp1.id }), () => {
-//
-// 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 				expect(res).to.have.property('name'           ).that.equals("lyph template 1");
-// 				expect(res).to.have.property('layers'         ).with.members([ initial.layerTmp1.id, initial.layerTmp2.id, initial.layerTmp3.id ]);
-// 				expect(res).to.have.property('instantiations' ).with.members([ initial.lyph1.id ]);
-// 				expect(res).to.have.property('materialIn'     ).that.is.instanceOf(Array); // TODO: make specific when appropriate
-// 				expect(res).to.have.property('materialInLyphs').that.is.instanceOf(Array); // TODO: make specific when appropriate
-// 				expect(res).to.have.property('materials'      ).that.is.instanceOf(Array); // TODO: make specific when appropriate
-// 				expect(res).to.have.property('locatedMeasures').that.is.instanceOf(Array); // TODO: make specific when appropriate
-// 			}));
-//
-// 		});
-//
-// 	});
-//
-// });
+describeResourceType('Lyph', () => {
+
+	describeEndpoint('/lyphs',      ['GET', 'POST']);
+
+	describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.layerTmp1.id }));
+
+		withValidPathParams(()=>({ id: initial.lyphTmp1.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('name'               );
+				expect(res).to.have.property('layers'             ).with.members([ initial.renalP.id, initial.renalH.id, initial.renalC.id ]);
+				//expect(res).to.have.property('parts'              ).with.members([ initial.renalP.id, initial.renalH.id, initial.renalC.id ]);
+				expect(res).to.have.property('externals'          ).with.members([ initial.vein.id]);
+				expect(res).to.have.property('longitudinalBorders').with.members([ initial.border1.id, initial.border2.id]);
+				expect(res).to.have.property('materials'          ).with.members([ initial.blood.id]);
+			}));
+		});
+	});
+
+});
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -526,31 +524,7 @@ describeResourceType('ExternalResource', () => {
 // 	});
 //
 // });
-//
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// describeResourceType('Compartments', () => {
-//
-// 	describeEndpoint('/compartments',      ['GET', 'POST']);
-//
-// 	describeEndpoint('/compartments/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-//
-// 		withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
-//
-// 		// TODO: uncomment and fill in when there is a compartment in the setup
-// 		//withValidPathParams(()=>({ id: SOME_ID }), () => {
-// 		//
-// 		//	GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 		//		expect(res).to.have.property('lyphs').that.is.instanceOf(Array);
-// 		//	}));
-// 		//
-// 		//});
-//
-// 	});
-//
-// });
+
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
