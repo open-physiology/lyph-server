@@ -6,7 +6,7 @@
 import thenifyAll  from 'thenify-all';
 import thenify     from 'thenify';
 import ProgressBar from 'progress';
-import _, {uniq}   from '../libs/lodash.es6.js';
+import _, {uniq}   from 'lodash';
 const  request     =     require('superagent-promise')(require('superagent'), Promise);
 const  fs          =     thenifyAll(require('fs'));
 const  csvParse    =     thenify(require('csv-parse'));

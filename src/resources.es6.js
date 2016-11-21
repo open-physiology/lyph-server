@@ -2,137 +2,18 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* external libraries */
-import {cloneDeep} from './libs/lodash.es6.js';
+import modelFactory from "open-physiology-model/src/index.js";
+export const modelRef = modelFactory();
 
-/* local stuff */
-import {a, sw}                                   from './utility.es6.js';
-import {resources     as specifiedResources}     from './config/resources.es6.js';
-import {relationships as specifiedRelationships} from './config/relationships.es6.js';
-import {algorithms    as specifiedAlgorithms}    from './config/algorithms.es6.js';
-import {idSchema}                                from './simple-data-types.es6.js';
+export const resources = {};
+export const relationships = {};
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// processing resources                                                                                               //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export let resources = cloneDeep(specifiedResources);
-
-for (let resName of Object.keys(resources)) {
-	resources[resName].name = resName;
+for (let [key, value] of Object.entries(modelRef.classes)){
+	if (value.isResource) {resources[key] = value;}
+	if (value.isRelationship) {relationships[key] = value;}
 }
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// processing relationships                                                                                           //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export let relationships = {};
-export let sustainingRelationships = [];
-export let anchoringRelationships  = [];
-
-for (let relName of Object.keys(specifiedRelationships)) {
-	/* unpacking the relationship data */
-	let [
-		typeName1, fieldCardinality1, fieldName1, options1,
-		typeName2, fieldCardinality2, fieldName2, options2,
-		options
-	] = specifiedRelationships[relName];
-
-	/* creating the relationship object */
-	if (!options1) { options1 = {} }
-	if (!options2) { options2 = {} }
-	if (!options)  { options  = {} }
-	let rel = {
-		...options,
-		name: relName,
-		1: {
-			...options,
-			...options1,
-			type:             resources[typeName1],
-			fieldCardinality: fieldCardinality1,
-			fieldName:        fieldName1,
-			side:             1
-		},
-		2: {
-			...options,
-			...options2,
-			type:             resources[typeName2],
-			fieldCardinality: fieldCardinality2,
-			fieldName:        fieldName2,
-			side:             2
-		}
-	};
-	rel[1].relationship = rel;
-	rel[2].relationship = rel;
-	rel[1].otherSide = rel[2];
-	rel[2].otherSide = rel[1];
-	relationships[relName] = rel;
-
-	/* supplementing the resource type object(s) */
-	for (let i of [1, 2]) {
-		/* putting specific relationship sides into relevant resource types */
-		a(rel[i].type, 'relationships').push(rel[i]);
-
-		/* specific relationship sides for 'sustaining' relationships */
-		if (rel[i].sustains) {  sustainingRelationships.push(rel[i])  }
-
-		/* specific relationship sides for 'anchoring' relationships */
-		if (rel[i].anchors)  {  anchoringRelationships .push(rel[i])  }
-
-		/* a field pointing to the related entity|-ies */
-		rel[i].type.schema.properties[rel[i].fieldName] = sw(rel[i].fieldCardinality)({
-			'optional': {
-				...idSchema,
-				'x-skip-db':  true,
-				'x-required': false
-			},
-			'one': {
-				...idSchema,
-				'x-skip-db':  true,
-				'x-required': true
-			},
-			'many': {
-				type: 'array',
-				items: idSchema,
-				'x-skip-db':  true,
-				default: []
-				//'x-required': true // TODO: an empty array is assumed
-			}
-		});
-
-		/* a field containing the index this entity occupies in the related entity */
-		if (rel[i].fieldCardinality !== 'many' && rel[i].otherSide.fieldCardinality === 'many' && rel[i].indexFieldName) {
-			rel[i].type.schema.properties[rel[i].indexFieldName] = {
-				type: 'integer',
-				minimum: 0
-				//'x-required': true // TODO: the default value should be 'at the end'; how to express this? (maybe use Infinity?)
-			};
-		}
-
-		/* other fields that should be set */
-		if (rel[i].setFields) {
-			for (let fieldName of Object.keys(rel[i].setFields)) {
-				rel[i].type.schema.properties[fieldName] = {
-					type: (typeof rel[i].setFields[fieldName])
-				};
-			}
-		}
-	}
-}
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// processing algorithms                                                                                              //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export let algorithms = cloneDeep(specifiedAlgorithms);
-
-for (let algName of Object.keys(algorithms)) {
-	algorithms[algName].name = algName;
-}
-
+//console.log("Resources", resources);
+//console.log("Relationships", relationships);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // TODOs related to maintaining data constraints                                                                      //

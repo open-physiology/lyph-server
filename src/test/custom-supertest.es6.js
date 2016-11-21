@@ -1,4 +1,4 @@
-import {pick} from '../libs/lodash.es6.js';
+import {pick} from 'lodash/pick';
 
 import SuperTest from 'supertest';
 

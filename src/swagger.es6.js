@@ -3,7 +3,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _, {cloneDeep, pick} from './libs/lodash.es6.js';
+import _ from 'lodash';
+import cloneDeep from 'lodash/cloneDeep';
+import pick from 'lodash/pick';
 
 /* local stuff */
 import {toCamelCase}                          from './utility.es6.js';
@@ -36,9 +38,23 @@ for (let resName of Object.keys(resources)) {
 	swaggerDataTypes[resName] = {
 		'x-resource-type': type.name,
 		type:       'object',
-		properties: cloneDeep(type.schema.properties)
+		properties: (() => {
+			let properties = cloneDeep(type.properties);
+
+			//console.log("NK TEST Swagger Properties", properties);
+
+			for (let prop of Object.values(properties)) {
+				delete prop.key;
+				if (prop.readonly) {
+					//TODO NK: can readonly be recursive?
+					prop['x-readonly'] = prop.readonly;
+					delete prop.readonly;
+				}
+			}
+			return properties;
+		})()
 	};
-	let required = [...Object.entries(type.schema.properties)]
+	let required = [...Object.entries(type.properties)]
 			.filter(([fieldName, {'x-required': required}]) => required)
 			.map(([fieldName]) => fieldName);
 	if (required.length > 0) { swaggerDataTypes[resName].required = required; }
@@ -46,8 +62,19 @@ for (let resName of Object.keys(resources)) {
 		'x-resource-type': type.name,
 		type: 'object',
 		properties: (() => {
-			let properties = cloneDeep(type.schema.properties);
-			for (let prop of Object.values(properties)) { delete prop.default }
+			let properties = cloneDeep(type.properties);
+
+			//console.log("NK TEST Swagger Properties 2", properties);
+
+			for (let prop of Object.values(properties)) {
+				delete prop.default;
+				delete prop.key;
+				if (prop.readonly) {
+					//TODO NK: can readonly be recursive?
+					prop['x-readonly'] = prop.readonly;
+					delete prop.readonly;
+				}
+			}
 			return properties;
 		})()
 	};
@@ -62,7 +89,7 @@ let resourceEndpoints = {};
 
 function addResourceEndpoint(type) {
 
-	const {singular, abbreviation, plural, readOnly} = type;
+	const {singular, abbreviation, plural, abstract} = type;
 
 	const singularIdKey = `${abbreviation||toCamelCase(singular)}ID`;
 	const pluralIdKey   = `${abbreviation||toCamelCase(singular)}IDs`;
@@ -80,7 +107,7 @@ function addResourceEndpoint(type) {
 				}
 			}
 		},
-		...(readOnly || {
+		...(abstract || {
 			post: {
 				summary: `create a new ${singular}`,
 				parameters: [{
@@ -125,8 +152,44 @@ function addResourceEndpoint(type) {
 				}
 			}
 		},
-
-		...(readOnly || {
+		post: {
+			summary: `update a given ${singular}`,
+			parameters: [{
+				name:        singularIdKey,
+				in:          'path',
+				description: `ID of the ${singular} to update`,
+				required:    true,
+				type:        'integer'
+			}, {
+				name:        toCamelCase(`new ${singular}`),
+				in:          'body',
+				description: `a (partial) ${singular} object with the data that should be updated`,
+				required:    true,
+				schema:      $ref(`partial_${type.name}`)
+			}],
+			responses: {
+				[OK]: {
+					description: `an array containing one element: the full ${singular} after the update`,
+					schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
+				}
+			}
+		},
+		delete: {
+			summary: `delete a given ${singular}`,
+			parameters: [{
+				name:        singularIdKey,
+				in:          'path',
+				description: `ID of the ${singular} to delete`,
+				required:    true,
+				type:        'integer'
+			}],
+			responses: {
+				[NO_CONTENT]: {
+					description: `successfully deleted the ${singular}`
+				}
+			}
+		},
+		...(abstract || {
 			put: {
 				summary: `replace a given ${singular}`,
 				parameters: [{
@@ -149,43 +212,6 @@ function addResourceEndpoint(type) {
 					}
 				}
 			},
-			post: {
-				summary: `update a given ${singular}`,
-				parameters: [{
-					name:        singularIdKey,
-					in:          'path',
-					description: `ID of the ${singular} to update`,
-					required:    true,
-					type:        'integer'
-				}, {
-					name:        toCamelCase(`new ${singular}`),
-					in:          'body',
-					description: `a (partial) ${singular} object with the data that should be updated`,
-					required:    true,
-					schema:      $ref(`partial_${type.name}`)
-				}],
-				responses: {
-					[OK]: {
-						description: `an array containing one element: the full ${singular} after the update`,
-						schema: { type: 'array', items: $ref(type.name), minItems: 1, maxItems: 1 }
-					}
-				}
-			},
-			delete: {
-				summary: `delete a given ${singular}`,
-				parameters: [{
-					name:        singularIdKey,
-					in:          'path',
-					description: `ID of the ${singular} to delete`,
-					required:    true,
-					type:        'integer'
-				}],
-				responses: {
-					[NO_CONTENT]: {
-						description: `successfully deleted the ${singular}`
-					}
-				}
-			}
 		})
 	};
 }
@@ -203,6 +229,8 @@ let relationshipEndpoints = {};
 
 const FORWARD  = Symbol('FORWARD' );
 const BACKWARD = Symbol('BACKWARD');
+
+//NK TODO: fails?
 function addRelationshipEndpoints(rel, direction) {
 	const relA = rel[direction === FORWARD ? 1 : 2];
 	const relB = rel[direction === FORWARD ? 2 : 1];
@@ -213,9 +241,9 @@ function addRelationshipEndpoints(rel, direction) {
 	const pluralB   = relB.type.plural;
 	const singularB = relB.type.singular;
 	const abbreviationB = relB.type.abbreviation;
-	const {fieldName, getSummary, putSummary, deleteSummary, readOnly} = relA;
+	const {fieldName, getSummary, putSummary, deleteSummary, abstract} = relA;
 
-	const singularIdKeyA = `${toCamelCase(                                             abbreviationA||singularA )}ID`;
+	const singularIdKeyA = `${toCamelCase(abbreviationA||singularA )}ID`;
 	const singularIdKeyB = `${toCamelCase((relA.type === relB.type ? "other " : "") + (abbreviationB||singularB))}ID`;
 	const pluralKeyA     = toCamelCase(pluralA);
 
@@ -248,7 +276,7 @@ function addRelationshipEndpoints(rel, direction) {
 		}
 	};
 
-	if (!readOnly) {
+	if (!abstract) {
 		relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}/{${singularIdKeyB}}`] = {
 			'x-path-type': 'specificRelationship',
 			'x-param-map': {
@@ -283,6 +311,7 @@ function addRelationshipEndpoints(rel, direction) {
 					}
 				}
 			},
+			//TODO NK: deal with relationships with properties
 			delete: {
 				summary: deleteSummary || `remove a ${pluralB} from a given ${singularA}`,
 				parameters: [
@@ -311,8 +340,13 @@ function addRelationshipEndpoints(rel, direction) {
 }
 
 for (let rel of _(relationships).values()) {
-	if (rel[1].fieldCardinality === 'many') { addRelationshipEndpoints(rel, FORWARD ) }
-	if (rel[2].fieldCardinality === 'many') { addRelationshipEndpoints(rel, BACKWARD) }
+	//TODO NK: Handle multiple domain pairs
+	//NK "many" does not exist, addRelationshipEndpoints are never called
+	if (rel.domainPairs[0][1].cardinality === 'many') { addRelationshipEndpoints(rel, FORWARD ) }
+	if (rel.domainPairs[0][2].cardinality === 'many') { addRelationshipEndpoints(rel, BACKWARD) }
+	//if (rel.domainPairs[0][1].cardinality.max && rel.domainPairs[0][1].cardinality.max !== 1) { addRelationshipEndpoints(rel, FORWARD ) }
+	//if (rel.domainPairs[0][1].cardinality.max && rel.domainPairs[0][2].cardinality.max !== 1) { addRelationshipEndpoints(rel, BACKWARD) }
+
 }
 
 

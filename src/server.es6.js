@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _, {isArray, isString} from './libs/lodash.es6.js';
+import _, {isArray, isString} from 'lodash';
 import express                from 'express';
 import promisify              from 'es6-promisify';
 import cors                   from 'cors';
@@ -84,8 +84,11 @@ const requestHandler = {
 		async put({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			await Promise.all([
-				db.assertResourcesExist(relA          .type, [idA]),
-				db.assertResourcesExist(relA.otherSide.type, [idB])
+				//db.assertResourcesExist(relA          .type, [idA]),
+				//db.assertResourcesExist(relA.otherSide.type, [idB])
+				db.assertResourcesExist(relA          			   , [idA]),
+				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+
 			]);
 			await db.addNewRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
@@ -93,8 +96,10 @@ const requestHandler = {
 		async delete({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			await Promise.all([
-				db.assertResourcesExist(relA          .type, [idA]),
-				db.assertResourcesExist(relA.otherSide.type, [idB])
+				//db.assertResourcesExist(relA          .type, [idA]),
+				//db.assertResourcesExist(relA.otherSide.type, [idB])
+				db.assertResourcesExist(relA          			   , [idA]),
+				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
 			]);
 			await db.deleteRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
@@ -229,6 +234,8 @@ export default async (distDir, config) => {
 		middleware.parseRequest(),
 		middleware.validateRequest()
 	);
+
+	console.log("DB CONFIG", config);
 
 	/* set up database */
 	let db = new LyphNeo4j({

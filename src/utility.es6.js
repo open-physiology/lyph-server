@@ -3,9 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _, {trim, matches} from './libs/lodash.es6.js';
-import util               from 'util';
-
+import _, {trim, matches, isUndefined, isArray, isSet} from 'lodash';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // very general stuff                                                                                                 //
@@ -48,13 +46,6 @@ export const humanMsg = (strings, ...values) => {
 	return trim(result);
 };
 
-export const inspect = (obj, options = {}) => {
-	console.log(util.inspect(obj, Object.assign({
-		colors: true,
-		depth:  2
-	}, options)));
-};
-
 export const sw = (val) => (...map) => {
 	if (map.length === 1) { // one case per result
 		return ( (val in map[0]) ? map[0][val] : map[0].default );
@@ -65,7 +56,6 @@ export const sw = (val) => (...map) => {
 		}
 	}
 };
-
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,65 +78,75 @@ export const pluckData  = (name) => (res) => res.map((obj) => obj[name]);
 export const pluckDatum = (name) => (res) => (res[0] ? res[0][name] : null);
 
 /* prepare an object to be sent directly to Neo4j */
-export const dataToNeo4j = (type, properties) => _(properties).omit((__, key) =>
-	type.schema.properties[key] &&
-	type.schema.properties[key]['x-skip-db']
-).mapValues((val, key) => sw(type.schema.properties[key] && type.schema.properties[key].type)(
-	[['object', 'array'],()=> JSON.stringify(val)],
-	[                   ,()=>                val ]
-)).value();
+//NK modified: x-skip-db no longer exists, all resource properties are listed in type.properties
+export const dataToNeo4j = (type, fields) => {
+	let allPropertyFields = Object.entries(type.properties);
+	let mappedFields = {};
+	for (let [fieldName, fieldSpec] of allPropertyFields) {
+		let val = fields[fieldName];
+		if (isUndefined(val)) continue;
+		mappedFields[fieldName] = (val::isArray || val::isObject)? JSON.stringify(val): val;
+	}
+	console.log("NK TEST: dataToNeo4j returns", mappedFields);
+	return mappedFields;
+};
 
 /* get an object from Neo4j and prepare it to be sent over the lyph-server API */
+//NK TODO: are nested object types describes as 'object' & 'array'? We have TypedDistributionSchema...
 export const neo4jToData = (type, properties) => {
-	return _(properties).mapValues((val, key) => sw(type.schema.properties[key] && !type.schema.properties[key]['x-skip-db'] && type.schema.properties[key].type)(
+	return _(properties).mapValues((val, key) => sw(type.properties[key] && type.properties[key].type)(
 		[['object', 'array'],()=> JSON.parse(val)],
 		[                   ,()=>            val ]
 	)).value();
 };
 
 /* to get the arrow-parts for a Cypher relationship */
+/*
 export const arrowEnds = (relA) => (relA.symmetric)  ? [' -','- '] :
                                    (relA.side === 1) ? [' -','->'] :
 	                                                   ['<-','- '] ;
+*/
 
 /* creating a Neo4j arrow matcher with nicer syntax */
 export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 	? `OPTIONAL MATCH (${a}) ${l}[:${relTypes.map(({relationship:{name}})=>name).join('|')}]${r} (${b})`
 	: ``;
 
-/* given a type and given fields, return an array of useful relationship type info */
-export function relationshipTypeSummaries(type, fields) {
-	return type.relationships.map(rel => ({
-		rel,
-		fieldName: rel.fieldName,
-		given:     (!rel.disambiguation || matches(rel.disambiguation)(fields)) ? fields[rel.fieldName] : undefined,
-		implicit:  rel.implicit,
-		get ids()  { return (rel.fieldCardinality === 'many') ? this.given : [this.given] }
-	}));
-}
-
 /* to get query-fragments to get relationship-info for a given resource */
 export function relationshipQueryFragments(type, nodeName) {
 	let optionalMatches = [];
 	let objectMembers = [];
 	let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
-	for (let relA of type.relationships) {
-		if (handledFieldNames[relA.fieldName]) { continue }
-		handledFieldNames[relA.fieldName] = true;
-		let [l, r] = arrowEnds(relA);
-		optionalMatches.push(`
-			OPTIONAL MATCH (${nodeName})
-			               ${l}[:${relA.relationship.name}]${r}
-			               (rel_${relA.fieldName}:${relA.otherSide.type.name})
-        `);
+	let allRelationFields = Object.entries(Object.assign({}, type.relationshipShortcuts));
+	for (let [fieldName, fieldSpec] of allRelationFields) {
+		if (handledFieldNames[fieldName]) { continue }
+		handledFieldNames[fieldName] = true;
+
+		//TODO:
+		//let [l, r] = arrowEnds(relA);
+		let [l, r] = ['-', '->'];
+        var q = `OPTIONAL MATCH (${nodeName})
+			               ${l}[:${fieldSpec.relationshipClass.name}]${r}
+			               (rel_${fieldName}:${fieldSpec.codomain.resourceClass.name})`;
+		optionalMatches.push(q);
 		objectMembers.push(
-			relA.fieldCardinality === 'many'
-				? `${relA.fieldName}: collect(DISTINCT rel_${relA.fieldName}.id)`
-				: `${relA.fieldName}: rel_${relA.fieldName}.id`
+			(fieldSpec.cardinality && fieldSpec.cardinality.max !== 1)
+				? `${fieldName}: collect(DISTINCT rel_${fieldName}.id)`
+				: `${fieldName}: rel_${fieldName}.id`
 		);
-		for (let fieldName of Object.keys(relA.setFields || {})) {
-			objectMembers.push(`${fieldName}: ${JSON.stringify(relA.setFields[fieldName])}`);
-		}
+
+        //TODO: what is relA.setFields? Properties of relations?
+		//for (let [relFieldName, relFieldSpec] of Object.entries(fieldSpec.relationshipClass.properties || {})) {
+		//	objectMembers.push(`${relFieldName}: ${JSON.stringify(relFieldSpec)}`);
+		//}
+
+        //instead of
+
+		//for (let fieldName of Object.keys(relA.setFields || {})) {
+		//	objectMembers.push(`${fieldName}: ${JSON.stringify(relA.setFields[fieldName])}`);
+		//}
+
+		//console.log("NK TEST (relationshipQueryFragments)", objectMembers);
 	}
 	return { optionalMatches, objectMembers };
 }

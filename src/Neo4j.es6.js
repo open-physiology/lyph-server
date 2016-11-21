@@ -3,18 +3,13 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-import {isObject, isString, isUndefined, zipObject} from './libs/lodash.es6.js';
+import {isObject, isString, isUndefined, zipObject} from 'lodash';
 import {Client as RestClient}                       from 'node-rest-client';
 import {exec}                                       from 'child_process';
 
-import {inspect} from './utility.es6.js';
-
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 const MAX_TRIES = 8;
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // set up the database connection                                                                                     //
@@ -114,6 +109,7 @@ export default class Neo4j {
 					console.error(`[Neo4j] [${Date()}] Connection to Neo4j failed.`);
 					console.log  (`[Neo4j] [${Date()}] Restarting Neo4j...`);
 					await new Promise((resolve, reject) => {
+						console.log("CONFIG", this.config);
 						exec(`docker start ${this.config.docker}`, (error) => {
 							if (error) { reject(error) }
 							else       { resolve()     }
