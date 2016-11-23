@@ -166,12 +166,12 @@ export default class LyphNeo4j extends Neo4j {
 			let [l, r] = arrowEnds(fieldSpec); //TODO check that the right variable is called
 			for (let idB of ids){
 				let q = `MATCH (A:${type.name} { id: ${id} }), (B:${fieldSpec.resourceClass.name} { id: ${idB} })
-			 		CREATE (A) ${l}[:${rel.relationship.name}]${r} (B)`;
+			 		CREATE (A) ${l}[:${fieldSpec.relationshipClass.name}]${r} (B)`;
 				relCreationStatements.push(q);
+				console.log("NK TEST createSpecifiedRelationships.query", q);
 			}
 		}
 		if (relCreationStatements.length > 0) {
-			console.log("NK TEST relCreationStatements:", relCreationStatements);
 			await this.query(relCreationStatements);
 		}
 	}
@@ -537,9 +537,9 @@ export default class LyphNeo4j extends Neo4j {
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(relB, 'B');
 		let [l, r] = arrowEnds(relA);
 		let q  = `
-			MATCH (A:${relA.name} { id: ${idA} })
+			MATCH (A:${relA.resourceClass.name} { id: ${idA} })
 			      ${l}[:${type.name}]${r}
-			      (B:${relB.name})
+			      (B:${relB.resourceClass.name})
 			${optionalMatches.join(' ')}
 			RETURN B, { ${objectMembers.join(', ')} } AS rels
 		`;
@@ -566,8 +566,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* throw a 404 if either of the resources doesn't exist */
 		await Promise.all([
-			this.assertResourcesExist(relA, [idA]),
-			this.assertResourcesExist(relB, [idB])
+			this.assertResourcesExist(relA.resourceClass, [idA]),
+			this.assertResourcesExist(relB.resourceClass, [idB])
 		]);
 
 		// TODO: check whether adding or deleting any relationships below violates any constraints
@@ -576,8 +576,8 @@ export default class LyphNeo4j extends Neo4j {
 		/* the main query for adding the new relationship */
 		let [l, r] = arrowEnds(relA);
 		await this.query(`
-			MATCH (A:${relA.name} { id: ${idA} }),
-			      (B:${relB.name} { id: ${idB} })
+			MATCH (A:${relA.resourceClass.name} { id: ${idA} }),
+			      (B:${relB.resourceClass.name} { id: ${idB} })
 			CREATE UNIQUE (A) ${l}[:${type.name}]${r} (B)
 		`);
 
@@ -587,7 +587,7 @@ export default class LyphNeo4j extends Neo4j {
 	async deleteRelationship(relA, idA, idB) {
 
 		let type = relA.relationshipClass;
-		let relB = relA.codomain.resourceClass;
+		let relB = relA.codomain;
 
 		console.log("NK deleteRelationship.relA", relA);
 		console.log("NK deleteRelationship.type", type);
@@ -595,8 +595,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* throw a 404 if either of the resources doesn't exist */
 		await Promise.all([
-			this.assertResourcesExist(relA.type, [idA]),
-			this.assertResourcesExist(relB.type, [idB])
+			this.assertResourcesExist(relA.resourceClass, [idA]),
+			this.assertResourcesExist(relB.resourceClass, [idB])
 		]);
 
 		// TODO: check whether deleting this relationship violates any constraints
@@ -605,9 +605,9 @@ export default class LyphNeo4j extends Neo4j {
 		let [l, r] = arrowEnds(relA);
 
 		await this.query(`
-			MATCH (A:${relA.name} { id: ${idA} })
+			MATCH (A:${relA.resourceClass.name} { id: ${idA} })
 			      ${l}[rel:${type.name}]${r}
-			      (B:${relB.name} { id: ${idB} })
+			      (B:${relB.resourceClass.name} { id: ${idB} })
 			DELETE rel
 		`);
 	}
