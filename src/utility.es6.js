@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _, {trim, matches, isUndefined, isArray, isSet} from 'lodash';
+import _, {trim, matches, isUndefined} from 'lodash';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // very general stuff                                                                                                 //
@@ -57,7 +57,6 @@ export const sw = (val) => (...map) => {
 	}
 };
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // more application-specific stuff                                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -85,14 +84,13 @@ export const dataToNeo4j = (type, fields) => {
 	for (let [fieldName, fieldSpec] of allPropertyFields) {
 		let val = fields[fieldName];
 		if (isUndefined(val)) continue;
-		mappedFields[fieldName] = (val::isArray || val::isObject)? JSON.stringify(val): val;
+		//NK TODO test for 'array' and 'object'
+		mappedFields[fieldName] = (['array', 'object'].includes(fieldSpec.type))? JSON.stringify(val): val;
 	}
-	console.log("NK TEST: dataToNeo4j returns", mappedFields);
 	return mappedFields;
 };
 
 /* get an object from Neo4j and prepare it to be sent over the lyph-server API */
-//NK TODO: are nested object types describes as 'object' & 'array'? We have TypedDistributionSchema...
 export const neo4jToData = (type, properties) => {
 	return _(properties).mapValues((val, key) => sw(type.properties[key] && type.properties[key].type)(
 		[['object', 'array'],()=> JSON.parse(val)],
@@ -110,41 +108,29 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 	? `OPTIONAL MATCH (${a}) ${l}[:${relTypes.map(({relationship:{name}})=>name).join('|')}]${r} (${b})`
 	: ``;
 
+
 /* to get query-fragments to get relationship-info for a given resource */
 export function relationshipQueryFragments(type, nodeName) {
 	let optionalMatches = [];
 	let objectMembers = [];
 	let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
-	let allRelationFields = Object.entries(Object.assign({}, type.relationshipShortcuts));
+	let allRelationFields = Object.entries(type.relationshipShortcuts);
+	// TODO: (MH+NK) Use .relationships up here ^, encode -->ish names.
+	// TODO: The client library will set the shortcut fields.
 	for (let [fieldName, fieldSpec] of allRelationFields) {
 		if (handledFieldNames[fieldName]) { continue }
 		handledFieldNames[fieldName] = true;
 
-		//TODO:
-		//let [l, r] = arrowEnds(relA);
-		let [l, r] = arrowEnds(type);
-        var q = `OPTIONAL MATCH (${nodeName})
-			               ${l}[:${fieldSpec.relationshipClass.name}]${r}
-			               (rel_${fieldName}:${fieldSpec.codomain.resourceClass.name})`;
-		optionalMatches.push(q);
-		objectMembers.push(
-			(fieldSpec.cardinality && fieldSpec.cardinality.max !== 1)
-				? `${fieldName}: collect(DISTINCT rel_${fieldName}.id)`
-				: `${fieldName}: rel_${fieldName}.id`
+		let [l, r] = arrowEnds(fieldSpec);
+		optionalMatches.push(`
+			OPTIONAL MATCH (${nodeName})
+		    ${l}[:${fieldSpec.relationshipClass.name}]${r}
+		    (rel_${fieldName}:${fieldSpec.codomain.resourceClass.name})
+		`);
+		objectMembers.push((fieldSpec.cardinality.max === 1)
+				? `${fieldName}: rel_${fieldName}.id`
+				: `${fieldName}: collect(DISTINCT rel_${fieldName}.id)`
 		);
-
-        //TODO: what is relA.setFields? Properties of relations?
-		//for (let [relFieldName, relFieldSpec] of Object.entries(fieldSpec.relationshipClass.properties || {})) {
-		//	objectMembers.push(`${relFieldName}: ${JSON.stringify(relFieldSpec)}`);
-		//}
-
-        //instead of
-
-		//for (let fieldName of Object.keys(relA.setFields || {})) {
-		//	objectMembers.push(`${fieldName}: ${JSON.stringify(relA.setFields[fieldName])}`);
-		//}
-
-		//console.log("NK TEST (relationshipQueryFragments)", objectMembers);
 	}
 	return { optionalMatches, objectMembers };
 }
