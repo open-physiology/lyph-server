@@ -92,6 +92,7 @@ export const dataToNeo4j = (type, fields) => {
 
 /* get an object from Neo4j and prepare it to be sent over the lyph-server API */
 export const neo4jToData = (type, properties) => {
+
 	return _(properties).mapValues((val, key) => sw(type.properties[key] && type.properties[key].type)(
 		[['object', 'array'],()=> JSON.parse(val)],
 		[                   ,()=>            val ]

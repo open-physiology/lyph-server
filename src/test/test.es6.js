@@ -2,7 +2,7 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import {template, isString, isFunction, isArray} from 'lodash';
+import {template, isString, isFunction, isArray, isUndefined} from 'lodash';
 import chai, {expect}                            from 'chai';
 
 import supertest   from './custom-supertest.es6.js';
@@ -83,8 +83,9 @@ const getAllResources   = async (typeName)         => await db.getAllResources(r
 const getResources      = async (typeName, ids)    => await db.getSpecificResources(resources[typeName], ids);
 const getSingleResource = async (typeName, id)     => (await getResources(typeName, [id]))[0];
 
-//const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.type, res.id));
+//NK replaced res.type to res.class
 const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.class, res.id));
+
 const createResource    = async (typeName, fields) => await getSingleResource(typeName, await db.createResource(resources[typeName], fields));
 
 /* server request api (through our REST server) */
@@ -328,27 +329,27 @@ beforeEach(async () => {
 	/* nodes */
 	initial.node1 = await createResource('Node', {
 		href:   "href 14",
-		class:  "Node",
-		measurables: [initial.measurable1.id],
-		incomingProcesses:  [initial.process1.id],
-		locations: [initial.mainLyph.id]
+		class:  "Node"//,
+		//measurables: [initial.measurable1.id], //TODO: causes UnhandledPromiseRejectionWarning
+		//incomingProcesses:  [initial.process1.id],
+		//locations: [initial.mainLyph.id]
 	});
 
 	/* groups */
-	// initial.group1 = await createResource ('Group',{
-	// 	href:  "href 15",
-	// 	name:  "Mixed group",
-	// 	class: "Group",
-	// 	elements: [initial.lyph1.id, initial.node1.id, initial.process1.id]
-	// });
+	initial.group1 = await createResource ('Group',{
+		href:  "href 15",
+		name:  "Mixed group",
+		class: "Group"//,
+		//elements: [initial.lyph1.id, initial.node1.id, initial.process1.id] //TODO: causes UnhandledPromiseRejectionWarning
+	});
 
 	/* omega trees */
-	// initial.omegaTree1 = await createResource ('OmegaTree',{
-	// 	href: "href 16",
-	// 	name:  "Short Looped Nephrone",
-	// 	class: "OmegaTree",
-	// 	parts: [initial.lyph1, initial.lyph2, initial.lyph3]
-	// });
+	initial.omegaTree1 = await createResource ('OmegaTree',{
+		href: "href 16",
+		name:  "Short Looped Nephrone",
+		class: "OmegaTree"//,
+		//parts: [initial.lyph1, initial.lyph2, initial.lyph3] //TODO: causes UnhandledPromiseRejectionWarning
+	});
 
 	/* publications */
 	initial.publication1 = await createResource ('Publication',{
@@ -381,11 +382,17 @@ beforeEach(async () => {
 	});
 
 	/* coalescences */
+	initial.coalescence1 = await createResource ('Coalescence',{
+		href:  "href 21",
+		class: "Coalescence",
+		lyphs: [initial.lyph1, initial.lyph2]
+	});
 
 	/* coalescence scenarios */
 
 	/* refresh all resource objects */
-	await Promise.all(Object.values(initial).map(refreshResource));
+	await Promise.all(Object.values(initial).filter(res => !isUndefined(res)).map(refreshResource));
+	//NK TODO: why do we get undefined resource? (for now fixed by filtering it out)
 
 });
 
@@ -421,79 +428,79 @@ describe("docs", () => {
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// describeResourceType('ExternalResource', () => {
-//
-// 	 describeEndpoint('/externalResources',      ['GET', 'POST']);
-//
-// 	 describeEndpoint('/externalResources/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-//
-// 	 withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 	 withInvalidPathParams("wrong-type", ()=>({ id: initial.border1.id }));
-//
-// 	 withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
-//
-// 		 GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 			 expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-// 			 expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-// 			 expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-// 			 expect(res).to.have.property('name');  //{ type: 'string' }
-// 			 expect(res).to.have.property('uri');   //{ ...uriSchema, required: true },
-// 			 expect(res).to.have.property('type');  //{ type: 'string'}
-// 			 }));
-// 		 });
-// 	 });
-//  });
+describeResourceType('ExternalResource', () => {
+
+	 describeEndpoint('/externalResources',      ['GET', 'POST']);
+
+	 describeEndpoint('/externalResources/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+	 withInvalidPathParams("non-existing", { id: 999999 });
+
+	 withInvalidPathParams("wrong-type", ()=>({ id: initial.border1.id }));
+
+	 withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
+
+		 GET("returns a resource with expected fields", r=>r.resource((res) => {
+			 expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+			 expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+			 expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+			 expect(res).to.have.property('name');  //{ type: 'string' }
+			 expect(res).to.have.property('uri');   //{ ...uriSchema, required: true },
+			 expect(res).to.have.property('type');  //{ type: 'string'}
+			 }));
+		 });
+	 });
+ });
 
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// describeResourceType('Border', () => {
-//
-// 	describeEndpoint('/borders',      ['GET', 'POST']);
-//
-// 	describeEndpoint('/borders/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-//
-// 		withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
-//
-// 		withValidPathParams(()=>({ id: initial.border1.id }), () => {
-//
-// 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 				expect(res).to.have.property('id');     //{ ...idSchema,         readonly: true },
-// 				expect(res).to.have.property('href');   //{ ...uriSchema,        readonly: true },
-// 				expect(res).to.have.property('class');  //{ ...identifierSchema, readonly: true },
-// 				expect(res).to.have.property('nature'); //{ ...},
-// 			}));
-// 		});
-// 	});
-// });
+describeResourceType('Border', () => {
+
+	describeEndpoint('/borders',      ['GET', 'POST']);
+
+	describeEndpoint('/borders/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+
+		withValidPathParams(()=>({ id: initial.border1.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('id');     //{ ...idSchema,         readonly: true },
+				expect(res).to.have.property('href');   //{ ...uriSchema,        readonly: true },
+				expect(res).to.have.property('class');  //{ ...identifierSchema, readonly: true },
+				expect(res).to.have.property('nature'); //{ ...},
+			}));
+		});
+	});
+});
 
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// describeResourceType('Material', () => {
-//
-// 	describeEndpoint('/materials',      ['GET', 'POST']);
-//
-// 	describeEndpoint('/materials/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-//
-// 		withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
-//
-// 		withValidPathParams(()=>({ id: initial.material1.id }), () => {
-//
-// 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 				expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-// 				expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-// 				expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-// 				expect(res).to.have.property('name');  //{ type: 'string' }
-// 			}));
-// 		});
-// 	});
-// });
+describeResourceType('Material', () => {
+
+	describeEndpoint('/materials',      ['GET', 'POST']);
+
+	describeEndpoint('/materials/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+
+		withValidPathParams(()=>({ id: initial.material1.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+				expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+				expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+				expect(res).to.have.property('name');  //{ type: 'string' }
+			}));
+		});
+	});
+});
 
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -526,64 +533,60 @@ describe("docs", () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-// describeResourceType('Measurable', () => {
-//
-// 	describeEndpoint('/measurables',      ['GET', 'POST']);
-//
-// 	describeEndpoint('/measurables/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-//
-// 		withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
-//
-// 		withValidPathParams(()=>({ id: initial.measurable1.id }), () => {
-//
-// 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 				expect(res).to.have.property('id'       ); //{ ...idSchema,         readonly: true },
-// 				expect(res).to.have.property('href'     ); //{ ...uriSchema,        readonly: true },
-// 				expect(res).to.have.property('class'    ); //{ ...identifierSchema, readonly: true },
-// 				expect(res).to.have.property('name'     ); //{ type: 'string' }
-// 				//expect(res).to.have.property('materials').with.members([ initial.materialType1.id]);
-// 			}));
-// 		});
-// 	});
-// });
+describeResourceType('Measurable', () => {
+
+	describeEndpoint('/measurables',      ['GET', 'POST']);
+
+	describeEndpoint('/measurables/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+
+		withValidPathParams(()=>({ id: initial.measurable1.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('id'       ); //{ ...idSchema,         readonly: true },
+				expect(res).to.have.property('href'     ); //{ ...uriSchema,        readonly: true },
+				expect(res).to.have.property('class'    ); //{ ...identifierSchema, readonly: true },
+				expect(res).to.have.property('name'     ); //{ type: 'string' }
+				//expect(res).to.have.property('materials').with.members([ initial.materialType1.id]);
+			}));
+		});
+	});
+});
 
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-// describeResourceType('Lyph', () => {
-//
-// 	describeEndpoint('/lyphs',      ['GET', 'POST']);
-//
-// 	describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-//
-// 		withInvalidPathParams("non-existing", { id: 999999 });
-//
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
-//
-// 		withValidPathParams(()=>({ id: initial.mainLyph.id }), () => {
-//
-// 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 				expect(res).to.have.property('id'				  ); //{ ...idSchema,         readonly: true },
-// 				expect(res).to.have.property('href'				  ); //{ ...uriSchema,        readonly: true },
-// 				expect(res).to.have.property('class'			  ); //{ ...identifierSchema, readonly: true },
-// 				expect(res).to.have.property('name'               );
-// 				expect(res).to.have.property('layers'             ).with.members([ initial.lyph1.id, initial.lyph2.id, initial.lyph3.id ]);
-// 				expect(res).to.have.property('externals'          ).with.members([ initial.externalResource1.id]);
-// 				expect(res).to.have.property('longitudinalBorders').with.members([ initial.border1.id, initial.border2.id]);
-// 				//expect(res).to.have.property('materials'          ).with.members([ initial.materialType1.id]);
-// 				expect(res).to.have.property('measurables'        ).with.members([ initial.measurable1.id]);
-// 			}));
-// 		});
-// 	});
-//
-// });
+describeResourceType('Lyph', () => {
 
-//Test process
-//that.equals(initial.mainLyph.id);
+	describeEndpoint('/lyphs',      ['GET', 'POST']);
 
+	describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+
+		withValidPathParams(()=>({ id: initial.mainLyph.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('id'				  ); //{ ...idSchema,         readonly: true },
+				expect(res).to.have.property('href'				  ); //{ ...uriSchema,        readonly: true },
+				expect(res).to.have.property('class'			  ); //{ ...identifierSchema, readonly: true },
+				expect(res).to.have.property('name'               );
+				expect(res).to.have.property('layers'             ).with.members([ initial.lyph1.id, initial.lyph2.id, initial.lyph3.id ]);
+				expect(res).to.have.property('externals'          ).with.members([ initial.externalResource1.id]);
+				expect(res).to.have.property('longitudinalBorders').with.members([ initial.border1.id, initial.border2.id]);
+				//expect(res).to.have.property('materials'          ).with.members([ initial.materialType1.id]);
+				expect(res).to.have.property('measurables'        ).with.members([ initial.measurable1.id]);
+			}));
+		});
+	});
+
+});
 
 // describeResourceType('OmegaTree', () => {
 //

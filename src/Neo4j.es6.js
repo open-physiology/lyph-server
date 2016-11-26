@@ -42,14 +42,17 @@ export default class Neo4j {
 		if (confirmation !== 'Yes! Delete all everythings!') {
 			throw new Error("You almost deleted everything in the database, but you didn't provide the proper confirmation phrase.");
 		}
-		return this.query([`
+		//NK modified
+		//return this.query([`
+		return this.waitFor(this.query([`		
 			MATCH (n)
 			OPTIONAL MATCH (n) -[r]-> ()
 			DELETE n, r
 		`, `
 			MERGE (UID:UID)
 			SET UID.counter = 0
-		`]);
+		`])
+		 );
 	}
 
 	/**

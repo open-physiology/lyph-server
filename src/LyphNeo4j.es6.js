@@ -240,8 +240,6 @@ export default class LyphNeo4j extends Neo4j {
 		};
 		await recurse({ type, id });
 
-		console.log("NK TEST getResourcesToDelete returns: ", [...markedNodes.values()]);
-
 		/* return the nodes that would be deleted */
 		return [...markedNodes.values()];
 
@@ -290,7 +288,6 @@ export default class LyphNeo4j extends Neo4j {
 		ids = [...new Set(ids)];
 
 		//TODO why is it triggered?
-		//console.log("NK TEST ids", ids);
 
 		/* a query for checking existence of these resources */
 		let [{count}] = await this.query(`
@@ -385,7 +382,7 @@ export default class LyphNeo4j extends Neo4j {
 				SET n += {dbProperties}
 				RETURN newID as id
 			`,
-			// type: "${type.name}"
+			//NK replaced type: "${type.name}" to class: "${type.name}"
 			parameters: {  dbProperties: dataToNeo4j(type, fields) } // TODO: serialize nested objects/arrays
 		}));
 
@@ -423,8 +420,9 @@ export default class LyphNeo4j extends Neo4j {
 				MATCH (n:${type.name} { id: ${id} })
 				SET n     += {dbProperties}
 				SET n.id   =  ${id}
+				SET n.class = "${type.name}"
 			`,
-			//SET n.type = "${type.name}"
+			//NK replaced SET n.type = "${type.name}" to SET n.class = "${type.name}"
 			parameters: {  dbProperties: dataToNeo4j(type, fields) } // TODO: serialize nested objects/arrays
 		});
 
@@ -466,8 +464,9 @@ export default class LyphNeo4j extends Neo4j {
 				MATCH (n:${type.name} { id: ${id} })
 				SET n      = {dbProperties}
 				SET n.id   =  ${id}
+				SET n.class = "${type.name}"
 			`,
-			//SET n.type = "${type.name}"
+			//NK replaced SET n.type = "${type.name}" to SET n.class = "${type.name}"
 			parameters: {  dbProperties: dataToNeo4j(type, fields) } // TODO: serialize nested objects/arrays
 		});
 
