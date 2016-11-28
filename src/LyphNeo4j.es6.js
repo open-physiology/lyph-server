@@ -144,7 +144,9 @@ export default class LyphNeo4j extends Neo4j {
 			let array = val::isArray()? val.filter(x => !isUndefined(x))
 				: val::isSet()? Object.values(fields[fieldName])
 				: (val::isNumber() || val.id)? new Array(val)
-				: [];			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
+				: [];
+
+			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
 
 			try { this[assertRelatedResourcesExists](ids, fieldSpec) }
 			catch (err) {
@@ -168,6 +170,7 @@ export default class LyphNeo4j extends Neo4j {
 				: val::isSet()? Object.values(fields[fieldName])
 				: (val::isNumber() || val.id)? new Array(val)
 				: [];
+
 			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
 
 			let [l, r] = arrowEnds(fieldSpec); //TODO check that the right variable is called
@@ -195,6 +198,7 @@ export default class LyphNeo4j extends Neo4j {
 				: val::isSet()? Object.values(fields[fieldName])
 				: (val::isNumber() || val.id)? new Array(val)
 				: [];
+
 			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
 
 			let [l, r] = arrowEnds(fieldSpec);
@@ -233,8 +237,8 @@ export default class LyphNeo4j extends Neo4j {
 				RETURN { id: n.id, type: n.class } AS n
 			`).then(pluckData('n'));
 
-			//NK replaced part of the query - ??
-			// RETURN { id: n.id, type: n.type } AS n  =====>  RETURN { id: n.id, type: n.class } AS n
+			//NK replaced part of the query
+			// RETURN { id: n.id, type: n.type } AS n  ==>  RETURN { id: n.id, type: n.class } AS n
 
 			await Promise.all(nResources.map(({id, type}) => ({id, type: resources[type]})).map(recurse));
 		};

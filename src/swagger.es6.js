@@ -88,6 +88,8 @@ function addResourceEndpoint(type) {
 	const pluralIdKey   = `${abbreviation||toCamelCase(singular)}IDs`;
 	const pluralKey     = toCamelCase(plural);
 
+	//console.log("Plural key", pluralKey);
+
 	resourceEndpoints[`/${pluralKey}`] = {
 		'x-path-type': 'resources',
 		'x-resource-type': type.name,
