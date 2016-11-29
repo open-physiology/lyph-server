@@ -12,8 +12,8 @@ for (let [key, value] of Object.entries(modelRef.classes)){
 	if (value.isResource) {resources[key] = value;}
 	if (value.isRelationship) {relationships[key] = value;}
 }
-//console.log("Resources", resources);
-//console.log("Relationships", relationships);
+
+export const model = modelRef.classes;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // TODOs related to maintaining data constraints                                                                      //

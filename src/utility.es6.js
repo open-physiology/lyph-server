@@ -78,8 +78,8 @@ export const pluckDatum = (name) => (res) => (res[0] ? res[0][name] : null);
 
 /* prepare an object to be sent directly to Neo4j */
 //NK modified: x-skip-db no longer exists, all resource properties are listed in type.properties
-export const dataToNeo4j = (type, fields) => {
-	let allPropertyFields = Object.entries(type.properties);
+export const dataToNeo4j = (cls, fields) => {
+	let allPropertyFields = Object.entries(cls.properties);
 	let mappedFields = {};
 	for (let [fieldName, fieldSpec] of allPropertyFields) {
 		let val = fields[fieldName];
@@ -91,9 +91,9 @@ export const dataToNeo4j = (type, fields) => {
 };
 
 /* get an object from Neo4j and prepare it to be sent over the lyph-server API */
-export const neo4jToData = (type, properties) => {
+export const neo4jToData = (cls, properties) => {
 
-	return _(properties).mapValues((val, key) => sw(type.properties[key] && type.properties[key].type)(
+	return _(properties).mapValues((val, key) => sw(cls.properties[key] && cls.properties[key].type)(
 		[['object', 'array'],()=> JSON.parse(val)],
 		[                   ,()=>            val ]
 	)).value();
@@ -111,11 +111,11 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 
 
 /* to get query-fragments to get relationship-info for a given resource */
-export function relationshipQueryFragments(type, nodeName) {
+export function relationshipQueryFragments(cls, nodeName) {
 	let optionalMatches = [];
 	let objectMembers = [];
 	let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
-	let allRelationFields = Object.entries(type.relationshipShortcuts);
+	let allRelationFields = Object.entries(cls.relationshipShortcuts);
 	// TODO: (MH+NK) Use .relationships up here ^, encode -->ish names.
 	// TODO: The client library will set the shortcut fields.
 	for (let [fieldName, fieldSpec] of allRelationFields) {

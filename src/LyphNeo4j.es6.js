@@ -62,18 +62,18 @@ export default class LyphNeo4j extends Neo4j {
 	// Common functionality for other methods //
 	////////////////////////////////////////////
 
-	async [runTypeSpecificHook](type, hook, info) {
-		if (!isUndefined(type[hook])) {
-			return or(await type[hook]({...info, resources, relationships, db: this}), {});
+	async [runTypeSpecificHook](cls, hook, info) {
+		if (!isUndefined(cls[hook])) {
+			return or(await cls[hook]({...info, resources, relationships, db: this}), {});
 		}
 	}
 
-	//NK modified
+	
 	async [assertRelatedResourcesExists](ids, fieldSpec) {
-		let type = fieldSpec.codomain.resourceClass;
+		let cls = fieldSpec.codomain.resourceClass;
 
 		let [{existing}] = await this.query(`
-			MATCH (n:${type.name})
+			MATCH (n:${cls.name})
 			WHERE n.id IN [${ids.join(',')}]
 			RETURN collect(n.id) as existing
 		`);
@@ -82,11 +82,11 @@ export default class LyphNeo4j extends Neo4j {
 			let c = (fieldSpec.cardinality.max === 1) ? 'singular' : 'plural';
 			throw customError({
 				status:  NOT_FOUND,
-				type:    type.name,
+				type:    cls.name,
 				ids:     nonexisting,
 				...((c === 'singular') ? { id: nonexisting[0] } : {}),
 				message: humanMsg`
-					The specified ${type[c]}
+					The specified ${cls[c]}
 					${nonexisting.join(',')}
 					${(c === 'singular') ? 'does' : 'do'} not exist.
 				`
@@ -94,17 +94,17 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	//NK modified
-	async [assertRequiredFieldsAreGiven](type, fields) {
-		let allFields = Object.entries(Object.assign({}, type.properties, type.relationshipShortcuts));
+	
+	async [assertRequiredFieldsAreGiven](cls, fields) {
+		let allFields = Object.entries(Object.assign({}, cls.properties, cls.relationshipShortcuts));
 		for (let [fieldName, fieldSpec] of allFields) {
 			if (fieldSpec.required && isUndefined(fields[fieldName])) {
 				throw customError({
 					status: BAD_REQUEST,
-					type:   type.name,
+					type:   cls.name,
 					field:  fieldName,
 					message: humanMsg`
-						You tried to create a new ${type.singular},
+						You tried to create a new ${cls.singular},
 						but the required field '${fieldName}' was not given.
 					`
 				});
@@ -112,9 +112,9 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	//NK modified
-	async [assertProperCardinalityInFields](type, fields) {
-		let allRelationFields = Object.entries(type.relationshipShortcuts);
+	
+	async [assertProperCardinalityInFields](cls, fields) {
+		let allRelationFields = Object.entries(cls.relationshipShortcuts);
 		for (let [fieldName, fieldSpec] of allRelationFields) {
 			let val = fields[fieldName];
 			let cardinality =
@@ -124,7 +124,7 @@ export default class LyphNeo4j extends Neo4j {
 			if ((cardinality < fieldSpec.cardinality.min) || (cardinality > (fieldSpec.cardinality.max || Infinity))){
 				throw customError({
 					status:  BAD_REQUEST,
-					type:    type.name,
+					type:    cls.name,
 					field:   fieldName,
 					message: humanMsg`
 						The '${fieldName}' expects cardinality 
@@ -135,9 +135,9 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	//NK modified
-	async [assertReferencedResourcesExist](type, fields) {
-		let allRelationFields = Object.entries(type.relationshipShortcuts);
+	
+	async [assertReferencedResourcesExist](cls, fields) {
+		let allRelationFields = Object.entries(cls.relationshipShortcuts);
 		for (let [fieldName, fieldSpec] of allRelationFields) {
 			let val = fields[fieldName];
 			if (isUndefined(val)) { continue }
@@ -151,7 +151,7 @@ export default class LyphNeo4j extends Neo4j {
 			try { this[assertRelatedResourcesExists](ids, fieldSpec) }
 			catch (err) {
 				Object.assign(err, {
-					type: type,
+					type: cls,
 					field: fieldName
 				});
 				throw err;
@@ -159,9 +159,9 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	//NK modified
-	async [createSpecifiedRelationships](type, id, fields) {
-		let allRelationFields = Object.entries(type.relationshipShortcuts); // TODO: check also relationships (non-shortcuts)
+	
+	async [createSpecifiedRelationships](cls, id, fields) {
+		let allRelationFields = Object.entries(cls.relationshipShortcuts); // TODO: check also relationships (non-shortcuts)
 		let relCreationStatements = [];
 		for (let [fieldName, fieldSpec] of allRelationFields){
 			let val = fields[fieldName];
@@ -177,7 +177,7 @@ export default class LyphNeo4j extends Neo4j {
 
 			for (let idB of ids){
 				relCreationStatements.push(`
-					MATCH (A:${type.name} { id: ${id} }), (B:${fieldSpec.codomain.resourceClass.name} { id: ${idB} })
+					MATCH (A:${cls.name} { id: ${id} }), (B:${fieldSpec.codomain.resourceClass.name} { id: ${idB} })
 			 		CREATE (A) ${l}[:${fieldSpec.relationshipClass.name}]${r} (B)
 				`);
 			}
@@ -187,9 +187,9 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	//NK modified
-	async [removeUnspecifiedRelationships](type, id, fields, {includeUngivenFields = false} = {}) {
-		let allRelationFields = Object.entries(type.relationshipShortcuts);
+	
+	async [removeUnspecifiedRelationships](cls, id, fields, {includeUngivenFields = false} = {}) {
+		let allRelationFields = Object.entries(cls.relationshipShortcuts);
 		let relDeletionStatements = [];
 		for (let [fieldName, fieldSpec] of allRelationFields) {
 			let val = fields[fieldName];
@@ -203,7 +203,7 @@ export default class LyphNeo4j extends Neo4j {
 
 			let [l, r] = arrowEnds(fieldSpec);
 			relDeletionStatements.push(`
-				MATCH (A:${type.name} { id: ${id} }) ${l}[rel:${fieldSpec.relationshipClass.name}]${r} 
+				MATCH (A:${cls.name} { id: ${id} }) ${l}[rel:${fieldSpec.relationshipClass.name}]${r} 
 			 	(B:${fieldSpec.codomain.resourceClass.name})
 			 	WHERE NOT B.id IN [${ids.join(', ')}]
 			 	DELETE rel
@@ -214,7 +214,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	async [getResourcesToDelete](type, id) {
+	async [getResourcesToDelete](cls, id) {
 		/* collect nodes to delete */
 		let markedNodes = new Map();
 
@@ -222,11 +222,11 @@ export default class LyphNeo4j extends Neo4j {
 		const symmetricSustaining = sustainingRelationships.filter((relA) =>  relA.symmetric);
 		const l2rSustaining       = sustainingRelationships.filter((relA) => !relA.symmetric && relA.keyInRelationship === 1);
 		const r2lSustaining       = sustainingRelationships.filter((relA) => !relA.symmetric && relA.keyInRelationship === 2);
-		const recurse = async ({type, id}) => {
+		const recurse = async ({cls, id}) => {
 			if (markedNodes.has(id)) { return }
-			markedNodes.set(id, { type, id });
+			markedNodes.set(id, { cls, id });
 			let nResources = await this.query(`
-				MATCH (a:${type.name} { id: ${id} })
+				MATCH (a:${cls.name} { id: ${id} })
 				${arrowMatch(symmetricSustaining, 'a', ' -','- ', 'x')}
 				${arrowMatch(l2rSustaining,       'a', ' -','->', 'y')}
 				${arrowMatch(r2lSustaining,       'a', '<-','- ', 'z')}
@@ -234,15 +234,12 @@ export default class LyphNeo4j extends Neo4j {
 				     ${l2rSustaining      .length ? 'collect(y)' : '[]'} +
 				     ${r2lSustaining      .length ? 'collect(z)' : '[]'} AS coll UNWIND coll AS n
 				WITH DISTINCT n
-				RETURN { id: n.id, type: n.class } AS n
+				RETURN { id: n.id, cls: n.class } AS n
 			`).then(pluckData('n'));
 
-			//NK replaced part of the query
-			// RETURN { id: n.id, type: n.type } AS n  ==>  RETURN { id: n.id, type: n.class } AS n
-
-			await Promise.all(nResources.map(({id, type}) => ({id, type: resources[type]})).map(recurse));
+			await Promise.all(nResources.map(({id, cls}) => ({id, cls: resources[cls]})).map(recurse));
 		};
-		await recurse({ type, id });
+		await recurse({ cls, id });
 
 		/* return the nodes that would be deleted */
 		return [...markedNodes.values()];
@@ -282,20 +279,18 @@ export default class LyphNeo4j extends Neo4j {
 	// Main methods used directly for lyph-server calls //
 	//////////////////////////////////////////////////////
 
-	async assertResourcesExist(type, ids) {
+	async assertResourcesExist(cls, ids) {
 
 		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runTypeSpecificHook](type, 'assertResourcesExist', { ids });
+		let result = await this[runTypeSpecificHook](cls, 'assertResourcesExist', { ids });
 		if (result) { return result::isArray() ? result : [result] }
 
 		/* eliminate duplication */
 		ids = [...new Set(ids)];
 
-		//TODO why is it triggered?
-
 		/* a query for checking existence of these resources */
 		let [{count}] = await this.query(`
-			MATCH (n:${type.name})
+			MATCH (n:${cls.name})
 			WHERE n.id IN [${ids.join(',')}]
 			RETURN count(n) AS count
 		`);
@@ -303,195 +298,218 @@ export default class LyphNeo4j extends Neo4j {
 		if (count < ids.length) {
 			throw customError({
 				status:  NOT_FOUND,
-				type:    type.name,
+				type:    cls.name,
 				ids:     ids,
-				message: humanMsg`Not all specified ${type.plural} exist.` // TODO: make more specific
+				message: humanMsg`Not all specified ${cls.plural} exist.` // TODO: make more specific
 			});
 		}
 	}
 
-	//NK modified
-	async getSpecificResources(type, ids) {
+	
+	async getSpecificResources(cls, ids) {
 
 		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runTypeSpecificHook](type, 'getSpecific', { ids });
+		let result = await this[runTypeSpecificHook](cls, 'getSpecific', { ids });
 		if (result) { return result::isArray() ? result : [result]}
 
 		/* throw a 404 if any of the resources don't exist */
-		await this.assertResourcesExist(type, ids);
+		await this.assertResourcesExist(cls, ids);
 
 		/* preparing the part of the query that adds relationship info */
-		let {optionalMatches, objectMembers} = relationshipQueryFragments(type, 'n');
+		let {optionalMatches, objectMembers} = relationshipQueryFragments(cls, 'n');
 
 		/* formulating and sending the query */
 		let results = await this.query(`
 			UNWIND [${ids.join(',')}] AS id WITH id
-			MATCH (n:${type.name} { id: id })
+			MATCH (n:${cls.name} { id: id })
 			${optionalMatches.join(' ')}
 			RETURN n, { ${objectMembers.join(', ')} } AS rels
 		`);
 
 		/* integrate relationship data into the resource object */
-		results = results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(type, res));
+		results = results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
 
 		/* return results in proper order */
 		return ids.map((id1) => results.find(({id}) => id1 === id));
 	}
 
-	//NK modified
-	async getAllResources(type) {
+	
+	async getAllResources(cls) {
 
 		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runTypeSpecificHook](type, 'getAll', {});
+		let result = await this[runTypeSpecificHook](cls, 'getAll', {});
 		if (result) { return result }
 
 		/* preparing the part of the query that adds relationship info */
-		let {optionalMatches, objectMembers} = relationshipQueryFragments(type, 'n');
+		let {optionalMatches, objectMembers} = relationshipQueryFragments(cls, 'n');
 
 		/* formulating and sending the query */
 		let results = await this.query(`
-			MATCH (n:${type.name})
+			MATCH (n:${cls.name})
 			${optionalMatches.join(' ')}
 			RETURN n, { ${objectMembers.join(', ')} } AS rels
 		`);
 
 		/* integrate relationship data into the resource object */
-		return results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(type, res));
+		return results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
 	}
 
-	//NK: modified
-	async createResource(type, fields) {
+    /////////////////////////////////////////////////////////////////////////
+	//Methods to work with client library resources
+	/////////////////////////////////////////////////////////////////////////
+    async createNewResource(resource) {
+    	let fields = _(resource.fields).mapValues((val) => (val.value)).value();
+    	return this.createResource(resource.constructor, fields);
+    }
+
+	async updateResource(resource) {
+		let fields = _(resource.fields).mapValues((val) => (val.value)).value();
+		return this.updateResource(resource.constructor, resource.id, fields);
+	}
+
+	async replaceResource(resource) {
+		let fields = _(resource.fields).mapValues((val) => (val.value)).value();
+		return this.replaceResource(resource.constructor, resource.id, fields);
+	}
+
+	async deleteResource(resource) {
+		return this.deleteResource(resource.constructor, resource.id);
+	}
+
+	/////////////////////////////////////////////////////////////////////////
+
+	async createResource(cls, fields) {
 
 		/* is there a hook to completely replace entity creation? */
-		let id = await this[runTypeSpecificHook](type, 'create', { fields });
+		let id = await this[runTypeSpecificHook](cls, 'create', { fields });
 		if (id) { return id }
 
 		/* if given, run a type-specific hook */
-		await this[runTypeSpecificHook](type, 'beforeCreate', { fields });
+		await this[runTypeSpecificHook](cls, 'beforeCreate', { fields });
 
 		/* assert that all required fields are given */
-		await this[assertRequiredFieldsAreGiven](type, fields);
+		await this[assertRequiredFieldsAreGiven](cls, fields);
 
 		/* if relationship cardinality is confused in the request, error out */
-		await this[assertProperCardinalityInFields](type, fields);
+		await this[assertProperCardinalityInFields](cls, fields);
 
 		/* for all relationships specified in the request, assert that those resources exist */
-		await this[assertReferencedResourcesExist](type, fields);
+		await this[assertReferencedResourcesExist](cls, fields);
 
 		/* the main query for creating the resource */
 		[{id}] = await this.creationQuery(({withNewId}) => ({
 			statement: `
 				${withNewId('newID')}
-				CREATE (n:${type.name} { id: newID, class: "${type.name}" })
+				CREATE (n:${cls.name} { id: newID, class: "${cls.name}" })
 				SET n += {dbProperties}
 				RETURN newID as id
 			`,
 			//NK replaced type: "${type.name}" to class: "${type.name}"
-			parameters: {  dbProperties: dataToNeo4j(type, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		}));
 
 		/* create the required relationships */
-		await this[createSpecifiedRelationships](type, id, fields);
+		await this[createSpecifiedRelationships](cls, id, fields);
 
 		/* if given, run a type-specific hook */
-		await this[runTypeSpecificHook](type, 'afterCreate', { id, fields });
+		await this[runTypeSpecificHook](cls, 'afterCreate', { id, fields });
 
 		return id;
 	}
 
-	//NK modified
-	async updateResource(type, id, fields) {
+
+	async updateResource(cls, id, fields) {
 
 		/* is there a hook to completely replace entity updates? */
-		let hooked = await this[runTypeSpecificHook](type, 'update', { id, fields });
+		let hooked = await this[runTypeSpecificHook](cls, 'update', { id, fields });
 		if (hooked) { return }
 
 		/* get the current fields of the resource */
-		let [oldResource] = await this.getSpecificResources(type, [id]);
+		let [oldResource] = await this.getSpecificResources(cls, [id]);
 
 		/* if given, run a type-specific hook */
-		await this[runTypeSpecificHook](type, 'beforeUpdate', { id, oldResource, fields });
+		await this[runTypeSpecificHook](cls, 'beforeUpdate', { id, oldResource, fields });
 
 		/* if relationship cardinality is confused in the request, error out */
-		await this[assertProperCardinalityInFields](type, fields);
+		await this[assertProperCardinalityInFields](cls, fields);
 
 		/* for all relationships specified in the request, assert that those resources exist */
-		await this[assertReferencedResourcesExist](type, fields);
+		await this[assertReferencedResourcesExist](cls, fields);
 
 		/* the main query for creating the resource */
 		await this.query({
 			statement: `
-				MATCH (n:${type.name} { id: ${id} })
+				MATCH (n:${cls.name} { id: ${id} })
 				SET n     += {dbProperties}
 				SET n.id   =  ${id}
-				SET n.class = "${type.name}"
+				SET n.class = "${cls.name}"
 			`,
-			//NK replaced SET n.type = "${type.name}" to SET n.class = "${type.name}"
-			parameters: {  dbProperties: dataToNeo4j(type, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
 
 		/* remove the relationships explicitly left out */
-		await this[removeUnspecifiedRelationships](type, id, fields);
+		await this[removeUnspecifiedRelationships](cls, id, fields);
 
 		/* create the required relationships */
-		await this[createSpecifiedRelationships](type, id, fields);
+		await this[createSpecifiedRelationships](cls, id, fields);
 
 		/* if given, run a type-specific hook */
-		await this[runTypeSpecificHook](type, 'afterUpdate', { id, oldResource, fields });
+		await this[runTypeSpecificHook](cls, 'afterUpdate', { id, oldResource, fields });
 	}
 
-	//NK modified
-	async replaceResource(type, id, fields) {
+
+	async replaceResource(cls, id, fields) {
 
 		/* is there a hook to completely replace entity replacement? */
-		let hooked = await this[runTypeSpecificHook](type, 'replace', { id, fields });
+		let hooked = await this[runTypeSpecificHook](cls, 'replace', { id, fields });
 		if (hooked) { return }
 
 		/* get the current fields of the resource */
-		let [oldResource] = await this.getSpecificResources(type, [id]);
+		let [oldResource] = await this.getSpecificResources(cls, [id]);
 
 		/* if given, run a type-specific hook */
-		await this[runTypeSpecificHook](type, 'beforeReplace', { id, oldResource, fields });
+		await this[runTypeSpecificHook](cls, 'beforeReplace', { id, oldResource, fields });
 
 		/* assert that all required fields are given */
-		await this[assertRequiredFieldsAreGiven](type, fields);
+		await this[assertRequiredFieldsAreGiven](cls, fields);
 
 		/* if relationship cardinality is confused in the request, error out */
-		await this[assertProperCardinalityInFields](type, fields);
+		await this[assertProperCardinalityInFields](cls, fields);
 
 		/* for all relationships specified in the request, assert that those resources exist */
-		await this[assertReferencedResourcesExist](type, fields);
+		await this[assertReferencedResourcesExist](cls, fields);
 
 		/* the main query for creating the resource */
 		await this.query({
 			statement: `
-				MATCH (n:${type.name} { id: ${id} })
+				MATCH (n:${cls.name} { id: ${id} })
 				SET n      = {dbProperties}
 				SET n.id   =  ${id}
-				SET n.class = "${type.name}"
+				SET n.class = "${cls.name}"
 			`,
 			//NK replaced SET n.type = "${type.name}" to SET n.class = "${type.name}"
-			parameters: {  dbProperties: dataToNeo4j(type, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
 
 		/* remove the relationships explicitly left out */
-		await this[removeUnspecifiedRelationships](type, id, fields, { includeUngivenFields: true });
+		await this[removeUnspecifiedRelationships](cls, id, fields, { includeUngivenFields: true });
 
 		/* create the required relationships */
-		await this[createSpecifiedRelationships](type, id, fields);
+		await this[createSpecifiedRelationships](cls, id, fields);
 
 		/* if given, run a type-specific hook */
-		await this[runTypeSpecificHook](type, 'afterReplace', { id, oldResource, fields });
+		await this[runTypeSpecificHook](cls, 'afterReplace', { id, oldResource, fields });
 	}
 
-	async deleteResource(type, id) {
+
+	async deleteResource(cls, id) {
 
 		/* is there a hook to completely replace entity deletion? */
-		let hooked = await this[runTypeSpecificHook](type, 'delete', { id });
+		let hooked = await this[runTypeSpecificHook](cls, 'delete', { id });
 		if (hooked) { return }
 
 		/* get all ids+types that would be auto-deleted by deleting this particular node */
-		let dResources = await this[getResourcesToDelete](type, id);
+		let dResources = await this[getResourcesToDelete](cls, id);
 
 		/* then test whether of those are still anchored, and we have to abort the delete operation */
 		let anchors = await this[anythingAnchoredFromOutside](dResources.map(property('id')));
@@ -528,7 +546,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	}
 
-	//NK modified
+
 	async getRelatedResources(relA, idA) {
 		let type = relA.relationshipClass;
 		let relB = relA.codomain;
@@ -550,7 +568,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	}
 
-	//NK modified
+	
 	async addNewRelationship(relA, idA, idB) {
 
 		let type = relA.relationshipClass;
@@ -575,7 +593,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	}
 
-	//NK modified
+	
 	async deleteRelationship(relA, idA, idB) {
 
 		let type = relA.relationshipClass;

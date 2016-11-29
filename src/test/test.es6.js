@@ -8,7 +8,7 @@ import chai, {expect}                            from 'chai';
 import supertest   from './custom-supertest.es6.js';
 import getServer   from '../server.es6.js';
 import swaggerSpec from '../swagger.es6.js';
-import {resources} from '../resources.es6.js';
+import {resources, relationships, model} from '../resources.es6.js';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -79,14 +79,14 @@ before(() => getServer(`${__dirname}/../`, {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* database operations (bypassing our REST server */
-const getAllResources   = async (typeName)         => await db.getAllResources(resources[typeName]);
-const getResources      = async (typeName, ids)    => await db.getSpecificResources(resources[typeName], ids);
-const getSingleResource = async (typeName, id)     => (await getResources(typeName, [id]))[0];
-
-//NK replaced res.type to res.class
+const getAllResources   = async (className)         => await db.getAllResources(resources[className]);
+const getResources      = async (className, ids)    => await db.getSpecificResources(resources[className], ids);
+const getSingleResource = async (className, id)     => (await getResources(className, [id]))[0];
 const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.class, res.id));
+const createResource    = async (className, fields) => await getSingleResource(className, await db.createResource(resources[className], fields));
 
-const createResource    = async (typeName, fields) => await getSingleResource(typeName, await db.createResource(resources[typeName], fields));
+/* database operations to work with manifest resources */
+const createNewResource = async (resource) => await getSingleResource(resource.constructor.name, await db.createNewResource(resource));
 
 /* server request api (through our REST server) */
 const requestResources      = async (path) => (await api.get(path)).body;
@@ -205,6 +205,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 /* variables to store all resources created at the beginning of each test */
 let initial = {};
+let clInitial = {}
 
 /* initial database clearing */
 before(() => db.clear('Yes! Delete all everythings!'));
@@ -266,33 +267,24 @@ beforeEach(async () => {
 	});
 
 	/* material types*/
-	// initial.materialType1 = await createResource('MaterialType', {
-	// 	href:  "href mt1",
-	// 	name:  "Blood type",
-	// 	class: "MaterialType",
-	// 	definition: initial.material1
-	// });
-    //
-	// initial.materialType2 = await createResource('MaterialType', {
-	// 	href:  "href mt2",
-	// 	name:  "Urine type",
-	// 	class: "MaterialType",
-	// 	definition: initial.material2
-	// });
+	initial.materialType1 = await createResource('Type', {
+		href:  "href mt1",
+		name:  "Blood type",
+		class: "Type",
+		definition: initial.material1 //TODO: causes UnhandledPromiseRejectionWarning
+	});
 
 	/* measurables */
 	initial.measurable1 = await createResource('Measurable', {
 		href:  "href 6",
 		name:  "Concentration of water",
-		class: "Measurable",
-		//materials: [initial.materialType1]
+		class: "Measurable"
 	});
 
 	initial.measurable2 = await createResource('Measurable', {
 		href:  "href 7",
 		name:  "Concentration of ion",
-		class: "Measurable"//,
-		//materials: [initial.materialType2]
+		class: "Measurable"
 	});
 
 	 /* causalities */
@@ -357,7 +349,7 @@ beforeEach(async () => {
 		transportPhenomenon: "advection",  //TODO test with array
 		sourceLyph: initial.lyph1,
 		targetLyph: initial.lyph2,
-		conveyingLyph: initial.mainLyph1
+		conveyingLyph: [initial.mainLyph1]
 	});
 
 	/* nodes */
@@ -365,24 +357,24 @@ beforeEach(async () => {
 		href:   "href 15",
 		class:  "Node",
 		measurables: [initial.measurable1],
-		incomingProcesses:  [initial.process1]//,
-		//locations: [initial.mainLyph1] //TODO: causes UnhandledPromiseRejectionWarning
+		incomingProcesses:  [initial.process1],
+		locations: [initial.mainLyph1] //TODO: causes UnhandledPromiseRejectionWarning
 	});
 
 	/* groups */
 	initial.group1 = await createResource ('Group',{
 		href:  "href 16",
 		name:  "Mixed group",
-		class: "Group"//,
-		//elements: [initial.lyph1.id, initial.node1.id, initial.process1.id] //TODO: causes UnhandledPromiseRejectionWarning
+		class: "Group",
+		elements: [initial.lyph1, initial.node1, initial.process1] //TODO: causes UnhandledPromiseRejectionWarning
 	});
 
 	/* omega trees */
 	initial.omegaTree1 = await createResource ('OmegaTree',{
 		href: "href 17",
 		name:  "Short Looped Nephrone",
-		class: "OmegaTree"//,
-		//parts: [initial.lyph1, initial.lyph2, initial.lyph3] //TODO: causes UnhandledPromiseRejectionWarning
+		class: "OmegaTree",
+		parts: [initial.lyph1, initial.lyph2, initial.lyph3] //TODO: causes UnhandledPromiseRejectionWarning
 	});
 
 	/* publications */
@@ -432,6 +424,34 @@ beforeEach(async () => {
 	/* refresh all resource objects */
     await Promise.all(Object.values(initial).map(refreshResource));
 
+	////////////////////////////////////////////////////////////////////////
+
+	/*Create test resources via client library*/
+	let renalH = model.Lyph.new({name: "Renal hilum"});
+	let renalP = model.Lyph.new({name: "Renal parenchyma"});
+	let renalC = model.Lyph.new({name: "Renal capsule"});
+	let cLyphsGroup = [renalH, renalP, renalC];
+	await Promise.all(cLyphsGroup.map(p => p.commit()));
+
+	let kidney = model.Lyph.new({name: "Kidney", layers: cLyphsGroup});
+	await kidney.commit();
+
+	let blood 	  = model.Material.new({name: "Blood"});
+	await blood.commit();
+	let bloodType = model.Type.new({name: "Blood", definition: blood});
+	await bloodType.commit();
+
+	/*Create DB nodes for test resources*/
+	// clInitial.renalH    = await createNewResource(renalH);
+	// clInitial.renalP    = await createNewResource(renalP);
+	// clInitial.renalC    = await createNewResource(renalC);
+	// clInitial.kidney    = await createNewResource(kidney);
+	// clInitial.blood  	= await createNewResource(blood);
+	// clInitial.bloodType = await createNewResource(bloodType);
+
+	//TODO override refreshResource to work with new
+	//await Promise.all(Object.values(clInitial).map(refreshResource));
+
 });
 
 /* clear database for every tear-down */
@@ -440,8 +460,7 @@ afterEach(() => { db.clear('Yes! Delete all everythings!'); });
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // tests                                                                                                              //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-describe("swagger.json", () => {
+/*describe("swagger.json", () => {
 
 	it("is a JSON file available through the server", () => api
 		.get('/swagger.json')
@@ -463,9 +482,9 @@ describe("docs", () => {
 
 });
 
-//
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 describeResourceType('ExternalResource', () => {
 
 	 describeEndpoint('/externalResources',      ['GET', 'POST']);
@@ -571,7 +590,6 @@ describeResourceType('Measurable', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-//TODO: fails - replace in swagger spec causalitys - > causalities
 describeResourceType('Causality', () => {
 
     describeEndpoint('/causalities',      ['GET', 'POST']);
@@ -641,7 +659,6 @@ describeResourceType('Lyph', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-//TODO: fails - replace in swagger spec processs - > processes
 describeResourceType('Process', () => {
 
     describeEndpoint('/processes',      ['GET', 'POST']);
@@ -661,7 +678,7 @@ describeResourceType('Process', () => {
                 expect(res).to.have.property('transportPhenomenon').that.equals("advection"),
                 expect(res).to.have.property('sourceLyph'   ).that.equals(initial.lyph1.id);
                 expect(res).to.have.property('targetLyph'   ).that.equals(initial.lyph2.id);
-                expect(res).to.have.property('conveyingLyph').that.equals(initial.mainLyph1.id);
+                expect(res).to.have.property('conveyingLyph').with.members([ initial.mainLyph1.id]);
             }));
         });
     });
@@ -671,7 +688,28 @@ describeResourceType('Process', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-//TODO: Test group
+describeResourceType('Group', () => {
+
+	describeEndpoint('/groups',      ['GET', 'POST']);
+
+	describeEndpoint('/groups/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+
+		withValidPathParams(()=>({ id: initial.group1.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+				expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+				expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+				expect(res).to.have.property('name');  //{ type: 'string' }
+				//expect(res).to.have.property('elements').with.members([ initial.lyph1.id, initial.node1.id, initial.process1.id ]);
+			}));
+		});
+	});
+});
 
 
 //
@@ -695,7 +733,7 @@ describeResourceType('OmegaTree', () => {
 				expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
 				expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
 				expect(res).to.have.property('name');  //{ type: 'string' }
-                //parts
+				//expect(res).to.have.property('parts').with.members([ initial.lyph1.id, initial.lyph2.id, initial.lyph3.id ]);
 			}));
 		});
 	});
@@ -834,29 +872,59 @@ describeResourceType('CoalescenceScenario', () => {
     });
 });
 
-// describeResourceType('MaterialType', () => {
+describeResourceType('Type', () => {
+
+	describeEndpoint('/types',      ['GET', 'POST']);
+
+	describeEndpoint('/types/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+		withInvalidPathParams("non-existing", { id: 999999 });
+
+		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+
+		withValidPathParams(()=>({ id: initial.materialType1.id }), () => {
+
+			GET("returns a resource with expected fields", r=>r.resource((res) => {
+				expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+				expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+				expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+				expect(res).to.have.property('name');  //{ type: 'string' }
+				expect(res).to.have.property('definition').that.equals(initial.material1.id);
+			}));
+		});
+	});
+});
+
+
+/////////////////////////////////////////////////////////////////////
+//Test resources created by client library
+/////////////////////////////////////////////////////////////////////
+
+
+// describeResourceType('Lyph', () => {
 //
-// 	describeEndpoint('/materialTypes',      ['GET', 'POST']);
+// 	describeEndpoint('/lyphs',      ['GET', 'POST']);
 //
-// 	describeEndpoint('/materialTypes/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+// 	describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 //
 // 		withInvalidPathParams("non-existing", { id: 999999 });
 //
 // 		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
 //
-// 		withValidPathParams(()=>({ id: initial.materialType1.id }), () => {
+// 		withValidPathParams(()=>({ id: initial.kidney.id }), () => {
 //
 // 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// 				expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-// 				expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-// 				expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-// 				expect(res).to.have.property('name');  //{ type: 'string' }
-// 				expect(res).to.have.property('definition').that.equals(initial.material1.id);
+// 				expect(res).to.have.property('id'				  ); //{ ...idSchema,         readonly: true },
+// 				expect(res).to.have.property('href'				  ); //{ ...uriSchema,        readonly: true },
+// 				expect(res).to.have.property('class'			  ); //{ ...identifierSchema, readonly: true },
+// 				expect(res).to.have.property('name'               );
+// 				expect(res).to.have.property('layers'             ).with.members([ initial.renalH.id, initial.renalP.id,initial.renalC.id]);
+// 				expect(res).to.have.property('longitudinalBorders');
+// 				expect(res).to.have.property('radialBorders'      );
 // 			}));
 // 		});
 // 	});
 // });
-
 
 // //
 // // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
