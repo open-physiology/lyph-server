@@ -360,6 +360,7 @@ export default class LyphNeo4j extends Neo4j {
 	/////////////////////////////////////////////////////////////////////////
     async createCLResource(resource) {
     	let fields = _(resource.fields).mapValues((val) => (val.value)).value();
+		//console.log("Creating object with fields ", fields);
     	return this.createResource(resource.constructor, fields);
     }
 

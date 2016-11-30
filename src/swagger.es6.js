@@ -25,6 +25,8 @@ import {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //NK TODO: remove overriding of specific types
+//Reason: model library exports Type but uses secific types, e.g., MaterialType in relationships
+//This causes a problem with generated Swagger end points
 const $ref = (className) => (
 	(className.indexOf("Type") > -1)?
 		  { $ref: `#/definitions/Type`}

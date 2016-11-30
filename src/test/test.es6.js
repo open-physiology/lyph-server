@@ -9,6 +9,7 @@ import supertest   from './custom-supertest.es6.js';
 import getServer   from '../server.es6.js';
 import swaggerSpec from '../swagger.es6.js';
 import {resources, relationships, model} from '../resources.es6.js';
+import {NOT_FOUND} from "../http-status-codes.es6";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -86,7 +87,7 @@ const refreshResource   = async (res)              => Object.assign(res, await g
 const createResource    = async (className, fields) => await getSingleResource(className, await db.createResource(resources[className], fields));
 
 /* database operations to work with manifest resources */
-const createNewResource = async (resource) => await getSingleResource(resource.constructor.name, await db.createNewResource(resource));
+const createCLResource = async (resource) => await getSingleResource(resource.constructor.name, await db.createCLResource(resource));
 
 /* server request api (through our REST server) */
 const requestResources      = async (path) => (await api.get(path)).body;
@@ -162,7 +163,7 @@ const describeResourceClass = (className, runResourceClassTests) => {
 							for (let verb of supportedVerbs) {
 								// TODO: to test this on POST and PUT, supply 'example' body from swagger
 								if (verb !== 'POST' && verb !== 'PUT') {
-									VERB[verb]("responds with a 404 error", r=>r.expect(404));
+									VERB[verb]("responds with a 404 error", r=>r.expect(NOT_FOUND));
 								}
 							}
 						}
@@ -427,29 +428,29 @@ beforeEach(async () => {
 	////////////////////////////////////////////////////////////////////////
 
 	/*Create test resources via client library*/
-	// let renalH = model.Lyph.new({name: "Renal hilum"});
-	// let renalP = model.Lyph.new({name: "Renal parenchyma"});
-	// let renalC = model.Lyph.new({name: "Renal capsule"});
-	// let cLyphsGroup = [renalH, renalP, renalC];
+	// let clLyph1 = model.Lyph.new({name: "Renal hilum"});
+	// let clLyph2 = model.Lyph.new({name: "Renal parenchyma"});
+	// let clLyph3 = model.Lyph.new({name: "Renal capsule"});
+	// let cLyphsGroup = [clLyph1, clLyph2, clLyph3];
 	// await Promise.all(cLyphsGroup.map(p => p.commit()));
     //
-	// let kidney = model.Lyph.new({name: "Kidney", layers: cLyphsGroup});
-	// await kidney.commit();
+	// let clMainLyph1 = model.Lyph.new({name: "Kidney", layers: cLyphsGroup});
+	// await clMainLyph1.commit();
     //
-	// let blood 	  = model.Material.new({name: "Blood"});
-	// await blood.commit();
-	// let bloodType = model.Type.new({name: "Blood", definition: blood});
-	// await bloodType.commit();
+	// let clMaterial1 	= model.Material.new({name: "Blood"});
+	// await clMaterial1.commit();
+	// let clMaterialType1 = model.Type.new({name: "Blood", definition: clMaterial1});
+	// await clMaterialType1.commit();
 
 	/*Create DB nodes for test resources*/
-	// clInitial.renalH    = await createCLResource(renalH);
-	// clInitial.renalP    = await createCLResource(renalP);
-	// clInitial.renalC    = await createCLResource(renalC);
-	// clInitial.kidney    = await createCLResource(kidney);
-	// clInitial.blood  	= await createCLResource(blood);
-	// clInitial.bloodType = await createCLResource(bloodType);
+	// clInitial.clLyph1    = await createCLResource(clLyph1);
+	// clInitial.clLyph2    = await createCLResource(clLyph2);
+	// clInitial.clLyph3    = await createCLResource(clLyph3);
+	// clInitial.clMainLyph1     = await createCLResource(clMainLyph1);
+	// clInitial.clMaterail1 	  = await createCLResource(clMaterial1);
+	// clInitial.clMaterailType1 = await createCLResource(clMaterialType1);
 
-	//TODO override refreshResource to work with new
+	//TODO override refreshResource to work with new objects
 	//await Promise.all(Object.values(clInitial).map(refreshResource));
 
 });
@@ -460,15 +461,22 @@ afterEach(() => { db.clear('Yes! Delete all everythings!'); });
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // tests                                                                                                              //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*describe("swagger.json", () => {
+describe("swagger.json", () => {
+
 
 	it("is a JSON file available through the server", () => api
 		.get('/swagger.json')
 		.expect(200)
 		.expect('Content-Type', /application\/json/)
-		.expect(({body}) => { expect(body).to.deep.equal(swaggerSpec) }));
+    );
 
-});*/
+    //TODO: deep matching fails: isRefinement, max = Infinity
+    it.skip("is consistent with expected ", () => api
+        .get('/swagger.json')
+        .expect(({body}) => { expect(body).to.deep.equal(swaggerSpec) })
+    );
+
+});
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -484,8 +492,8 @@ describe("docs", () => {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//TODO: test '/resources'
-
+// //TODO: test '/resources'
+//
 describeResourceClass('ExternalResource', () => {
 	 describeEndpoint('/externalResources',      ['GET', 'POST']);
 
@@ -506,17 +514,20 @@ describeResourceClass('ExternalResource', () => {
 				 expect(res).to.have.property('type').that.equals("fma");  //{ type: 'string'}
 
 			 }));
+             //TODO add tests
+             //POST
+             //PUT
+             //DELETE
 		 });
 	 });
 
 	///resources/{resourceID}/externals/{externalResourceID}
 
 	 describeEndpoint('/externalResources/{externalResourceID}/locals', ['GET', 'POST'], () => {
-		withValidPathParams(()=>({ externalResourceID: initial.externalResource1.id }),
-			() => {
-				GET("returns locals", r=>{})
-			}
-		);
+		withValidPathParams(()=>({ externalResourceID: initial.externalResource1.id }), () => {
+				GET("returns locals", r=>{});
+                //TODO what is r?
+        });
 	});
 });
 
@@ -883,6 +894,10 @@ describeResourceClass('CoalescenceScenario', () => {
     });
 });
 
+//
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+
 describeResourceClass('Type', () => {
 
 	describeEndpoint('/types',      ['GET', 'POST']);
@@ -902,6 +917,7 @@ describeResourceClass('Type', () => {
 				expect(res).to.have.property('name');  //{ type: 'string' }
 				expect(res).to.have.property('definition').that.equals(initial.material1.id);
 			}));
+
 		});
 	});
 });
