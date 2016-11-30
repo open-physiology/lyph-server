@@ -76,7 +76,7 @@ const requestHandler = {
 	},
 	relationships: {
 		async get({db, relA}, req, res) {
-			await db.assertResourcesExist(relA.type, [req.pathParams.idA]);
+			await db.assertResourcesExist(relA.resourceClass, [req.pathParams.idA]);
 			res.status(OK).jsonp( await db.getRelatedResources(relA, req.pathParams.idA) );
 		}
 	},
@@ -84,9 +84,7 @@ const requestHandler = {
 		async put({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			await Promise.all([
-				//db.assertResourcesExist(relA          .type, [idA]),
-				//db.assertResourcesExist(relA.otherSide.type, [idB])
-				db.assertResourcesExist(relA          			   , [idA]),
+				db.assertResourcesExist(relA.resourceClass		   , [idA]),
 				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
 
 			]);
@@ -96,9 +94,7 @@ const requestHandler = {
 		async delete({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			await Promise.all([
-				//db.assertResourcesExist(relA          .type, [idA]),
-				//db.assertResourcesExist(relA.otherSide.type, [idB])
-				db.assertResourcesExist(relA          			   , [idA]),
+				db.assertResourcesExist(relA.resourceClass 		   , [idA]),
 				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
 			]);
 			await db.deleteRelationship(relA, idA, idB);

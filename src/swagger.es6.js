@@ -25,10 +25,10 @@ import {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //NK TODO: remove overriding of specific types
-const $ref = (type) => (
-	(type.indexOf("Type") > -1)?
+const $ref = (className) => (
+	(className.indexOf("Type") > -1)?
 		  { $ref: `#/definitions/Type`}
-		: { $ref: `#/definitions/${type}` }
+		: { $ref: `#/definitions/${className}` }
 	);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -246,9 +246,6 @@ function addRelationshipEndpoints(rel, i, direction) {
 		//	relA.resourceClass.name + " " + relA.keyInResource + " " + relB.resourceClass.name);
 		return;
 	}
-
-    //const singularIdKeyA = `${toCamelCase(abbreviationA||singularA )}ID`;
-    //const singularIdKeyB = `${toCamelCase((relA.type === relB.type ? "other " : "") + (abbreviationB||singularB))}ID`;
 
     const singularIdKeyA = `${toCamelCase(singularA )}ID`;
     const singularIdKeyB = `${toCamelCase((relA.resourceClass === relB.resourceClass? "other " : "") + (singularB))}ID`;

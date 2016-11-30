@@ -77,7 +77,7 @@ export const pluckData  = (name) => (res) => res.map((obj) => obj[name]);
 export const pluckDatum = (name) => (res) => (res[0] ? res[0][name] : null);
 
 /* prepare an object to be sent directly to Neo4j */
-//NK modified: x-skip-db no longer exists, all resource properties are listed in type.properties
+//NK modified: x-skip-db no longer exists
 export const dataToNeo4j = (cls, fields) => {
 	let allPropertyFields = Object.entries(cls.properties);
 	let mappedFields = {};

@@ -94,18 +94,18 @@ const requestSingleResource = async (path) => (await requestResources(path))[0];
 
 /* dynamically created, specialized functions and variables used in describing our tests */
 let GET, POST, PUT, DELETE;
-let type;
+let cls;
 let setInvalidPathParams, setValidPathParams, withInvalidPathParams, withValidPathParams;
 let describeEndpoint;
 
-/* DESCRIBE BLOCK: given resource type */
-const describeResourceType = (typeName, runResourceTypeTests) => {
-	let only = (typeName[0] === '*');
-	if (only) { typeName = typeName.slice(1) }
-	(only ? describe.only : describe)(typeName, () => {
+/* DESCRIBE BLOCK: given resource class */
+const describeResourceClass = (className, runResourceClassTests) => {
+	let only = (className[0] === '*');
+	if (only) { className = className.slice(1) }
+	(only ? describe.only : describe)(className, () => {
 
 		/* set useful variables */
-		before(() => { type = resources[typeName] });
+		before(() => { cls = resources[className] });
 
 		/* DESCRIBE BLOCK: given endpoint */
 		describeEndpoint = (givenPath, supportedVerbs, runEndpointTests) => {
@@ -133,13 +133,13 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 						/* run tests common to all endpoints with valid path params */
 						if (/^\/\w+\/{\w+}$/.test(givenPath)) {
-							GET("returns an array with at least one resource of the expected type", r=>r
+							GET("returns an array with at least one resource of the expected class", r=>r
 								.expect(200)
 								.expect(isArray)
 								.resources((resources) => {
 									expect(resources).to.have.length.of.at.least(1);
 									for (let res of resources) {
-										expect(res).to.have.property('class', type.name);
+										expect(res).to.have.property('class', cls.name);
 									}
 								})
 							);
@@ -174,13 +174,13 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 				/* run tests common to all endpoints */
 				if (/^\/\w+$/.test(givenPath)) {
-					GET("returns an array with resources of the expected type", r=>r
+					GET("returns an array with resources of the expected class", r=>r
 						.expect(200)
 						.expect(isArray)
 						.resources((resources) => {
 							expect(resources).to.have.instanceOf(Array);
 							for (let res of resources) {
-								expect(res).to.have.property('class', type.name);
+								expect(res).to.have.property('class', cls.name);
 							}
 						})
 					);
@@ -193,7 +193,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 		};
 
 		/* run given tests */
-		if (runResourceTypeTests) { runResourceTypeTests() }
+		if (runResourceClassTests) { runResourceClassTests() }
 
 	});
 };
@@ -205,7 +205,7 @@ const describeResourceType = (typeName, runResourceTypeTests) => {
 
 /* variables to store all resources created at the beginning of each test */
 let initial = {};
-let clInitial = {}
+let clInitial = {};
 
 /* initial database clearing */
 before(() => db.clear('Yes! Delete all everythings!'));
@@ -319,7 +319,7 @@ beforeEach(async () => {
 		name:  "Kidney",
 		class: "Lyph",
         species: "Homo sapiens",
-		//materials: [initial.materialType1],
+		materials: [initial.materialType1],
 		layers: [initial.lyph1.id, initial.lyph2.id],
 		externals: [initial.externalResource1],
 		longitudinalBorders: [initial.border1.id, initial.border2.id],
@@ -427,27 +427,27 @@ beforeEach(async () => {
 	////////////////////////////////////////////////////////////////////////
 
 	/*Create test resources via client library*/
-	let renalH = model.Lyph.new({name: "Renal hilum"});
-	let renalP = model.Lyph.new({name: "Renal parenchyma"});
-	let renalC = model.Lyph.new({name: "Renal capsule"});
-	let cLyphsGroup = [renalH, renalP, renalC];
-	await Promise.all(cLyphsGroup.map(p => p.commit()));
-
-	let kidney = model.Lyph.new({name: "Kidney", layers: cLyphsGroup});
-	await kidney.commit();
-
-	let blood 	  = model.Material.new({name: "Blood"});
-	await blood.commit();
-	let bloodType = model.Type.new({name: "Blood", definition: blood});
-	await bloodType.commit();
+	// let renalH = model.Lyph.new({name: "Renal hilum"});
+	// let renalP = model.Lyph.new({name: "Renal parenchyma"});
+	// let renalC = model.Lyph.new({name: "Renal capsule"});
+	// let cLyphsGroup = [renalH, renalP, renalC];
+	// await Promise.all(cLyphsGroup.map(p => p.commit()));
+    //
+	// let kidney = model.Lyph.new({name: "Kidney", layers: cLyphsGroup});
+	// await kidney.commit();
+    //
+	// let blood 	  = model.Material.new({name: "Blood"});
+	// await blood.commit();
+	// let bloodType = model.Type.new({name: "Blood", definition: blood});
+	// await bloodType.commit();
 
 	/*Create DB nodes for test resources*/
-	// clInitial.renalH    = await createNewResource(renalH);
-	// clInitial.renalP    = await createNewResource(renalP);
-	// clInitial.renalC    = await createNewResource(renalC);
-	// clInitial.kidney    = await createNewResource(kidney);
-	// clInitial.blood  	= await createNewResource(blood);
-	// clInitial.bloodType = await createNewResource(bloodType);
+	// clInitial.renalH    = await createCLResource(renalH);
+	// clInitial.renalP    = await createCLResource(renalP);
+	// clInitial.renalC    = await createCLResource(renalC);
+	// clInitial.kidney    = await createCLResource(kidney);
+	// clInitial.blood  	= await createCLResource(blood);
+	// clInitial.bloodType = await createCLResource(bloodType);
 
 	//TODO override refreshResource to work with new
 	//await Promise.all(Object.values(clInitial).map(refreshResource));
@@ -482,37 +482,48 @@ describe("docs", () => {
 
 });
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-describeResourceType('ExternalResource', () => {
+//TODO: test '/resources'
 
+describeResourceClass('ExternalResource', () => {
 	 describeEndpoint('/externalResources',      ['GET', 'POST']);
 
 	 describeEndpoint('/externalResources/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
-	 withInvalidPathParams("non-existing", { id: 999999 });
+		 withInvalidPathParams("non-existing", { id: 999999 });
 
-	 withInvalidPathParams("wrong-type", ()=>({ id: initial.border1.id }));
+		 withInvalidPathParams("wrong-class", ()=>({ id: initial.border1.id }));
 
-	 withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
+		 withValidPathParams(()=>({ id: initial.externalResource1.id }), () => {
 
-		 GET("returns a resource with expected fields", r=>r.resource((res) => {
-			 expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-			 expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-			 expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-			 expect(res).to.have.property('name');  //{ type: 'string' }
-			 expect(res).to.have.property('uri');   //{ ...uriSchema, required: true },
-			 expect(res).to.have.property('type').that.equals(initial.externalResource1.type);  //{ type: 'string'}
+			 GET("returns a resource with expected fields", r=>r.resource((res) => {
+				 expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+				 expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+				 expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+				 expect(res).to.have.property('name');  //{ type: 'string' }
+				 expect(res).to.have.property('uri');   //{ ...uriSchema, required: true },
+				 expect(res).to.have.property('type').that.equals("fma");  //{ type: 'string'}
+
 			 }));
 		 });
 	 });
- });
+
+	///resources/{resourceID}/externals/{externalResourceID}
+
+	 describeEndpoint('/externalResources/{externalResourceID}/locals', ['GET', 'POST'], () => {
+		withValidPathParams(()=>({ externalResourceID: initial.externalResource1.id }),
+			() => {
+				GET("returns locals", r=>{})
+			}
+		);
+	});
+});
 
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-describeResourceType('Border', () => {
+describeResourceClass('Border', () => {
 
 	describeEndpoint('/borders',      ['GET', 'POST']);
 
@@ -520,7 +531,7 @@ describeResourceType('Border', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+		withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
 		withValidPathParams(()=>({ id: initial.border1.id }), () => {
 
@@ -537,7 +548,7 @@ describeResourceType('Border', () => {
 //
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-describeResourceType('Material', () => {
+describeResourceClass('Material', () => {
 
 	describeEndpoint('/materials',      ['GET', 'POST']);
 
@@ -545,7 +556,7 @@ describeResourceType('Material', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+		withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
 		withValidPathParams(()=>({ id: initial.material1.id }), () => {
 
@@ -563,7 +574,7 @@ describeResourceType('Material', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('Measurable', () => {
+describeResourceClass('Measurable', () => {
 
 	describeEndpoint('/measurables',      ['GET', 'POST']);
 
@@ -571,7 +582,7 @@ describeResourceType('Measurable', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+		withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
 		withValidPathParams(()=>({ id: initial.measurable1.id }), () => {
 
@@ -590,7 +601,7 @@ describeResourceType('Measurable', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('Causality', () => {
+describeResourceClass('Causality', () => {
 
     describeEndpoint('/causalities',      ['GET', 'POST']);
 
@@ -598,7 +609,7 @@ describeResourceType('Causality', () => {
 
         withInvalidPathParams("non-existing", { id: 999999 });
 
-        withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+        withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
         withValidPathParams(()=>({ id: initial.causality1.id }), () => {
 
@@ -617,7 +628,7 @@ describeResourceType('Causality', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('Lyph', () => {
+describeResourceClass('Lyph', () => {
 
 	describeEndpoint('/lyphs',      ['GET', 'POST']);
 
@@ -625,7 +636,7 @@ describeResourceType('Lyph', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+		withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
 		withValidPathParams(()=>({ id: initial.mainLyph1.id }), () => {
 
@@ -659,7 +670,7 @@ describeResourceType('Lyph', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('Process', () => {
+describeResourceClass('Process', () => {
 
     describeEndpoint('/processes',      ['GET', 'POST']);
 
@@ -667,7 +678,7 @@ describeResourceType('Process', () => {
 
         withInvalidPathParams("non-existing", { id: 999999 });
 
-        withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+        withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
         withValidPathParams(()=>({ id: initial.process1.id }), () => {
 
@@ -688,7 +699,7 @@ describeResourceType('Process', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('Group', () => {
+describeResourceClass('Group', () => {
 
 	describeEndpoint('/groups',      ['GET', 'POST']);
 
@@ -696,7 +707,7 @@ describeResourceType('Group', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+		withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
 		withValidPathParams(()=>({ id: initial.group1.id }), () => {
 
@@ -716,7 +727,7 @@ describeResourceType('Group', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('OmegaTree', () => {
+describeResourceClass('OmegaTree', () => {
 
 	describeEndpoint('/omegaTrees',      ['GET', 'POST']);
 
@@ -724,7 +735,7 @@ describeResourceType('OmegaTree', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+		withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
 		withValidPathParams(()=>({ id: initial.omegaTree1.id }), () => {
 
@@ -743,7 +754,7 @@ describeResourceType('OmegaTree', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('Publication', () => {
+describeResourceClass('Publication', () => {
 
     describeEndpoint('/publications',      ['GET', 'POST']);
 
@@ -751,7 +762,7 @@ describeResourceType('Publication', () => {
 
         withInvalidPathParams("non-existing", { id: 999999 });
 
-        withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+        withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
         withValidPathParams(()=>({ id: initial.publication1.id }), () => {
 
@@ -769,7 +780,7 @@ describeResourceType('Publication', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('ClinicalIndex', () => {
+describeResourceClass('ClinicalIndex', () => {
 
     describeEndpoint('/clinicalIndices',      ['GET', 'POST']);
 
@@ -777,7 +788,7 @@ describeResourceType('ClinicalIndex', () => {
 
         withInvalidPathParams("non-existing", { id: 999999 });
 
-        withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+        withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
         withValidPathParams(()=>({ id: initial.clinicalIndex2.id }), () => {
 
@@ -796,7 +807,7 @@ describeResourceType('ClinicalIndex', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('Correlation', () => {
+describeResourceClass('Correlation', () => {
 
     describeEndpoint('/correlations',      ['GET', 'POST']);
 
@@ -804,7 +815,7 @@ describeResourceType('Correlation', () => {
 
         withInvalidPathParams("non-existing", { id: 999999 });
 
-        withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+        withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
         withValidPathParams(()=>({ id: initial.correlation1.id }), () => {
 
@@ -824,7 +835,7 @@ describeResourceType('Correlation', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('Coalescence', () => {
+describeResourceClass('Coalescence', () => {
 
     describeEndpoint('/coalescences',      ['GET', 'POST']);
 
@@ -832,7 +843,7 @@ describeResourceType('Coalescence', () => {
 
         withInvalidPathParams("non-existing", { id: 999999 });
 
-        withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+        withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
         withValidPathParams(()=>({ id: initial.coalescence1.id }), () => {
 
@@ -850,7 +861,7 @@ describeResourceType('Coalescence', () => {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 
-describeResourceType('CoalescenceScenario', () => {
+describeResourceClass('CoalescenceScenario', () => {
 
     describeEndpoint('/coalescenceScenarios',      ['GET', 'POST']);
 
@@ -858,7 +869,7 @@ describeResourceType('CoalescenceScenario', () => {
 
         withInvalidPathParams("non-existing", { id: 999999 });
 
-        withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+        withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
         withValidPathParams(()=>({ id: initial.coalescenceScenario1.id }), () => {
 
@@ -872,7 +883,7 @@ describeResourceType('CoalescenceScenario', () => {
     });
 });
 
-describeResourceType('Type', () => {
+describeResourceClass('Type', () => {
 
 	describeEndpoint('/types',      ['GET', 'POST']);
 
@@ -880,7 +891,7 @@ describeResourceType('Type', () => {
 
 		withInvalidPathParams("non-existing", { id: 999999 });
 
-		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+		withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 
 		withValidPathParams(()=>({ id: initial.materialType1.id }), () => {
 
@@ -900,7 +911,6 @@ describeResourceType('Type', () => {
 //Test resources created by client library
 /////////////////////////////////////////////////////////////////////
 
-
 // describeResourceType('Lyph', () => {
 //
 // 	describeEndpoint('/lyphs',      ['GET', 'POST']);
@@ -909,7 +919,7 @@ describeResourceType('Type', () => {
 //
 // 		withInvalidPathParams("non-existing", { id: 999999 });
 //
-// 		withInvalidPathParams("wrong-type", ()=>({ id: initial.externalResource1.id }));
+// 		withInvalidPathParams("wrong-class", ()=>({ id: initial.externalResource1.id }));
 //
 // 		withValidPathParams(()=>({ id: initial.kidney.id }), () => {
 //
@@ -926,171 +936,5 @@ describeResourceType('Type', () => {
 // 	});
 // });
 
-// //
-// // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// //
-// // describeResourceType('LayerTemplate', () => {
-// //
-// // 	/* local utility function */
-// // 	async function requestLayerTemplatesAndLayers() {
-// // 		return await Promise.all([
-// // 			requestResources(`/layerTemplates/${initial.layerTmp1.id}`),
-// // 			requestResources(`/layerTemplates/${initial.layerTmp2.id}`),
-// // 			requestResources(`/layerTemplates/${initial.layerTmp3.id}`),
-// // 			requestResources(`/layers/${initial.layer1.id}`),
-// // 			requestResources(`/layers/${initial.layer2.id}`),
-// // 			requestResources(`/layers/${initial.layer3.id}`)
-// // 		]);
-// // 	}
-// //
-// // 	describeEndpoint('/layerTemplates',      ['GET', 'POST']);
-// //
-// // 	describeEndpoint('/layerTemplates/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-// //
-// // 		withInvalidPathParams("non-existing", { id: 999999 });
-// //
-// // 		withInvalidPathParams("wrong-type", ()=>({ id: initial.lyphTmp1.id }));
-// //
-// // 		withValidPathParams(()=>({ id: initial.layerTmp1.id }), () => {
-// //
-// // 			GET("returns a resource with expected fields", r=>r.resource((res) => {
-// // 				expect(res).to.have.property('lyphTemplate'  ).that.equals(initial.lyphTmp1.id);
-// // 				expect(res).to.have.property('position'      ).that.equals(1);
-// // 				expect(res).to.have.property('instantiations').with.members([ initial.layer1.id ]);
-// // 				expect(res).to.have.property('materials'     ).that.is.instanceOf(Array); // TODO: make specific when appropriate
-// // 				expect(res).to.have.property('thickness'     ).that.deep.equals({ min: 1, max: 2 });
-// // 			}));
-// //
-// // 			POST("properly shifts layer positions around (1)", r=>r.send({
-// // 				position: 2 // move position 1 to position 2
-// // 			}).expect(200).then(async () => {
-// // 				let [
-// // 					layerTmp1, layerTmp2, layerTmp3,
-// // 					layer1,    layer2,    layer3,
-// // 				] = await requestLayerTemplatesAndLayers();
-// // 				expect(layerTmp1).sole.element.to.have.property('position').that.equals(2);
-// // 				expect(layerTmp2).sole.element.to.have.property('position').that.equals(1);
-// // 				expect(layerTmp3).sole.element.to.have.property('position').that.equals(3);
-// // 				expect(layer1)   .sole.element.to.have.property('position').that.equals(2);
-// // 				expect(layer2)   .sole.element.to.have.property('position').that.equals(1);
-// // 				expect(layer3)   .sole.element.to.have.property('position').that.equals(3);
-// // 			}));
-// //
-// // 			POST("properly keeps layers in place when position is not changed", r=>r.send({
-// // 				name: "some other name"
-// // 			}).expect(200).then(async () => {
-// // 				let [
-// // 					layerTmp1, layerTmp2, layerTmp3,
-// // 					layer1,    layer2,    layer3,
-// // 				] = await requestLayerTemplatesAndLayers();
-// // 				expect(layerTmp1).sole.element.to.have.property('position').that.equals(1);
-// // 				expect(layerTmp2).sole.element.to.have.property('position').that.equals(2);
-// // 				expect(layerTmp3).sole.element.to.have.property('position').that.equals(3);
-// // 				expect(layer1)   .sole.element.to.have.property('position').that.equals(1);
-// // 				expect(layer2)   .sole.element.to.have.property('position').that.equals(2);
-// // 				expect(layer3)   .sole.element.to.have.property('position').that.equals(3);
-// // 			}));
-// //
-// // 		});
-// //
-// // 		withValidPathParams(()=>({ id: initial.layerTmp3.id }), () => {
-// //
-// // 			POST("properly shifts layer positions around (2)", r=>r.send({
-// // 				position: 1 // move position 3 to position 1
-// // 			}).expect(200).then(async () => {
-// // 				let [
-// // 					layerTmp1, layerTmp2, layerTmp3,
-// // 					layer1,    layer2,    layer3,
-// // 				] = await requestLayerTemplatesAndLayers();
-// // 				expect(layerTmp1).sole.element.to.have.property('position').that.equals(2);
-// // 				expect(layerTmp2).sole.element.to.have.property('position').that.equals(3);
-// // 				expect(layerTmp3).sole.element.to.have.property('position').that.equals(1);
-// // 				expect(layer1)   .sole.element.to.have.property('position').that.equals(2);
-// // 				expect(layer2)   .sole.element.to.have.property('position').that.equals(3);
-// // 				expect(layer3)   .sole.element.to.have.property('position').that.equals(1);
-// // 			}));
-// //
-// // 		});
-// //
-// // 	});
-// //
-// // });
 
-// //
-// // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // describeResourceType('CanonicalTreeLevel', () => {
-// //
-// // 	/* local utility function */
-// // 	async function requestTreeLevelCount() {
-// // 		return (await requestResources(`/canonicalTrees/${initial.cTree1.id}/levels`)).length;
-// // 	}
-// // 	async function requestTreeLevels() {
-// // 		return await Promise.all([
-// // 			requestSingleResource(`/canonicalTreeLevel/${initial.cTreeLevel1.id}`),
-// // 			requestSingleResource(`/canonicalTreeLevel/${initial.cTreeLevel2.id}`),
-// // 			requestSingleResource(`/canonicalTreeLevel/${initial.cTreeLevel3.id}`)
-// // 		]);
-// // 	}
-// //
-// // 	// describeEndpoint('/canonicalTreeLevel',      ['GET', 'POST']);
-// //
-// // 	describeEndpoint('/canonicalTreeLevel/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-// //
-// // 		// withInvalidPathParams("non-existing", { id: 999999 });
-// // 		//
-// // 		// withInvalidPathParams("wrong-type", ()=>({ id: initial.lyph1.id }));
-// //
-// // 		withValidPathParams(()=>({ id: initial.cTreeLevel1.id }), () => {
-// //
-// // 			// GET("returns a resource with expected fields", r=>r.resource((res) => {
-// // 			// 	expect(res).to.have.property('name'          ).that.equals("canonical tree level 1");
-// // 			// 	expect(res).to.have.property('position'      ).that.equals(1);
-// // 			// 	expect(res).to.have.property('connectedTrees').that.is.instanceOf(Array); // TODO: make specific when appropriate
-// // 			// }));
-// // 			//
-// // 			// POST("properly shifts layer positions around (1)", r=>r.send({
-// // 			// 	position: 2 // move position 1 to position 2
-// // 			// }).expect(200).then(async () => {
-// // 			// 	expect(await requestTreeLevelCount()).to.equal(3);
-// // 			// 	let [cTreeLevel1, cTreeLevel2, cTreeLevel3] = await requestTreeLevels();
-// // 			// 	expect(cTreeLevel1).to.have.property('position').that.equals(2);
-// // 			// 	expect(cTreeLevel2).to.have.property('position').that.equals(1);
-// // 			// 	expect(cTreeLevel3).to.have.property('position').that.equals(3);
-// // 			// }));
-// //
-// // 			POST("properly keeps layers in place when only 'template' is changed and 'tree' is provided redundantly", r=>r.send({
-// // 				template: initial.lyphTmp2.id,
-// // 				tree:     initial.cTree1.id
-// // 			}).expect(200).then(async () => {
-// // 				expect(await requestTreeLevelCount()).to.equal(3);
-// // 				let [cTreeLevel1, cTreeLevel2, cTreeLevel3] = await requestTreeLevels();
-// // 				expect(cTreeLevel1).to.have.property('position').that.equals(1);
-// // 				expect(cTreeLevel2).to.have.property('position').that.equals(2);
-// // 				expect(cTreeLevel3).to.have.property('position').that.equals(3);
-// // 			}));
-// //
-// // 		});
-// // 		//
-// // 		// withValidPathParams(()=>({ id: initial.layerTmp3.id }), () => {
-// // 		//
-// // 		// 	POST("properly shifts layer positions around (2)", r=>r.send({
-// // 		// 		position: 1 // move position 3 to position 1
-// // 		// 	}).expect(200).then(async () => {
-// // 		// 		let [
-// // 		// 			layerTmp1, layerTmp2, layerTmp3,
-// // 		// 			layer1,    layer2,    layer3
-// // 		// 		] = await requestTreeLevels();
-// // 		// 		expect(layerTmp1).sole.element.to.have.property('position').that.equals(2);
-// // 		// 		expect(layerTmp2).sole.element.to.have.property('position').that.equals(3);
-// // 		// 		expect(layerTmp3).sole.element.to.have.property('position').that.equals(1);
-// // 		// 		expect(layer1)   .sole.element.to.have.property('position').that.equals(2);
-// // 		// 		expect(layer2)   .sole.element.to.have.property('position').that.equals(3);
-// // 		// 		expect(layer3)   .sole.element.to.have.property('position').that.equals(1);
-// // 		// 	}));
-// // 		//
-// // 		// });
-// //
-// // 	});
-// //
-// // });
 
