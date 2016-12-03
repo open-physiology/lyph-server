@@ -74,13 +74,13 @@ const requestHandler = {
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
-	relationships: {
+	relatedResources: {
 		async get({db, relA}, req, res) {
 			await db.assertResourcesExist(relA.resourceClass, [req.pathParams.idA]);
 			res.status(OK).jsonp( await db.getRelatedResources(relA, req.pathParams.idA) );
 		}
 	},
-	specificRelationship: {
+	specificRelatedResource: {
 		async put({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			await Promise.all([
@@ -101,6 +101,23 @@ const requestHandler = {
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
+    relationships: {
+        async get({db, type}, req, res) {
+            res.status(OK).jsonp( await db.getAllRelationships(type) );
+        },
+        async post({db, type}, req, res) {
+
+            for (let [idA, idB, relFields] of req.body){
+                await db.addNewRelationship(type, idA, idB);
+                //TODO: process relationship fields
+            }
+            res.status(NO_CONTENT).jsonp();
+        }
+    },
+    //TODO add specificRelationships
+    //TODO add specificRelationshipsByResources
+    //TODO add relatedRelationships
+    //TODO add specificRelatedRelationships
 	algorithm: {
 		async get({db, algorithmName}, req, res) {
 			let result = await algorithms[algorithmName].run({
@@ -258,11 +275,19 @@ export default async (distDir, config) => {
 				[['resources', 'specificResources'], ()=>({
 					type: resources[pathObj['x-resource-type']]
 				})],
-				[['relationships', 'specificRelationship'], ()=>({
-					type: relationships[pathObj['x-relationship-type']],
-					relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
-					relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
+				[['relatedResources', 'specificRelatedResource'], ()=>({
+					type: relationships[pathObj['x-relatedResource-type']],
+					relA: relationships[pathObj['x-relatedResource-type']][pathObj['x-A']],
+					relB: relationships[pathObj['x-relatedResource-type']][pathObj['x-B']]
 				})],
+                [['relationships', 'specificRelationships'], ()=>({
+                    type: resources[pathObj['x-relationship-type']]
+                })],
+                [['relatedRelationships', 'specificRelatedRelationship'], ()=>({
+                    type: relationships[pathObj['x-relatedRelationship-type']]
+                    //TODO add other parameters
+                    //TODO add specificRelationshipsByResources
+                })],
 				[['algorithm'], ()=>({
 					algorithmName: pathObj['x-algorithm-name']
 				})]

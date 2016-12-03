@@ -187,7 +187,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	
+
 	async [removeUnspecifiedRelationships](cls, id, fields, {includeUngivenFields = false} = {}) {
 		let allRelationFields = Object.entries(cls.relationshipShortcuts);
 		let relDeletionStatements = [];
@@ -213,6 +213,7 @@ export default class LyphNeo4j extends Neo4j {
 			await this.query(relDeletionStatements);
 		}
 	}
+
 
 	async [getResourcesToDelete](cls, id) {
 		/* collect nodes to delete */
@@ -245,6 +246,7 @@ export default class LyphNeo4j extends Neo4j {
 		return [...markedNodes.values()];
 
 	}
+
 
 	async [anythingAnchoredFromOutside](ids) {
 		const symmetricAnchoring = anchoringRelationships.filter((relA) =>  relA.symmetric);
@@ -355,28 +357,25 @@ export default class LyphNeo4j extends Neo4j {
 		return results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
 	}
 
-    /////////////////////////////////////////////////////////////////////////
-	//Methods to work with client library resources
-	/////////////////////////////////////////////////////////////////////////
-    async createCLResource(resource) {
-    	let fields = _(resource.fields).mapValues((val) => (val.value)).value();
-		//console.log("Creating object with fields ", fields);
-    	return this.createResource(resource.constructor, fields);
+	//NK New
+    async getAllRelationships(cls) {
+
+        /* is there a hook to completely replace entity retrieval? */
+        let result = await this[runClassSpecificHook](cls, 'getAll', {});
+        if (result) { return result }
+
+        /* formulating and sending the query */
+        let results = await this.query(`
+			MATCH MATCH  (A) -[rel:${cls.name}]- (B) RETURN DISTINCT A, rel, B,
+			CASE WHEN STARTNODE(rel) = A THEN 'FORWARD' ELSE 'BACKWARD' END AS direction
+		`);
+
+        //TODO create map of unique relationships and integrate resources to them
+
+		console.log("Retrieved relations ", results);
+
+        return results.map(({A, rel, B, direction}) => rel);
     }
-
-	async updateCLResource(resource) {
-		let fields = _(resource.fields).mapValues((val) => (val.value)).value();
-		return this.updateResource(resource.constructor, resource.id, fields);
-	}
-
-	async replaceCLResource(resource) {
-		let fields = _(resource.fields).mapValues((val) => (val.value)).value();
-		return this.replaceResource(resource.constructor, resource.id, fields);
-	}
-
-	async deleteCLResource(resource) {
-		return this.deleteResource(resource.constructor, resource.id);
-	}
 
 	/////////////////////////////////////////////////////////////////////////
 
@@ -545,6 +544,7 @@ export default class LyphNeo4j extends Neo4j {
 				this[runClassSpecificHook](dClass, 'afterDelete', { id: dId })));
 
 	}
+
 
 	async getRelatedResources(relA, idA) {
 		let cls = relA.relationshipClass;
