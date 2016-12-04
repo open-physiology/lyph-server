@@ -276,17 +276,18 @@ export default async (distDir, config) => {
 					type: resources[pathObj['x-resource-type']]
 				})],
 				[['relatedResources', 'specificRelatedResource'], ()=>({
-					type: relationships[pathObj['x-relatedResource-type']],
-					relA: relationships[pathObj['x-relatedResource-type']][pathObj['x-A']],
-					relB: relationships[pathObj['x-relatedResource-type']][pathObj['x-B']]
+					type: relationships[pathObj['x-relationship-type']],
+					relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
+					relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
 				})],
                 [['relationships', 'specificRelationships'], ()=>({
-                    type: resources[pathObj['x-relationship-type']]
+                    type: relationships[pathObj['x-relationship-type']]
                 })],
-                [['relatedRelationships', 'specificRelatedRelationship'], ()=>({
-                    type: relationships[pathObj['x-relatedRelationship-type']]
-                    //TODO add other parameters
-                    //TODO add specificRelationshipsByResources
+                [['relatedRelationships', 'specificRelationshipByResources'], ()=>({
+                	//TODO: add 'specificRelatedRelationship'
+                    type: relationships[pathObj['x-relationship-type']],
+					relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
+					relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
                 })],
 				[['algorithm'], ()=>({
 					algorithmName: pathObj['x-algorithm-name']
