@@ -33,7 +33,7 @@ describe("swagger.json", () => {
 
 describe("docs", () => {
 
-	it.skip("is an html page available through the server", () => api
+	it("is an html page available through the server", () => api
 		.get('/docs')
 		.redirects(5)
 		.expect(200)
@@ -45,7 +45,7 @@ describe("docs", () => {
 
 //testResources();
 
-testRelationships();
+//testRelationships();
 
 
 

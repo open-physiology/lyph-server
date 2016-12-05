@@ -115,10 +115,18 @@ export function relationshipQueryFragments(cls, nodeName) {
 	let optionalMatches = [];
 	let objectMembers = [];
 	let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
-	let allRelationFields = Object.entries(cls.relationshipShortcuts);
+	//let allRelationFields = Object.entries(cls.relationshipShortcuts);
+	//let allRelationFields = Object.assign({}, cls.relationshipShortcuts, cls.relationships);
+	let allRelationFields = Object.entries(cls.relationships);
+
 	// TODO: (MH+NK) Use .relationships up here ^, encode -->ish names.
 	// TODO: The client library will set the shortcut fields.
 	for (let [fieldName, fieldSpec] of allRelationFields) {
+
+		let relName = (isUndefined(fieldSpec.shortcutKey))?
+			fieldName.replace('-->', '__o').replace('<--', 'o__')
+			: fieldSpec.shortcutKey;
+
 		if (handledFieldNames[fieldName]) { continue }
 		handledFieldNames[fieldName] = true;
 
@@ -126,12 +134,16 @@ export function relationshipQueryFragments(cls, nodeName) {
 		optionalMatches.push(`
 			OPTIONAL MATCH (${nodeName})
 		    ${l}[:${fieldSpec.relationshipClass.name}]${r}
-		    (rel_${fieldName}:${fieldSpec.codomain.resourceClass.name})
+		    (rel_${relName}:${fieldSpec.codomain.resourceClass.name})
 		`);
 		objectMembers.push((fieldSpec.cardinality.max === 1)
-				? `${fieldName}: rel_${fieldName}.id`
-				: `${fieldName}: collect(DISTINCT rel_${fieldName}.id)`
+				? `${relName}: rel_${relName}.id`
+				: `${relName}: collect(DISTINCT rel_${relName}.id)`
 		);
 	}
+
+	//console.log(optionalMatches.join("\r\n"));
+	//console.log(objectMembers.join("\r\n"));
+
 	return { optionalMatches, objectMembers };
 }

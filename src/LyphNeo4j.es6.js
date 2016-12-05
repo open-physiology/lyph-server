@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* libraries */
-import _, {isUndefined, difference, find, property} from 'lodash';
+import _, {isUndefined, isNull, difference, find, property} from 'lodash';
 import isSet from 'lodash-bound/isSet';
 import isArray from 'lodash-bound/isArray';
 import isNumber from 'lodash-bound/isNumber';
@@ -93,10 +93,9 @@ export default class LyphNeo4j extends Neo4j {
 			});
 		}
 	}
-
 	
 	async [assertRequiredFieldsAreGiven](cls, fields) {
-		let allFields = Object.entries(Object.assign({}, cls.properties, cls.relationshipShortcuts));
+		let allFields = Object.entries(cls.properties);
 		for (let [fieldName, fieldSpec] of allFields) {
 			if (fieldSpec.required && isUndefined(fields[fieldName])) {
 				throw customError({
@@ -127,7 +126,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	
 	async [assertProperCardinalityInFields](cls, fields) {
-		let allRelationFields = Object.entries(cls.relationshipShortcuts);
+		let allRelationFields = Object.entries(Object.assign({}, cls.relationshipShortcuts, cls.relationships));
 		for (let [fieldName, fieldSpec] of allRelationFields) {
 			let val = fields[fieldName];
 			let cardinality =
@@ -150,10 +149,12 @@ export default class LyphNeo4j extends Neo4j {
 
 	
 	async [assertReferencedResourcesExist](cls, fields) {
-		let allRelationFields = Object.entries(cls.relationshipShortcuts);
+		let allRelationFields = Object.entries(Object.assign({}, cls.relationshipShortcuts, cls.relationships));
 		for (let [fieldName, fieldSpec] of allRelationFields) {
 			let val = fields[fieldName];
-			if (isUndefined(val)) { continue }
+
+			if (isUndefined(val) || isNull(val)) { continue }
+
 			let array = val::isArray()? val.filter(x => !isUndefined(x))
 				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
 
@@ -172,15 +173,24 @@ export default class LyphNeo4j extends Neo4j {
 
 	
 	async [createSpecifiedRelationships](cls, id, fields) {
-		let allRelationFields = Object.entries(cls.relationshipShortcuts); // TODO: check also relationships (non-shortcuts)
 		let relCreationStatements = [];
-		for (let [fieldName, fieldSpec] of allRelationFields){
+		for (let fieldName of Object.keys(fields).filter(
+			(key) => (cls.relationships[key] || cls.relationshipShortcuts[key]))){
 			let val = fields[fieldName];
-			if (isUndefined(val)) { continue }
+			let fieldSpec = cls.relationships[fieldName] || cls.relationshipShortcuts[fieldName];
+
+			if (isUndefined(val) || isNull(val)) { continue }
+
 			let array = val::isArray()? val.filter(x => !isUndefined(x))
 				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
 
+
 			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
+
+			// if ((fieldName === "-->HasBorder") || (fieldName.indexOf("borders") > -1 )){
+			// 	console.log("Creating relationship 1 " + fieldName, array );
+			// 	console.log("Creating relationship 2 " + fieldName, ids );
+			// }
 
 			let [l, r] = arrowEnds(fieldSpec); //TODO check that the right variable is called
 
@@ -198,11 +208,14 @@ export default class LyphNeo4j extends Neo4j {
 
 
 	async [removeUnspecifiedRelationships](cls, id, fields, {includeUngivenFields = false} = {}) {
-		let allRelationFields = Object.entries(cls.relationshipShortcuts);
 		let relDeletionStatements = [];
-		for (let [fieldName, fieldSpec] of allRelationFields) {
+		for (let fieldName of Object.keys(fields).filter(
+			(key) => (cls.relationships[key] || cls.relationshipShortcuts[key]))){
 			let val = fields[fieldName];
-			if (isUndefined(val)) { continue }
+			let fieldSpec = cls.relationships[fieldName] || cls.relationshipShortcuts[fieldName];
+
+			if (isUndefined(val) || isNull(val)) { continue }
+
 			let array = val::isArray()? val.filter(x => !isUndefined(x))
 				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
 

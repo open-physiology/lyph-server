@@ -65,7 +65,7 @@ before(() => getServer(`${__dirname}/../`, {
     dbUser: 'neo4j',
     dbPass: 'nknk14',
     dbHost: '192.168.99.100',//localhost
-    dbPort: 32778, //32769, //7474
+    dbPort: 32769, //7474
     dbConsoleLogging: false,
     consoleLogging: false
 }).then(({database, server}) => {
