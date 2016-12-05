@@ -110,6 +110,19 @@ export default class LyphNeo4j extends Neo4j {
 				});
 			}
 		}
+
+		//TODO - remove later: ids will eb assigned by server, not model library
+		//id is not required according to the manifest but we require id before commit to DB
+		if (!fields.id::isNumber()) {
+			throw customError({
+				status: BAD_REQUEST,
+				class:  cls.name,
+				field:  "id",
+				message: humanMsg`
+						You tried to create a new ${cls.singular} without valid ID.
+					`
+			});
+		}
 	}
 
 	
@@ -127,7 +140,7 @@ export default class LyphNeo4j extends Neo4j {
 					class:   cls.name,
 					field:   fieldName,
 					message: humanMsg`
-						The '${fieldName}' expects cardinality 
+						The '${fieldName}' of class '${cls.name}' expects cardinality 
 						${fieldSpec.cardinality.min}..${fieldSpec.cardinality.max || '*'}.
 					`
 				});
@@ -142,9 +155,7 @@ export default class LyphNeo4j extends Neo4j {
 			let val = fields[fieldName];
 			if (isUndefined(val)) { continue }
 			let array = val::isArray()? val.filter(x => !isUndefined(x))
-				: val::isSet()? Object.values(fields[fieldName])
-				: (val::isNumber() || val.id)? new Array(val)
-				: [];
+				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
 
 			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
 
@@ -167,9 +178,7 @@ export default class LyphNeo4j extends Neo4j {
 			let val = fields[fieldName];
 			if (isUndefined(val)) { continue }
 			let array = val::isArray()? val.filter(x => !isUndefined(x))
-				: val::isSet()? Object.values(fields[fieldName])
-				: (val::isNumber() || val.id)? new Array(val)
-				: [];
+				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
 
 			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
 
@@ -195,9 +204,7 @@ export default class LyphNeo4j extends Neo4j {
 			let val = fields[fieldName];
 			if (isUndefined(val)) { continue }
 			let array = val::isArray()? val.filter(x => !isUndefined(x))
-				: val::isSet()? Object.values(fields[fieldName])
-				: (val::isNumber() || val.id)? new Array(val)
-				: [];
+				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
 
 			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
 
@@ -297,13 +304,15 @@ export default class LyphNeo4j extends Neo4j {
 			WHERE n.id IN [${ids.join(',')}]
 			RETURN count(n) AS count
 		`);
+
+
 		/* throw the 404 error if 'exists' is false */
 		if (count < ids.length) {
 			throw customError({
 				status:  NOT_FOUND,
 				class:   cls.name,
 				ids:     ids,
-				message: humanMsg`Not all specified ${cls.plural} exist.` // TODO: make more specific
+				message: humanMsg`Not all specified ${cls.plural} with IDs '${ids.join(',')}' exist.`
 			});
 		}
 	}
@@ -346,12 +355,15 @@ export default class LyphNeo4j extends Neo4j {
 		/* preparing the part of the query that adds relationship info */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(cls, 'n');
 
-		/* formulating and sending the query */
-		let results = await this.query(`
+		let q = `
 			MATCH (n:${cls.name})
 			${optionalMatches.join(' ')}
 			RETURN n, { ${objectMembers.join(', ')} } AS rels
-		`);
+		`;
+
+		console.log(q);
+		/* formulating and sending the query */
+		let results = await this.query(q);
 
 		/* integrate relationship data into the resource object */
 		return results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
@@ -398,12 +410,22 @@ export default class LyphNeo4j extends Neo4j {
 		await this[assertReferencedResourcesExist](cls, fields);
 
 		/* the main query for creating the resource */
-		[{id}] = await this.creationQuery(({withNewId}) => ({
+		// [{id}] = await this.creationQuery(({withNewId}) => ({
+		// 	statement: `
+		// 		${withNewId('newID')}
+		// 		CREATE (n:${cls.name} { id: newID, class: "${cls.name}" })
+		// 		SET n += {dbProperties}
+		// 		RETURN newID as id
+		// 	`,
+		// 	parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
+		// }));
+
+		//Create resources with given ids
+		[{id}] = await this.creationQuery(() => ({
 			statement: `
-				${withNewId('newID')}
-				CREATE (n:${cls.name} { id: newID, class: "${cls.name}" })
+				CREATE (n:${cls.name})
 				SET n += {dbProperties}
-				RETURN newID as id
+				RETURN n.id as id
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		}));

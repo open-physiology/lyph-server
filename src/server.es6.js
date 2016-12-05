@@ -106,11 +106,8 @@ const requestHandler = {
             res.status(OK).jsonp( await db.getAllRelationships(type) );
         },
         async post({db, type}, req, res) {
-
-            for (let [idA, idB, relFields] of req.body){
-                await db.addNewRelationship(type, idA, idB);
-                //TODO: process relationship fields
-            }
+			//let fields = req.body;
+            //await db.addNewRelationship(type, idA, idB);
             res.status(NO_CONTENT).jsonp();
         }
     },

@@ -9,7 +9,7 @@ import pick from 'lodash/pick';
 
 /* local stuff */
 import {toCamelCase} from './utility.es6.js';
-import {resources, relationships, algorithms, modelRef} from './resources.es6.js';
+import {resources, relationships, algorithms, model} from './resources.es6.js';
 import {
 	OK,
 	CREATED,
@@ -39,8 +39,8 @@ const $ref = (className) => (
 
 let swaggerDataTypes = {};
 
-//Creates definitions for resources and relationships
-for (let [className, cls] of Object.entries(modelRef.classes)) {
+//Creates definitions for resources and relationships (assuming that any entry in manifest is one of those)
+for (let [className, cls] of Object.entries(model)) {
 
     let xTag = (cls.isResource)? 'x-resource-type': 'x-relationship-type';
 
