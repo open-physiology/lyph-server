@@ -318,7 +318,14 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
                     description: `ID of the '${fieldName}' ${singularB} to add to the given ${singularA}`,
                     required:    true,
                     type:        'integer'
-                }
+                }//,
+                // {
+                //     name:        'properties',
+                //     in:          'body',
+                //     description: `properties of the relationship`,
+                //     required:    true,
+                //     type:        $ref(`partial_${cls.name}`)
+                // }
             ],
             responses: {
                 [NO_CONTENT]: {

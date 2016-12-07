@@ -19,69 +19,68 @@ import {initial, describeResourceClass, describeEndpoint,
 export function testRelationships() {
 
     //test that endpoints for all relationships exist
-    for (let className of
-        ["Causes",
-        "Coalesces",
-        "CoalescesLike",
-        "ContainsArtefact",
-        "ContainsArtefact_00",
-        "ContainsArtefact_10",
-        "ContainsArtefact_11",
-        "ContainsArtefact_20",
-        "ContainsArtefact_21",
-        "ContainsArtefact_22",
-        "ContainsMaterial",
-        "ContainsNode",
-        "ConveysProcess",
-        "CorrespondsTo",
-        "EncompassesClinicalIndex",
-        "FlowsTo",
-        "Has",
-        "HasAsRoot",
-        "HasAxis",
+    for (let className of [
+        // "Causes",
+        // "Coalesces",
+        // "CoalescesLike",
+        // "ContainsArtefact",
+        // "ContainsArtefact_00",
+        // "ContainsArtefact_10",
+        // "ContainsArtefact_11",
+        // "ContainsArtefact_20",
+        // "ContainsArtefact_21",
+        // "ContainsArtefact_22",
+        // "ContainsMaterial",
+        // "ContainsNode",
+        // "ConveysProcess",
+        // "CorrespondsTo",
+        // "EncompassesClinicalIndex",
+        // "FlowsTo",
+        // "Has",
+        // "HasAsRoot",
+        // "HasAxis",
         "HasBorder",
-        "HasCardinalityMultipliedByThatOf",
-        "HasChannel",
-        "HasLayer",
-        "HasLongitudinalBorder",
-        "HasMeasurable",
-        "HasPart",
-        "HasPatch",
-        "HasRadialBorder",
-        "HasSegment",
-        "HasTreeChildren",
-        "HasTreePart",
-        "HasType",
-        "IncludesElement",
-        "InvolvesClinicalIndex",
-        "InvolvesMeasurable",
-        "InvolvesPublication",
-        "IsExternallyRelatedTo",
-        "IsRelatedTo",
-        "IsSubtypeOf",
-        "JoinsLyph",
-        "MeasuresMaterial",
-        "PrescribesStyleFor",
-        "PresentsModel",
-        "PullsIntoTypeDefinition",
-        "TransportsMaterial",
-        "provisional_FlowsTo"]){
+        // "HasCardinalityMultipliedByThatOf",
+        // "HasChannel",
+        "HasLayer" //,
+        // "HasLongitudinalBorder",
+        // "HasMeasurable",
+        // "HasPart",
+        // "HasPatch",
+        // "HasRadialBorder",
+        // "HasSegment",
+        // "HasTreeChildren",
+        // "HasTreePart",
+        // "HasType",
+        // "IncludesElement",
+        // "InvolvesClinicalIndex",
+        // "InvolvesMeasurable",
+        // "InvolvesPublication",
+        // "IsExternallyRelatedTo",
+        // "IsRelatedTo",
+        // "IsSubtypeOf",
+        // "JoinsLyph",
+        // "MeasuresMaterial",
+        // "PrescribesStyleFor",
+        // "PresentsModel",
+        // "PullsIntoTypeDefinition",
+        // "TransportsMaterial",
+        // "provisional_FlowsTo"
+    ]){
         describeResourceClass(className, () => {
             describeEndpoint(`/${className}`, ['GET', 'POST']);
 
-            // describeEndpoint(`/${className}/{id}`, ['GET', 'POST', 'PUT', 'DELETE'], () => {
-            //
-            //     withInvalidPathParams("non-existing", {id: 999999});
-            //
-            //     withInvalidPathParams("wrong-class", ()=>({id: initial.border1.id}));
-            // });
+            describeEndpoint(`/${className}/{id}`, ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+                withInvalidPathParams("non-existing", {id: 999999});
+
+                withInvalidPathParams("wrong-class", ()=>({id: initial.border1.id}));
+            });
         });
     }
 
 
     describeResourceClass('HasLayer', () => {
-
-        describeEndpoint('/HasLayer', ['GET', 'POST']);
 
         // describeEndpoint('/HasLayer/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
         //

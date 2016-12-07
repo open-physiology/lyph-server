@@ -3,7 +3,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* libraries */
-import _, {isUndefined, isNull, difference, find, property} from 'lodash';
+import _, {difference, find, property} from 'lodash';
+import isNull from 'lodash-bound/isNull';
+import isUndefined from 'lodash-bound/isUndefined';
 import isSet from 'lodash-bound/isSet';
 import isArray from 'lodash-bound/isArray';
 import isNumber from 'lodash-bound/isNumber';
@@ -19,7 +21,8 @@ import {
 	arrowEnds,
 	relationshipQueryFragments,
 	humanMsg,
-	arrowMatch
+	arrowMatch,
+	extractIds
 } from './utility.es6.js';
 import {
 	sustainingRelationships,
@@ -50,7 +53,9 @@ const assertRelatedResourcesExists        = Symbol('assertRelatedResourcesExists
 const assertRequiredFieldsAreGiven        = Symbol('assertRequiredFieldsAreGiven');
 const assertProperCardinalityInFields     = Symbol('assertProperCardinalityInFields');
 const assertReferencedResourcesExist      = Symbol('assertReferencedResourcesExist');
-const createSpecifiedRelationships        = Symbol('createSpecifiedRelationships');
+const createAllResourceRelationships      = Symbol('createAllResourceRelationships');
+const createRelationships		          = Symbol('createRelationships');
+const removeRelationships		          = Symbol('removeRelationships');
 const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
 const getResourcesToDelete                = Symbol('getResourcesToDelete');
 const anythingAnchoredFromOutside         = Symbol('anythingAnchoredFromOutside');
@@ -63,7 +68,7 @@ export default class LyphNeo4j extends Neo4j {
 	////////////////////////////////////////////
 
 	async [runClassSpecificHook](cls, hook, info) {
-		if (!isUndefined(cls[hook])) {
+		if (!cls[hook]::isUndefined()) {
 			return or(await cls[hook]({...info, resources, relationships, db: this}), {});
 		}
 	}
@@ -93,11 +98,12 @@ export default class LyphNeo4j extends Neo4j {
 			});
 		}
 	}
-	
+
+
 	async [assertRequiredFieldsAreGiven](cls, fields) {
 		let allFields = Object.entries(cls.properties);
 		for (let [fieldName, fieldSpec] of allFields) {
-			if (fieldSpec.required && isUndefined(fields[fieldName])) {
+			if (fieldSpec.required && fields[fieldName]::isUndefined()) {
 				throw customError({
 					status: BAD_REQUEST,
 					class:  cls.name,
@@ -126,13 +132,13 @@ export default class LyphNeo4j extends Neo4j {
 
 	
 	async [assertProperCardinalityInFields](cls, fields) {
-		let allRelationFields = Object.entries(Object.assign({}, cls.relationshipShortcuts, cls.relationships));
+		let allRelationFields = Object.entries(cls.relationships);
 		for (let [fieldName, fieldSpec] of allRelationFields) {
-			let val = fields[fieldName];
+		    let val = fields[fieldName];
 			let cardinality =
-				isUndefined(val) ? 0:
-				(val::isArray()) ? val.length :
-				(val::isSet())   ? val.size   : 1;
+				val::isUndefined() ? 0:
+				val::isArray()     ? val.length :
+				val::isSet()       ? val.size   : 1;
 			if ((cardinality < fieldSpec.cardinality.min) || (cardinality > (fieldSpec.cardinality.max || Infinity))){
 				throw customError({
 					status:  BAD_REQUEST,
@@ -147,18 +153,14 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	
+
 	async [assertReferencedResourcesExist](cls, fields) {
-		let allRelationFields = Object.entries(Object.assign({}, cls.relationshipShortcuts, cls.relationships));
+		let allRelationFields = Object.entries(cls.relationships);
 		for (let [fieldName, fieldSpec] of allRelationFields) {
 			let val = fields[fieldName];
 
-			if (isUndefined(val) || isNull(val)) { continue }
-
-			let array = val::isArray()? val.filter(x => !isUndefined(x))
-				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
-
-			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
+			if (val::isUndefined() || val::isNull()) { continue }
+			let ids = extractIds(val);
 
 			try { this[assertRelatedResourcesExists](ids, fieldSpec) }
 			catch (err) {
@@ -172,58 +174,57 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	
-	async [createSpecifiedRelationships](cls, id, fields) {
-		let relCreationStatements = [];
-		for (let fieldName of Object.keys(fields).filter(
-			(key) => (cls.relationships[key] || cls.relationshipShortcuts[key]))){
-			let val = fields[fieldName];
-			let fieldSpec = cls.relationships[fieldName] || cls.relationshipShortcuts[fieldName];
-
-			if (isUndefined(val) || isNull(val)) { continue }
-
-			let array = val::isArray()? val.filter(x => !isUndefined(x))
-				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
-
-
-			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
-
-			// if ((fieldName === "-->HasBorder") || (fieldName.indexOf("borders") > -1 )){
-			// 	console.log("Creating relationship 1 " + fieldName, array );
-			// 	console.log("Creating relationship 2 " + fieldName, ids );
-			// }
-
-			let [l, r] = arrowEnds(fieldSpec); //TODO check that the right variable is called
-
-			for (let idB of ids){
-				relCreationStatements.push(`
-					MATCH (A:${cls.name} { id: ${id} }), (B:${fieldSpec.codomain.resourceClass.name} { id: ${idB} })
-			 		CREATE (A) ${l}[:${fieldSpec.relationshipClass.name}]${r} (B)
-				`);
-			}
+	async [createAllResourceRelationships](cls, id, fields) {
+        for (let fieldName of Object.keys(fields).filter(key => !!cls.relationships[key])){
+            let val = fields[fieldName];
+			if (val::isUndefined() || val::isNull()) { continue }
+			this[createRelationships](fieldName, val);
 		}
-		if (relCreationStatements.length > 0) {
-			await this.query(relCreationStatements);
+	}
+
+	async [createRelationships](fieldName, relSet) {
+		for (let rel of [...relSet]){
+
+		    //Skip more general collections, only create top most relationships
+            //Relationships to create have to correspond to the relationship field, e.g., -->HasLayer vs HasLayer
+            if (fieldName.substring(3) !== rel.class){ continue; }
+
+			const resA = rel[1], resB = rel[2];
+			if (resA.id::isUndefined() || resB.id::isUndefined()) { continue }
+
+			let [l, r] = ['-', '->'];
+            let cls = relationships[rel.class];
+
+            let dbProperties = dataToNeo4j(cls, _(rel.fields).mapValues((x) => (x.value)).value());
+
+            await this.query(
+                {statement: `
+                    MATCH (A:${resA.class} { id: ${resA.id} }), (B:${resB.class} { id: ${resB.id} })
+                    CREATE UNIQUE (A) ${l}[rel:${rel.class}]${r} (B)
+                    SET rel += {dbProperties}
+                `,
+                parameters: {  dbProperties: dbProperties } }
+            );
 		}
 	}
 
 
 	async [removeUnspecifiedRelationships](cls, id, fields, {includeUngivenFields = false} = {}) {
 		let relDeletionStatements = [];
-		for (let fieldName of Object.keys(fields).filter(
-			(key) => (cls.relationships[key] || cls.relationshipShortcuts[key]))){
-			let val = fields[fieldName];
-			let fieldSpec = cls.relationships[fieldName] || cls.relationshipShortcuts[fieldName];
+		for (let fieldName of Object.keys(fields).filter((key) => (cls.relationships[key]))){
+			let val = fields[fieldName]; //-->HasLayer
+            if (val::isUndefined() || val::isNull()) { continue }
 
-			if (isUndefined(val) || isNull(val)) { continue }
+            val = _(val).mapValues((x) => (x.value)).value();
+			let ids = extractIds(val);
 
-			let array = val::isArray()? val.filter(x => !isUndefined(x))
-				: (val::isSet() || val::isNumber() || val.id)? [...val] : [];
-
-			let ids = array.filter(x => x::isNumber() || x.id).map(x => x::isNumber() ? x : x.id);
+            console.log("Removing ", ids);
+            let fieldSpec = cls.relationships[fieldName];
 
 			let [l, r] = arrowEnds(fieldSpec);
 			relDeletionStatements.push(`
-				MATCH (A:${cls.name} { id: ${id} }) ${l}[rel:${fieldSpec.relationshipClass.name}]${r} 
+				MATCH (A:${cls.name} { id: ${id} }) 
+            ${l}[rel:${fieldSpec.relationshipClass.name}]${r} 
 			 	(B:${fieldSpec.codomain.resourceClass.name})
 			 	WHERE NOT B.id IN [${ids.join(', ')}]
 			 	DELETE rel
@@ -233,6 +234,23 @@ export default class LyphNeo4j extends Neo4j {
 			await this.query(relDeletionStatements);
 		}
 	}
+
+
+    async [removeRelationships](relSet) {
+        for (let rel of [...relSet]){
+            let resA = rel[1], resB = rel[2];
+            if (resA.id::isUndefined() || resB.id::isUndefined()) { continue }
+            let [l, r] = arrowEnds(rel);
+
+            //TODO: collect relationship ids and write 1 query?
+            await this.query(`
+                MATCH (A:${resA.class} { id: ${resA.id} }), 
+                       ${l}[rel:${rel.class}]${r} 
+                      (B:${resB.class} { id: ${resB.id} })
+                DELETE rel`
+            );
+        }
+    }
 
 
 	async [getResourcesToDelete](cls, id) {
@@ -318,7 +336,6 @@ export default class LyphNeo4j extends Neo4j {
 			RETURN count(n) AS count
 		`);
 
-
 		/* throw the 404 error if 'exists' is false */
 		if (count < ids.length) {
 			throw customError({
@@ -328,6 +345,8 @@ export default class LyphNeo4j extends Neo4j {
 				message: humanMsg`Not all specified ${cls.plural} with IDs '${ids.join(',')}' exist.`
 			});
 		}
+
+		console.log("Checked that resources exist", ids.join(','));
 	}
 
 	
@@ -354,6 +373,7 @@ export default class LyphNeo4j extends Neo4j {
 		/* integrate relationship data into the resource object */
 		results = results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
 
+
 		/* return results in proper order */
 		return ids.map((id1) => results.find(({id}) => id1 === id));
 	}
@@ -368,21 +388,23 @@ export default class LyphNeo4j extends Neo4j {
 		/* preparing the part of the query that adds relationship info */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(cls, 'n');
 
-		let q = `
+		/* formulating and sending the query */
+		let results = await this.query(`
 			MATCH (n:${cls.name})
 			${optionalMatches.join(' ')}
 			RETURN n, { ${objectMembers.join(', ')} } AS rels
-		`;
-
-		console.log(q);
-		/* formulating and sending the query */
-		let results = await this.query(q);
+		`);
 
 		/* integrate relationship data into the resource object */
-		return results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
+		let fields = results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
+
+		console.log(fields);
+		//TODO recreate model library objects from results?
+
+		return fields;
 	}
 
-	//NK New
+
     async getAllRelationships(cls) {
 
         /* is there a hook to completely replace entity retrieval? */
@@ -390,16 +412,23 @@ export default class LyphNeo4j extends Neo4j {
         if (result) { return result }
 
         /* formulating and sending the query */
-        let results = await this.query(`
-			MATCH MATCH  (A) -[rel:${cls.name}]- (B) RETURN DISTINCT A, rel, B,
-			CASE WHEN STARTNODE(rel) = A THEN 'FORWARD' ELSE 'BACKWARD' END AS direction
+        let data = await this.query(`
+			MATCH (A) -[rel:${cls.name}]-> (B) RETURN A, rel, B
 		`);
 
-        //TODO create map of unique relationships and integrate resources to them
+        let results = data;
+        for (let entry of data){
+		    let clsName = entry.rel.class;
+            if (clsName::isUndefined()) { continue }
 
-		console.log("Retrieved relations ", results);
+            //{a, rel, b}
+            let relCls = relationships[clsName];
+            let restoredRel = relCls.new({1: a, 2: b, ...rel});
 
-        return results.map(({A, rel, B, direction}) => rel);
+        }
+        console.log(results);
+
+        return results;
     }
 
 	/////////////////////////////////////////////////////////////////////////
@@ -422,18 +451,8 @@ export default class LyphNeo4j extends Neo4j {
 		/* for all relationships specified in the request, assert that those resources exist */
 		await this[assertReferencedResourcesExist](cls, fields);
 
-		/* the main query for creating the resource */
-		// [{id}] = await this.creationQuery(({withNewId}) => ({
-		// 	statement: `
-		// 		${withNewId('newID')}
-		// 		CREATE (n:${cls.name} { id: newID, class: "${cls.name}" })
-		// 		SET n += {dbProperties}
-		// 		RETURN newID as id
-		// 	`,
-		// 	parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
-		// }));
 
-		//Create resources with given ids
+        //Create resources with given ids
 		[{id}] = await this.creationQuery(() => ({
 			statement: `
 				CREATE (n:${cls.name})
@@ -444,7 +463,7 @@ export default class LyphNeo4j extends Neo4j {
 		}));
 
 		/* create the required relationships */
-		await this[createSpecifiedRelationships](cls, id, fields);
+		await this[createAllResourceRelationships](cls, id, fields);
 
 		/* if given, run a class-specific hook */
 		await this[runClassSpecificHook](cls, 'afterCreate', { id, fields });
@@ -475,8 +494,8 @@ export default class LyphNeo4j extends Neo4j {
 		await this.query({
 			statement: `
 				MATCH (n:${cls.name} { id: ${id} })
-				SET n     += {dbProperties}
-				SET n.id   =  ${id}
+				SET n      += {dbProperties}
+				SET n.id    =  ${id}
 				SET n.class = "${cls.name}"
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
@@ -486,7 +505,7 @@ export default class LyphNeo4j extends Neo4j {
 		await this[removeUnspecifiedRelationships](cls, id, fields);
 
 		/* create the required relationships */
-		await this[createSpecifiedRelationships](cls, id, fields);
+		await this[createAllResourceRelationships](cls, id, fields);
 
 		/* if given, run a class-specific hook */
 		await this[runClassSpecificHook](cls, 'afterUpdate', { id, oldResource, fields });
@@ -529,7 +548,7 @@ export default class LyphNeo4j extends Neo4j {
 		await this[removeUnspecifiedRelationships](cls, id, fields, { includeUngivenFields: true });
 
 		/* create the required relationships */
-		await this[createSpecifiedRelationships](cls, id, fields);
+		await this[createAllResourceRelationships](cls, id, fields);
 
 		/* if given, run a class-specific hook */
 		await this[runClassSpecificHook](cls, 'afterReplace', { id, oldResource, fields });
@@ -604,6 +623,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	
 	async addNewRelationship(relA, idA, idB) {
+	    console.log("Adding new relationship!!!");
 
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
@@ -620,11 +640,22 @@ export default class LyphNeo4j extends Neo4j {
 		/* the main query for adding the new relationship */
 		let [l, r] = arrowEnds(relA);
 		await this.query(`
-			MATCH (A:${relA.resourceClass.name} { id: ${idA} }),
-			      (B:${relB.resourceClass.name} { id: ${idB} })
+			MATCH (A:${resA.resourceClass.name} { id: ${idA} }),
+			      (B:${resB.resourceClass.name} { id: ${idB} })
 			CREATE UNIQUE (A) ${l}[:${cls.name}]${r} (B)
 		`);
 
+        // let dbProperties = dataToNeo4j(cls, relProps || {});
+        //
+        // await this.query(
+        //     {statement: `
+        //             MATCH (A:${relA.resourceClass.name} { id: ${idA} }),
+        //                   (B:${relB.resourceClass.name} { id: ${idB} })
+        //             CREATE UNIQUE (A) ${l}[rel:${cls.name}]${r} (B)
+        //             SET rel += {dbProperties}
+        //         `,
+        //         parameters: {  dbProperties: dbProperties } }
+        // );
 	}
 
 	

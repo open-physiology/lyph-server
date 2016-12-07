@@ -4,6 +4,9 @@
 
 /* external libs */
 import _, {trim, matches, isUndefined} from 'lodash';
+import isSet from 'lodash-bound/isSet';
+import isArray from 'lodash-bound/isArray';
+import isNumber from 'lodash-bound/isNumber';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // very general stuff                                                                                                 //
@@ -77,7 +80,6 @@ export const pluckData  = (name) => (res) => res.map((obj) => obj[name]);
 export const pluckDatum = (name) => (res) => (res[0] ? res[0][name] : null);
 
 /* prepare an object to be sent directly to Neo4j */
-//NK modified: x-skip-db no longer exists
 export const dataToNeo4j = (cls, fields) => {
 	let allPropertyFields = Object.entries(cls.properties);
 	let mappedFields = {};
@@ -104,6 +106,15 @@ export const arrowEnds = (relA) => (relA.symmetric)               ? [' -','- '] 
                                    (relA.keyInRelationship === 1) ? [' -','->'] :
 	                                                   				['<-','- '] ;
 
+
+/* extracts IDs frome resource or relationship fields */
+export const extractIds = (val) => {
+	let extractFieldValues = (array) =>
+		(array.map((r) => ((r.fields)? _(r.fields).mapValues((x) => (x.value)).value(): r)));
+	let array = extractFieldValues([...val]);
+	return array.filter(x => x::isNumber() || x.id ).map(x => x::isNumber() ? x : x.id);
+};
+
 /* creating a Neo4j arrow matcher with nicer syntax */
 export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 	? `OPTIONAL MATCH (${a}) ${l}[:${relTypes.map(({relationship:{name}})=>name).join('|')}]${r} (${b})`
@@ -115,12 +126,8 @@ export function relationshipQueryFragments(cls, nodeName) {
 	let optionalMatches = [];
 	let objectMembers = [];
 	let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
-	//let allRelationFields = Object.entries(cls.relationshipShortcuts);
-	//let allRelationFields = Object.assign({}, cls.relationshipShortcuts, cls.relationships);
 	let allRelationFields = Object.entries(cls.relationships);
 
-	// TODO: (MH+NK) Use .relationships up here ^, encode -->ish names.
-	// TODO: The client library will set the shortcut fields.
 	for (let [fieldName, fieldSpec] of allRelationFields) {
 
 		let relName = (isUndefined(fieldSpec.shortcutKey))?

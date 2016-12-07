@@ -16,7 +16,31 @@ import {model} from '../resources.es6.js';
 import {OK, NO_CONTENT} from "../http-status-codes.es6";
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//Run just one test (helps to check one thing at the development time )
+export function runSelectedTest(){
+    describeResourceClass('Lyph', () => {
+        describeEndpoint('/lyphs/{lyphID}/layers/{otherLyphID}', ['PUT', 'DELETE'], () => {
+
+            withValidPathParams(()=>({lyphID: initial.mainLyph1.id, otherLyphID: initial.lyph3.id}), () => {
+
+                //Add new layer
+                PUT("returns a lyph with added layer", r=>r.expect(NO_CONTENT).then(async() => {
+                    //TODO test that layer has been added
+                }));
+
+                DELETE("returns a lyph with removed layer", r=>r.expect(NO_CONTENT).then(async() => {
+                    //TODO test that layer has been removed
+                }));
+
+            });
+        });
+    });
+}
+
+/* Test all resource endpoints */
 export function testResources() {
+
 
     describeResourceClass('ExternalResource', () => {
 
@@ -83,9 +107,10 @@ export function testResources() {
 
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
     describeResourceClass('Border', () => {
 
         describeEndpoint('/borders', ['GET', 'POST']);
@@ -108,9 +133,10 @@ export function testResources() {
         });
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
     describeResourceClass('Material', () => {
 
         describeEndpoint('/materials', ['GET', 'POST']);
@@ -131,11 +157,13 @@ export function testResources() {
                 }));
             });
         });
+
+        describeEndpoint('/materials/{materialID}/materials', ['GET', 'POST']);
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('Measurable', () => {
 
@@ -158,11 +186,17 @@ export function testResources() {
                 }));
             });
         });
+
+        describeEndpoint('/measurables/{measurableID}/materials', ['GET', 'POST']);
+        describeEndpoint('/measurables/{measurableID}/locations', ['GET', 'POST']);
+        describeEndpoint('/measurables/{measurableID}/effects', ['GET', 'POST']);
+        describeEndpoint('/measurables/{measurableID}/causes', ['GET', 'POST']);
+
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('Causality', () => {
 
@@ -187,9 +221,9 @@ export function testResources() {
         });
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('Lyph', () => {
 
@@ -217,50 +251,105 @@ export function testResources() {
                     expect(res).to.have.property('axis');
                     expect(res).to.have.property('thickness').that.deep.equals({value: 1});
                     expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
-                    //segments
-                    //patches
-                    //coalecences
-                    //in/out/- processes
-                    //nodes
-                    //expect(res).to.have.property('materials'          ).with.members([ initial.materialType1.id]);
+                    //expect(res).to.have.property('segments');
+                    //expect(res).to.have.property('patches');
+                    //expect(res).to.have.property('coalecences');
+                    //expect(res).to.have.property('incomingProcesses');
+                    //expect(res).to.have.property('outgoingProcesses');
+                    //expect(res).to.have.property('processes');
+                    //expect(res).to.have.property('nodes');
+                    //expect(res).to.have.property('materials').with.members([ initial.materialType1.id]);
                     expect(res).to.have.property('measurables').with.members([initial.measurable1.id]);
                 }));
             });
         });
+
+        describeEndpoint('/lyphs/{lyphID}/parts', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/layers', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/patches', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/segments', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/borders', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/longitudinalBorders', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/radialBorders', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/coalescences', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/outgoingProcesses', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/incomingProcesses', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{lyphID}/processes', ['GET', 'POST']);
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
 
-    // describeResourceClass('Process', () => {
-    //
-    //     describeEndpoint('/processes', ['GET', 'POST']);
-    //
-    //     describeEndpoint('/processes/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-    //
-    //         withInvalidPathParams("non-existing", {id: 999999});
-    //
-    //         withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
-    //
-    //         withValidPathParams(()=>({id: initial.process1.id}), () => {
-    //
-    //             GET("returns a resource with expected fields", r=>r.resource((res) => {
-    //                 expect(res).to.have.property('id'); //{ ...idSchema,         readonly: true },
-    //                 expect(res).to.have.property('href'); //{ ...uriSchema,        readonly: true },
-    //                 expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-    //                 expect(res).to.have.property('transportPhenomenon').that.equals("advection"),
-    //                     expect(res).to.have.property('sourceLyph').that.equals(initial.lyph1.id);
-    //                 expect(res).to.have.property('targetLyph').that.equals(initial.lyph2.id);
-    //                 expect(res).to.have.property('conveyingLyph').with.members([initial.mainLyph1.id]);
-    //             }));
-    //         });
-    //     });
-    // });
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    describeResourceClass('Node', () => {
+
+        describeEndpoint('/nodes', ['GET', 'POST']);
+
+        describeEndpoint('/nodes/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
+
+            withValidPathParams(()=>({id: initial.node1.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id'); //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href'); //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('measurables').with.members([initial.measurable1.id]);
+                    //expect(res).to.have.property('outgoingProcesses');
+                    //expect(res).to.have.property('incomingProcesses');
+                    //expect(res).to.have.property('channels');
+                    expect(res).to.have.property('locations').with.members( [initial.mainLyph1.id]);
+                }));
+            });
+        });
+
+        describeEndpoint('/nodes/{nodeID}/outgoingProcesses', ['GET', 'POST']);
+        describeEndpoint('/nodes/{nodeID}/incomingProcesses', ['GET', 'POST']);
+        describeEndpoint('/nodes/{nodeID}/channels', ['GET', 'POST']);
+        describeEndpoint('/nodes/{nodeID}/locations', ['GET', 'POST']);
+
+    });
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    describeResourceClass('Process', () => {
+
+        describeEndpoint('/processes', ['GET', 'POST']);
+
+        describeEndpoint('/processes/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
+
+            withValidPathParams(()=>({id: initial.process1.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id'); //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href'); //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('transportPhenomenon').that.equals("advection")//,
+                    // expect(res).to.have.property('sourceLyph').that.equals(initial.lyph1.id);
+                    // expect(res).to.have.property('targetLyph').that.equals(initial.lyph2.id);
+                    // expect(res).to.have.property('conveyingLyph').with.members([initial.mainLyph1.id]);
+                }));
+            });
+        });
+
+        describeEndpoint('/processes/{processID}/conveyingLyph', ['GET', 'POST']);
+        describeEndpoint('/processes/{processID}/materials', ['GET', 'POST']);
+        describeEndpoint('/processes/{processID}/channels', ['GET', 'POST']);
+        describeEndpoint('/processes/{processID}/segments', ['GET', 'POST']);
+    });
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('Group', () => {
 
@@ -279,16 +368,18 @@ export function testResources() {
                     expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
                     expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
                     expect(res).to.have.property('name');  //{ type: 'string' }
-                    //expect(res).to.have.property('elements').with.members([ initial.lyph1.id, initial.node1.id, initial.process1.id ]);
+                    expect(res).to.have.property('elements').with.members([ initial.lyph1.id, initial.node1.id]);
                 }));
             });
         });
+
+        describeEndpoint('/groups/{groupID}/elements', ['GET', 'POST']);
+
     });
 
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('OmegaTree', () => {
 
@@ -311,11 +402,15 @@ export function testResources() {
                 }));
             });
         });
+
+        describeEndpoint('/omegaTrees/{omegaTreeID}/root', ['GET', 'POST']);
+        describeEndpoint('/omegaTrees/{omegaTreeID}/parts', ['GET', 'POST']);
+
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('Publication', () => {
 
@@ -337,11 +432,13 @@ export function testResources() {
                 }));
             });
         });
+
+        describeEndpoint('publications/{publicationID}/correlations', ['GET', 'POST']);
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('ClinicalIndex', () => {
 
@@ -364,11 +461,14 @@ export function testResources() {
                 }));
             });
         });
+
+        describeEndpoint('clinicalIndices/{clinicalIndexID}/children', ['GET', 'POST']);
+
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('Correlation', () => {
 
@@ -392,11 +492,15 @@ export function testResources() {
                 }));
             });
         });
+
+        describeEndpoint('/correlations/{correlationID}/measurables', ['GET', 'POST']);
+        describeEndpoint('/correlations/{correlationID}/clinicalIndices', ['GET', 'POST']);
+
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('Coalescence', () => {
 
@@ -418,11 +522,15 @@ export function testResources() {
                 }));
             });
         });
+
+        describeEndpoint('/coalescences/{coalescenceID}/lyphs', ['GET', 'POST']);
+        describeEndpoint('/coalescences/{coalescenceID}/scenarios', ['GET', 'POST']);
+
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('CoalescenceScenario', () => {
 
@@ -444,11 +552,13 @@ export function testResources() {
                 }));
             });
         });
+
+        describeEndpoint('/coalescenceScenarios/{coalescenceScenarioID}/lyphs', ['GET', 'POST']);
     });
 
-    //
-    // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     describeResourceClass('Type', () => {
 
@@ -472,8 +582,184 @@ export function testResources() {
 
             });
         });
+
+        describeEndpoint('/types/{typeID}/subtypes', ['GET', 'POST']);
+        describeEndpoint('/types/{typeID}/supertypes', ['GET', 'POST']);
+
     });
+
+
 }
+
+
+/* Test abstract resources */
+export function testAbstractResources(){
+
+
+    describeResourceClass('Resource', () => {
+
+        describeEndpoint('/resources', ['GET', 'POST']);
+
+        describeEndpoint('/resources/{id}', ['GET', 'POST', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withValidPathParams(()=>({id: initial.externalResource1.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('name');  //{ type: 'string' }
+                }));
+            });
+        });
+
+        describeEndpoint('/resources/{resourceID}/externals', ['GET', 'POST']);
+        describeEndpoint('/resources/{resourceID}/themes', ['GET', 'POST']);
+
+    });
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    describeResourceClass('Template', () => {
+
+        describeEndpoint('/templates', ['GET', 'POST']);
+
+        describeEndpoint('/templates/{id}', ['GET', 'POST', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
+
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('name');  //{ type: 'string' }
+                    expect(res).to.have.property('cardinalityBase');
+                    expect(res).to.have.property('species');
+                }));
+            });
+        });
+
+        describeEndpoint('/templates/{templateID}/cardinalityMultipliers', ['GET', 'POST']);
+        describeEndpoint('/templates/{templateID}/types', ['GET', 'POST']);
+        describeEndpoint('/templates/{templateID}/children', ['GET', 'POST']);
+        describeEndpoint('/templates/{templateID}/parents', ['GET', 'POST']);
+
+    });
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    describeResourceClass('NodeLocation', () => {
+
+        describeEndpoint('/nodeLocations', ['GET', 'POST']);
+
+        describeEndpoint('/nodeLocations/{id}', ['GET', 'POST', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
+
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('name');  //{ type: 'string' }
+                    expect(res).to.have.property('cardinalityBase');
+                    expect(res).to.have.property('species');
+                }));
+            });
+        });
+
+        describeEndpoint('/nodeLocations/{nodeLocationID}/nodes', ['GET', 'POST']);
+
+    });
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    describeResourceClass('MeasurableLocation', () => {
+
+        describeEndpoint('/measurableLocations', ['GET', 'POST']);
+
+        describeEndpoint('/measurableLocations/{id}', ['GET', 'POST', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
+
+            withValidPathParams(()=>({id: initial.node1.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('name');  //{ type: 'string' }
+                    expect(res).to.have.property('cardinalityBase');
+                    expect(res).to.have.property('species');
+                }));
+            });
+        });
+
+        describeEndpoint('/measurableLocations/{measurableLocationID}/measurables', ['GET', 'POST']);
+
+    });
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    describeResourceClass('OmegaTreePart', () => {
+
+        describeEndpoint('/omegaTreeParts', ['GET', 'POST']);
+
+        describeEndpoint('/omegaTreeParts/{id}', ['GET', 'POST', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
+
+            withValidPathParams(()=>({id: initial.lyph1.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('name');  //{ type: 'string' }
+                }));
+            });
+        });
+
+        describeEndpoint('/omegaTreeParts/{omegaTreePartID}/treeChildren', ['GET', 'POST']);
+
+    });
+
+}
+
+////////////////////////////////////
+//Untested relatedResource endpoints
+////////////////////////////////////
+
+// describeEndpoint('/themes/{themeID}/resources', ['GET', 'POST']);
+// describeEndpoint('/artefactContainers/{artefactContainerID}/children', ['GET', 'POST']);
+// describeEndpoint('/0-dimensionalContainers/{0-dimensionalContainerID}/children', ['GET', 'POST']);
+// describeEndpoint('/1-dimensionalContainers/{1-dimensionalContainerID}/children', ['GET', 'POST']);
+// describeEndpoint('/1-dimensionalContainers/{1-dimensionalContainerID}/children', ['GET', 'POST']);
+// describeEndpoint('/2-dimensionalContainers/{2-dimensionalContainerID}/children', ['GET', 'POST']);
+// describeEndpoint('/2-dimensionalContainers/{2-dimensionalContainerID}/children', ['GET', 'POST']);
+// describeEndpoint('/2-dimensionalContainers/{2-dimensionalContainerID}/children', ['GET', 'POST']);
+
 
 
 

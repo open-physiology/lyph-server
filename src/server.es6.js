@@ -83,16 +83,18 @@ const requestHandler = {
 	specificRelatedResource: {
 		async put({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
+			//console.log(idA, idB);
 			await Promise.all([
-				db.assertResourcesExist(relA.resourceClass		   , [idA]),
+				db.assertResourcesExist(relA.resourceClass		 , [idA]),
 				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
-
 			]);
+
 			await db.addNewRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		},
 		async delete({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
+			//console.log(idA, idB);
 			await Promise.all([
 				db.assertResourcesExist(relA.resourceClass 		   , [idA]),
 				db.assertResourcesExist(relA.codomain.resourceClass, [idB])

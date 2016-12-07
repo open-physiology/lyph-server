@@ -217,214 +217,19 @@ before(() => db.clear('Yes! Delete all everythings!'));
 /* before each test, reset the database */
 beforeEach(async () => {
 
-    /* external resources */
-    // initial.externalResource1 = await createResource('ExternalResource', {
-    //     href:  "href 1",
-    //     name:  "Third plantar metatarsal vein",
-    //     class: "ExternalResource",
-    //     uri :  "http://purl.obolibrary.org/obo/FMA_44539",
-    //     type:  "fma"
-    // });
-    //
-    // /* borders */
-    // initial.border1 = await createResource('Border', {
-    //     href:   "href 2",
-    //     class:  "Border",
-    //     nature: "open"
-    // });
-    //
-    // initial.border2 = await createResource('Border', {
-    //     href:   "href 3",
-    //     class:  "Border",
-    //     nature: "closed"
-    // });
-    //
-    // initial.border3 = await createResource('Border', {
-    //     href:   "href 2 radial",
-    //     class:  "Border",
-    //     nature: "open"
-    // });
-    //
-    // initial.border4 = await createResource('Border', {
-    //     href:   "href 3 radial",
-    //     class:  "Border",
-    //     nature: "closed"
-    // });
-    //
-    // initial.borderAxis = await createResource('Border', {
-    //     href:   "href axis",
-    //     class:  "Border",
-    //     nature: "open"
-    // });
-    //
-    // // /* materials */
-    // initial.material1 = await createResource('Material', {
-    //     href:  "href 4",
-    //     name:  "Blood",
-    //     class: "Material"
-    // });
-    //
-    // initial.material2 = await createResource('Material', {
-    //     href:  "href 5",
-    //     name:  "Urine",
-    //     class: "Material"
-    // });
-    //
-    // /* material types*/
-    // initial.materialType1 = await createResource('Type', {
-    //     href:  "href mt1",
-    //     name:  "Blood type",
-    //     class: "Type",
-    //     definition: initial.material1 //TODO: causes UnhandledPromiseRejectionWarning
-    // });
-    //
-    // /* measurables */
-    // initial.measurable1 = await createResource('Measurable', {
-    //     href:  "href 6",
-    //     name:  "Concentration of water",
-    //     class: "Measurable"
-    // });
-    //
-    // initial.measurable2 = await createResource('Measurable', {
-    //     href:  "href 7",
-    //     name:  "Concentration of ion",
-    //     class: "Measurable"
-    // });
-    //
-    // /* causalities */
-    // initial.causality1 = await createResource('Causality', {
-    //     href:   "href 8",
-    //     name:   "Functional dependency",
-    //     cause:  initial.measurable1,
-    //     effect: initial.measurable2
-    // });
-    //
-    // /* lyphs */
-    // initial.lyph1 = await createResource('Lyph', {
-    //     href:  "href 9",
-    //     name:  "Renal hilum",
-    //     longitudinalBorders: [initial.border1.id, initial.border2.id]
-    // });
-    //
-    // initial.lyph2 = await createResource('Lyph', {
-    //     href:  "href 10",
-    //     name:  "Renal parenchyma",
-    //     longitudinalBorders: [initial.border1.id, initial.border2.id]
-    // });
-    //
-    // initial.lyph3 = await createResource('Lyph', {
-    //     href:  "href 11",
-    //     name:  "Renal capsule",
-    //     longitudinalBorders: [initial.border1.id, initial.border2.id]
-    // });
-    //
-    // initial.mainLyph1 = await createResource('Lyph', {
-    //     href:  "href 12",
-    //     name:  "Kidney",
-    //     class: "Lyph",
-    //     species: "Homo sapiens",
-    //     materials: [initial.materialType1],
-    //     layers: [initial.lyph1.id, initial.lyph2.id],
-    //     externals: [initial.externalResource1],
-    //     longitudinalBorders: [initial.border1.id, initial.border2.id],
-    //     radialBorders: [initial.border1Radial, initial.border2Radial],
-    //     axis: initial.borderAxis,
-    //     thickness: {value: 1},
-    //     length: {min: 1, max: 10},
-    //     measurables: [initial.measurable1]
-    // });
-    //
-    // initial.mainLyph2 = await createResource('Lyph', {
-    //     href:  "href 13",
-    //     name:  "Stomach",
-    //     class: "Lyph",
-    //     //materials: [initial.materialType1],
-    //     layers: [initial.lyph3.id, initial.lyph2.id],
-    //     longitudinalBorders: [initial.border1.id, initial.border2.id],
-    //     measurables: [initial.measurable2]
-    // });
-    //
-    //
-    // /* processes */
-    // initial.process1 = await createResource('Process', {
-    //     href: "href 14",
-    //     name: "Blood advective process",
-    //     class: "Process",
-    //     transportPhenomenon: "advection",  //TODO test with array
-    //     sourceLyph: initial.lyph1,
-    //     targetLyph: initial.lyph2,
-    //     conveyingLyph: [initial.mainLyph1]
-    // });
-    //
-    // /* nodes */
-    // initial.node1 = await createResource('Node', {
-    //     href:   "href 15",
-    //     class:  "Node",
-    //     measurables: [initial.measurable1],
-    //     incomingProcesses:  [initial.process1],
-    //     locations: [initial.mainLyph1] //TODO: causes UnhandledPromiseRejectionWarning
-    // });
-    //
-    // /* groups */
-    // initial.group1 = await createResource ('Group',{
-    //     href:  "href 16",
-    //     name:  "Mixed group",
-    //     class: "Group",
-    //     elements: [initial.lyph1, initial.node1, initial.process1] //TODO: causes UnhandledPromiseRejectionWarning
-    // });
-    //
-    // /* omega trees */
-    // initial.omegaTree1 = await createResource ('OmegaTree',{
-    //     href: "href 17",
-    //     name:  "Short Looped Nephrone",
-    //     class: "OmegaTree",
-    //     parts: [initial.lyph1, initial.lyph2, initial.lyph3] //TODO: causes UnhandledPromiseRejectionWarning
-    // });
-    //
-    // /* publications */
-    // initial.publication1 = await createResource ('Publication',{
-    //     href:  "href 18",
-    //     name:  "Multimodal MRI of the hippocampus in Parkinson's disease with visual hallucinations",
-    //     class: "Publication"
-    // });
-    //
-    // /* clinical indices */
-    // initial.clinicalIndex1 = await createResource ('ClinicalIndex',{
-    //     href:  "href 19",
-    //     name:  "NP3FRZGT MDS - Unified Parkinson's Disease Rating Scale (3.11 Freezing of Gait)",
-    //     class: "ClinicalIndex"
-    // });
-    //
-    // initial.clinicalIndex2 = await createResource ('ClinicalIndex',{
-    //     href:  "href 20",
-    //     name:  "NP1HALL MDS - Unified Parkinson's Disease Rating Scale (1.2 Hallucinations and Psychosis)",
-    //     class: "ClinicalIndex",
-    //     parent: initial.clinicalIndex1
-    // });
-    //
-    // /* correlations */
-    // initial.correlation1 = await createResource ('Correlation',{
-    //     href:  "href 21",
-    //     class: "Correlation",
-    //     publication: initial.publication1,
-    //     clinicalIndices: [initial.clinicalIndex1, initial.clinicalIndex2],
-    //     measurables: [initial.measurable1, initial.measurable2]
-    // });
-    //
-    // /* coalescences */
-    // initial.coalescence1 = await createResource ('Coalescence',{
-    //     href:  "href 22",
-    //     class: "Coalescence",
-    //     lyphs: [initial.lyph1, initial.lyph2]
-    // });
-    //
-    // /* coalescence scenarios */
-    // initial.coalescenceScenario1 = await createResource ('CoalescenceScenario',{
-    //     href:  "href 23",
-    //     class: "CoalescenceScenario",
-    //     lyphs: [initial.mainLyph1, initial.mainLyph2]
-    // });
 
+    //TODO: cause UnhandledPromiseRejectionWarning
+    //     class: "Type",
+    //     definition: initial.material1
+
+    //     class:  "Node",
+    //     locations: [initial.mainLyph1]
+
+    //     class: "Group",
+    //     elements: [initial.lyph1, initial.node1, initial.process1]
+
+    //     class: "OmegaTree",
+    //     parts: [initial.lyph1, initial.lyph2, initial.lyph3]
 
 
     ////////////////////////////////////////////////////////////////////////
@@ -476,9 +281,10 @@ beforeEach(async () => {
         externals: [initial.externalResource1],
         //materials: [initial.materialType1],
         longitudinalBorders: [initial.border1, initial.border2],
+        axis: initial.border1,
         layers:    [initial.lyph1, initial.lyph2],
         measurables: [initial.measurable1]
-    },/* { createAxis: true, createRadialBorders: true } */);
+    });
 
     initial.mainLyph2 = model.Lyph.new({
         name:  "Stomach",
@@ -488,13 +294,13 @@ beforeEach(async () => {
     });
 
     /* processes */
-    // initial.process1 = model.Process.new({
-    //     name : "Blood advective process",
-    //     transportPhenomenon: "advection",  //TODO test with array
-    //     sourceLyph: initial.lyph1,
-    //     targetLyph: initial.lyph2,
-    //     conveyingLyph: [initial.mainLyph1]
-    // });
+    initial.process1 = model.Process.new({
+        name : "Blood advective process",
+        transportPhenomenon: "advection"//,  //TODO test with array
+        //sourceLyph: initial.lyph1,
+        //targetLyph: initial.lyph2,
+        //conveyingLyph: [initial.mainLyph1]
+    });
 
     /* nodes */
     initial.node1 = model.Node.new({
@@ -503,12 +309,11 @@ beforeEach(async () => {
         locations: [initial.mainLyph1]
     });
 
-
     /* groups */
-    // initial.group1 = model.Group.new({
-    //     name:  "Mixed group",
-    //     elements: [initial.lyph1, initial.node1, initial.process1]
-    // });
+    initial.group1 = model.Group.new({
+        name:  "Mixed group",
+        elements: [initial.lyph1, initial.node1, initial.process1]
+    });
 
     /* omega trees */
     initial.omegaTree1 = model.OmegaTree.new({
@@ -554,7 +359,6 @@ beforeEach(async () => {
 
     /*Create DB nodes for test resources*/
     for (let [resName, resSpec] of Object.entries(initial)){
-        //console.log("Creating ", resName);
         initial[resName] = await createCLResource(resSpec);
     }
 
