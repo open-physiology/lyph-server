@@ -44,7 +44,7 @@ import {
 // TODO: to avoid race conditions, use a Neo4j REST transactions to get some ACID around these multiple queries
 
 const requestHandler = {
-	resources: {
+	resources: /*get, post*/ {
 		async get({db, type}, req, res) {
 			res.status(OK).jsonp( await db.getAllResources(type) );
 		},
@@ -53,7 +53,7 @@ const requestHandler = {
 			res.status(CREATED).jsonp(await db.getSpecificResources(type, [id]));
 		}
 	},
-	specificResources: {
+	specificResources: /*get, post, put, delete*/ {
 		async get({db, type}, req, res) {
 			await db.assertResourcesExist(type, req.pathParams.ids);
 			res.status(OK).jsonp(await db.getSpecificResources(type, req.pathParams.ids));
@@ -74,49 +74,107 @@ const requestHandler = {
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
-	relatedResources: {
+	relatedResources: /*get*/ {
 		async get({db, relA}, req, res) {
 			await db.assertResourcesExist(relA.resourceClass, [req.pathParams.idA]);
 			res.status(OK).jsonp( await db.getRelatedResources(relA, req.pathParams.idA) );
 		}
 	},
-	specificRelatedResource: {
+	specificRelatedResource: /*put, delete*/ {
 		async put({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			//console.log(idA, idB);
-			await Promise.all([
-				db.assertResourcesExist(relA.resourceClass		 , [idA]),
-				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
-			]);
-
-			await db.addNewRelationship(relA, idA, idB);
+			console.log("Adding specific related resource ", relA);
+			// await Promise.all([
+			// 	db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
+			// 	db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			// ]);
+			//await db.addNewRelatedResource(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		},
 		async delete({db, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			//console.log(idA, idB);
-			await Promise.all([
-				db.assertResourcesExist(relA.resourceClass 		   , [idA]),
-				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
-			]);
-			await db.deleteRelationship(relA, idA, idB);
+			console.log("Deleting specific related resource ", relA);
+			// await Promise.all([
+			// 	db.assertResourcesExist(relA.resourceClass 		   , [idA]),
+			// 	db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			// ]);
+			//await db.deleteRelatedResource(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
-    relationships: {
+	relationships: /*get*/ {
         async get({db, type}, req, res) {
+			console.log("Getting relationships ", type);
             res.status(OK).jsonp( await db.getAllRelationships(type) );
-        },
-        async post({db, type}, req, res) {
-			//let fields = req.body;
-            //await db.addNewRelationship(type, idA, idB);
-            res.status(NO_CONTENT).jsonp();
         }
     },
-    //TODO add specificRelationships
-    //TODO add specificRelationshipsByResources
-    //TODO add relatedRelationships
-    //TODO add specificRelatedRelationships
+	// /HasLayer/{hasLayerID}
+    specificRelationships: /*get, post, put, delete*/ {
+		async get({db, type}, req, res) {
+			await db.assertRelationshipsExist(type, req.pathParams.ids);
+			res.status(OK).jsonp(await db.getSpecificRelationships(type, req.pathParams.ids));
+		},
+		async post({db, type}, req, res) {
+			await db.assertRelationshipsExist(type, [req.pathParams.id]);
+			await db.updateRelationship(type, req.pathParams.id, req.body);
+			res.status(OK).jsonp(await db.getSpecificRelationships(type, [req.pathParams.id]));
+		},
+		async put({db, type}, req, res) {
+			await db.assertRelationshipsExist(type, [req.pathParams.id]);
+			await db.replaceRelationship(type, req.pathParams.id, req.body);
+			res.status(OK).jsonp(await db.getSpecificRelationships(type, [req.pathParams.id]));
+		},
+		async delete({db, type, resources, relationships}, req, res) {
+			await db.assertRelationshipsExist(type, [req.pathParams.id]);
+			await db.deleteRelationship(type, req.pathParams.id);
+			res.status(NO_CONTENT).jsonp();
+		}
+	},
+	// /lyphs/{lyphID}/-->HasLayer/{otherLyphIDs}, /lyphs/{lyphID}/<--HasLayer/otherLyphIDs}
+	specificRelationshipByResources: /*get, post, put, delete*/ {
+		async get({db, type}, req, res) {
+			console.log("Get relationships by resource IDs");
+			res.status(OK).jsonp();
+		},
+		async post({db, type}, req, res) {
+			console.log("Update relationship by resource IDs");
+			res.status(OK).jsonp();
+		},
+		async put({db, type}, req, res) {
+			console.log("Put relationship by resource IDs");
+			res.status(OK).jsonp();
+		},
+		async delete({db, type, resources, relationships}, req, res) {
+			console.log("Delete relationship by resource IDs");
+			res.status(NO_CONTENT).jsonp();
+		}
+	},
+    relatedRelationships: /* get, delete */{
+		async get({db, relA}, req, res) {
+			console.log("Get related relationships");
+			await db.assertResourcesExist(relA, [req.pathParams.idA]);
+			res.status(OK).jsonp( await db.getRelatedRelationships(relA, req.pathParams.idA) );
+		}
+	},
+    specificRelatedRelationships: /*get, post*/{
+		async put({db, relA, type}, req, res) {
+			console.log("Add specific related relationship ", relA);
+			let {idA} = req.pathParams;
+			//let relProps = req.body;
+			await db.addRelationship(type, idA);
+			res.status(NO_CONTENT).jsonp();
+		},
+		async delete({db, relA}, req, res) {
+			let {idA, idB} = req.pathParams;
+			console.log("Delete specific related relationship ", relA);
+			// await Promise.all([
+			// 	db.assertResourcesExist(relA.resourceClass 		   , [idA]),
+			// 	db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			// ]);
+			await db.deleteRelatedResource(relA, idA, idB);
+			res.status(NO_CONTENT).jsonp();
+		}
+	},
 	algorithm: {
 		async get({db, algorithmName}, req, res) {
 			let result = await algorithms[algorithmName].run({
@@ -282,8 +340,7 @@ export default async (distDir, config) => {
                 [['relationships', 'specificRelationships'], ()=>({
                     type: relationships[pathObj['x-relationship-type']]
                 })],
-                [['relatedRelationships', 'specificRelationshipByResources'], ()=>({
-                	//TODO: add 'specificRelatedRelationship'
+                [['relatedRelationships', 'specificRelatedRelationship', 'specificRelationshipByResources'], ()=>({
                     type: relationships[pathObj['x-relationship-type']],
 					relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
 					relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]

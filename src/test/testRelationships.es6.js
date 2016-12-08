@@ -18,54 +18,58 @@ import {initial, describeResourceClass, describeEndpoint,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 export function testRelationships() {
 
-    //test that endpoints for all relationships exist
+    /////////////////////////////////////////////////////
+    //Relationships                                    //
+    /////////////////////////////////////////////////////
+
+    /* Test that endpoints for all relationships exist */
     for (let className of [
-        // "Causes",
-        // "Coalesces",
-        // "CoalescesLike",
-        // "ContainsArtefact",
-        // "ContainsArtefact_00",
-        // "ContainsArtefact_10",
-        // "ContainsArtefact_11",
-        // "ContainsArtefact_20",
-        // "ContainsArtefact_21",
-        // "ContainsArtefact_22",
-        // "ContainsMaterial",
-        // "ContainsNode",
-        // "ConveysProcess",
-        // "CorrespondsTo",
-        // "EncompassesClinicalIndex",
-        // "FlowsTo",
-        // "Has",
-        // "HasAsRoot",
-        // "HasAxis",
+        "Causes",
+        "Coalesces",
+        "CoalescesLike",
+        "ContainsArtefact",
+        "ContainsArtefact_00",
+        "ContainsArtefact_10",
+        "ContainsArtefact_11",
+        "ContainsArtefact_20",
+        "ContainsArtefact_21",
+        "ContainsArtefact_22",
+        "ContainsMaterial",
+        "ContainsNode",
+        "ConveysProcess",
+        "CorrespondsTo",
+        "EncompassesClinicalIndex",
+        "FlowsTo",
+        "Has",
+        "HasAsRoot",
+        "HasAxis",
         "HasBorder",
-        // "HasCardinalityMultipliedByThatOf",
-        // "HasChannel",
-        "HasLayer" //,
-        // "HasLongitudinalBorder",
-        // "HasMeasurable",
-        // "HasPart",
-        // "HasPatch",
-        // "HasRadialBorder",
-        // "HasSegment",
-        // "HasTreeChildren",
-        // "HasTreePart",
-        // "HasType",
-        // "IncludesElement",
-        // "InvolvesClinicalIndex",
-        // "InvolvesMeasurable",
-        // "InvolvesPublication",
-        // "IsExternallyRelatedTo",
-        // "IsRelatedTo",
-        // "IsSubtypeOf",
-        // "JoinsLyph",
-        // "MeasuresMaterial",
-        // "PrescribesStyleFor",
-        // "PresentsModel",
-        // "PullsIntoTypeDefinition",
-        // "TransportsMaterial",
-        // "provisional_FlowsTo"
+        "HasCardinalityMultipliedByThatOf",
+        "HasChannel",
+        "HasLayer",
+        "HasLongitudinalBorder",
+        "HasMeasurable",
+        "HasPart",
+        "HasPatch",
+        "HasRadialBorder",
+        "HasSegment",
+        "HasTreeChildren",
+        "HasTreePart",
+        "HasType",
+        "IncludesElement",
+        "InvolvesClinicalIndex",
+        "InvolvesMeasurable",
+        "InvolvesPublication",
+        "IsExternallyRelatedTo",
+        "IsRelatedTo",
+        "IsSubtypeOf",
+        "JoinsLyph",
+        "MeasuresMaterial",
+        "PrescribesStyleFor",
+        "PresentsModel",
+        "PullsIntoTypeDefinition",
+        "TransportsMaterial",
+        "provisional_FlowsTo"
     ]){
         describeResourceClass(className, () => {
             describeEndpoint(`/${className}`, ['GET', 'POST']);
@@ -79,28 +83,54 @@ export function testRelationships() {
         });
     }
 
+    /////////////////////////////////////////////////////
+    // Specific relationships                          //
+    /////////////////////////////////////////////////////
 
     describeResourceClass('HasLayer', () => {
 
-        // describeEndpoint('/HasLayer/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-        //
-        //     withInvalidPathParams("non-existing", {id: 999999});
-        //
-        //     withInvalidPathParams("wrong-class", ()=>({id: initial.border1.id}));
-        //
-        //     withValidPathParams(()=>({id: [...initial.mainLyph1["-->HasLayer"]][0].id}), () => {
-        //
-        //         GET("returns a relationship with expected fields", r=>r.resource((res) => {
-        //             expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-        //             expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-        //             expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-        //             expect(res).to.have.property('name');  //{ type: 'string' }
-        //         }));
-        //     });
-        // });
+        describeEndpoint('/HasLayer/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.border1.id}));
+
+            withValidPathParams(()=>({id: [...initial.mainLyph1["-->HasLayer"]][0].id}), () => {
+
+                GET("returns a relationship with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('name');  //{ type: 'string' }
+                }));
+            });
+        });
+    });
+
+    describeResourceClass('HasBorder', () => {
+
+        describeEndpoint('/HasBorder/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.border1.id}));
+
+            withValidPathParams(()=>({id: [...initial.mainLyph1["-->HasBorder"]][0].id}), () => {
+
+                GET("returns a relationship with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                    expect(res).to.have.property('name');  //{ type: 'string' }
+                }));
+            });
+        });
     });
 
 
+    /////////////////////////////////////////////////////
+    // Related relationships                           //
+    /////////////////////////////////////////////////////
 
 }
 

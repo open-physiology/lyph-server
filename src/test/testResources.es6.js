@@ -20,16 +20,28 @@ import {OK, NO_CONTENT} from "../http-status-codes.es6";
 //Run just one test (helps to check one thing at the development time )
 export function runSelectedTest(){
     describeResourceClass('Lyph', () => {
+        describeEndpoint('/lyphs', ['GET', 'POST']);
+
+        describeEndpoint('/lyphs/{lyphID}/layers', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({lyphID: initial.mainLyph1.id}), () => {
+                GET("returns layers", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+
         describeEndpoint('/lyphs/{lyphID}/layers/{otherLyphID}', ['PUT', 'DELETE'], () => {
 
             withValidPathParams(()=>({lyphID: initial.mainLyph1.id, otherLyphID: initial.lyph3.id}), () => {
 
                 //Add new layer
-                PUT("returns a lyph with added layer", r=>r.expect(NO_CONTENT).then(async() => {
+                PUT("returns a lyph with added layer", r=>r.send({
+                    //TODO send properties of new relationship
+                }).expect(NO_CONTENT).then(async() => {
                     //TODO test that layer has been added
                 }));
 
-                DELETE("returns a lyph with removed layer", r=>r.expect(NO_CONTENT).then(async() => {
+                DELETE("returns a lyph with removed layer", r=>r.send({
+
+                }).expect(NO_CONTENT).then(async() => {
                     //TODO test that layer has been removed
                 }));
 
@@ -92,19 +104,17 @@ export function testResources() {
 
                 //DELETE("delete a given external resource", r=>r.expect(NO_CONTENT));
             });
-
-            describeEndpoint('/externalResources/{externalResourceID}/locals', ['GET', 'POST'], () => {
-                withValidPathParams(()=>({externalResourceID: initial.externalResource1.id}), () => {
-                    GET("returns locals", r =>r.expectArrayWith((res) => {
-                            expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-                            expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-                            expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-                        })
-                    );
-                });
-            });
         });
 
+        describeEndpoint('/externalResources/{id}/locals', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.externalResource1.id}), () => {
+                GET("returns locals", r =>r.expectArrayWith((res) => {
+                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+                }));
+            });
+        });
     });
 
 
@@ -158,7 +168,11 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/materials/{materialID}/materials', ['GET', 'POST']);
+        describeEndpoint('/materials/{id}/materials', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.material1.id}), () => {
+                GET("returns materials", r=>r.expectArrayWith((res) => {}));
+            });
+        });
     });
 
 
@@ -187,10 +201,26 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/measurables/{measurableID}/materials', ['GET', 'POST']);
-        describeEndpoint('/measurables/{measurableID}/locations', ['GET', 'POST']);
-        describeEndpoint('/measurables/{measurableID}/effects', ['GET', 'POST']);
-        describeEndpoint('/measurables/{measurableID}/causes', ['GET', 'POST']);
+        describeEndpoint('/measurables/{id}/materials', ['GET', 'POST'], ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.measurable1.id}), () => {
+                GET("returns materials", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/measurables/{id}/locations', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.measurable1.id}), () => {
+                GET("returns locations", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/measurables/{id}/effects', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.measurable1.id}), () => {
+                GET("returns effects", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/measurables/{id}/causes', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.measurable1.id}), () => {
+                GET("returns causes", r=>r.expectArrayWith((res) => {}));
+            });
+        });
 
     });
 
@@ -264,17 +294,61 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/lyphs/{lyphID}/parts', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/layers', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/patches', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/segments', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/borders', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/longitudinalBorders', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/radialBorders', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/coalescences', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/outgoingProcesses', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/incomingProcesses', ['GET', 'POST']);
-        describeEndpoint('/lyphs/{lyphID}/processes', ['GET', 'POST']);
+        describeEndpoint('/lyphs/{id}/parts', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns parts", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/layers', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns layers", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/patches', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns patches", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/segments', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns segments", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/borders', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns borders", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/longitudinalBorders', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns longitudinal borders", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/radialBorders', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns radial borders", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/coalescences', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns coalescences", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/outgoingProcesses', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns ongoing processes", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/incomingProcesses', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns incoming processes", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/lyphs/{id}/processes', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+                GET("returns processes", r=>r.expectArrayWith((res) => {}));
+            });
+        });
     });
 
 
@@ -306,10 +380,26 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/nodes/{nodeID}/outgoingProcesses', ['GET', 'POST']);
-        describeEndpoint('/nodes/{nodeID}/incomingProcesses', ['GET', 'POST']);
-        describeEndpoint('/nodes/{nodeID}/channels', ['GET', 'POST']);
-        describeEndpoint('/nodes/{nodeID}/locations', ['GET', 'POST']);
+        describeEndpoint('/nodes/{id}/outgoingProcesses', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.node1.id}), () => {
+                GET("returns outgoing processes", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/nodes/{nodeID}/incomingProcesses', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.node1.id}), () => {
+                GET("returns incoming processes", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/nodes/{nodeID}/channels', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.node1.id}), () => {
+                GET("returns channels", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/nodes/{nodeID}/locations', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.node1.id}), () => {
+                GET("returns locations", r=>r.expectArrayWith((res) => {}));
+            });
+        });
 
     });
 
@@ -341,10 +431,26 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/processes/{processID}/conveyingLyph', ['GET', 'POST']);
-        describeEndpoint('/processes/{processID}/materials', ['GET', 'POST']);
-        describeEndpoint('/processes/{processID}/channels', ['GET', 'POST']);
-        describeEndpoint('/processes/{processID}/segments', ['GET', 'POST']);
+        describeEndpoint('/processes/{id}/conveyingLyph', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.process1.id}), () => {
+                GET("returns outgoing processes", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/processes/{id}/materials', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.process1.id}), () => {
+                GET("returns materials", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/processes/{id}/channels', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.process1.id}), () => {
+                GET("returns channels", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/processes/{id}/segments', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.process1.id}), () => {
+                GET("returns segments", r=>r.expectArrayWith((res) => {}));
+            });
+        });
     });
 
 
@@ -373,7 +479,11 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/groups/{groupID}/elements', ['GET', 'POST']);
+        describeEndpoint('/groups/{id}/elements', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.group1.id}), () => {
+                GET("returns elements", r=>r.expectArrayWith((res) => {}));
+            });
+        });
 
     });
 
@@ -403,8 +513,16 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/omegaTrees/{omegaTreeID}/root', ['GET', 'POST']);
-        describeEndpoint('/omegaTrees/{omegaTreeID}/parts', ['GET', 'POST']);
+        describeEndpoint('/omegaTrees/{id}/root', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.omegaTree1.id}), () => {
+                GET("returns root nodes", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/omegaTrees/{id}/parts', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.process1.id}), () => {
+                GET("returns parts", r=>r.expectArrayWith((res) => {}));
+            });
+        });
 
     });
 
@@ -433,7 +551,11 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('publications/{publicationID}/correlations', ['GET', 'POST']);
+        describeEndpoint('publications/{id}/correlations', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.publication1.id}), () => {
+                GET("returns correlations", r=>r.expectArrayWith((res) => {}));
+            });
+        });
     });
 
 
@@ -462,7 +584,11 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('clinicalIndices/{clinicalIndexID}/children', ['GET', 'POST']);
+        describeEndpoint('clinicalIndices/{id}/children', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.clinicalIndex1.id}), () => {
+                GET("returns clinical indices", r=>r.expectArrayWith((res) => {}));
+            });
+        });
 
     });
 
@@ -493,8 +619,16 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/correlations/{correlationID}/measurables', ['GET', 'POST']);
-        describeEndpoint('/correlations/{correlationID}/clinicalIndices', ['GET', 'POST']);
+        describeEndpoint('/correlations/{id}/measurables', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.correlation1.id}), () => {
+                GET("returns measurables", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/correlations/{id}/clinicalIndices', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.correlation1.id}), () => {
+                GET("returns clinical indices", r=>r.expectArrayWith((res) => {}));
+            });
+        });
 
     });
 
@@ -523,8 +657,16 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/coalescences/{coalescenceID}/lyphs', ['GET', 'POST']);
-        describeEndpoint('/coalescences/{coalescenceID}/scenarios', ['GET', 'POST']);
+        describeEndpoint('/coalescences/{id}/lyphs', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.coalescence1.id}), () => {
+                GET("returns lyphs", r=>r.expectArrayWith((res) => {}));
+            });
+        });
+        describeEndpoint('/coalescences/{id}/scenarios', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.coalescence1.id}), () => {
+                GET("returns scenarios", r=>r.expectArrayWith((res) => {}));
+            });
+        });
 
     });
 
@@ -553,7 +695,11 @@ export function testResources() {
             });
         });
 
-        describeEndpoint('/coalescenceScenarios/{coalescenceScenarioID}/lyphs', ['GET', 'POST']);
+        describeEndpoint('/coalescenceScenarios/{id}/lyphs', ['GET', 'POST'], () => {
+            withValidPathParams(()=>({id: initial.coalescenceScenario1.id}), () => {
+                GET("returns lyphs", r=>r.expectArrayWith((res) => {}));
+            });
+        });
     });
 
 
@@ -570,21 +716,31 @@ export function testResources() {
 
             withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
-            withValidPathParams(()=>({id: initial.materialType1.id}), () => {
-
-                GET("returns a resource with expected fields", r=>r.resource((res) => {
-                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-                    expect(res).to.have.property('name');  //{ type: 'string' }
-                    expect(res).to.have.property('definition').that.equals(initial.material1.id);
-                }));
-
-            });
+            //TODO uncomment when materialType1 is created
+            // withValidPathParams(()=>({id: initial.materialType1.id}), () => {
+            //
+            //     GET("returns a resource with expected fields", r=>r.resource((res) => {
+            //         expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
+            //         expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
+            //         expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
+            //         expect(res).to.have.property('name');  //{ type: 'string' }
+            //         expect(res).to.have.property('definition').that.equals(initial.material1.id);
+            //     }));
+            //
+            // });
         });
 
-        describeEndpoint('/types/{typeID}/subtypes', ['GET', 'POST']);
-        describeEndpoint('/types/{typeID}/supertypes', ['GET', 'POST']);
+        //TODO uncomment when materialType1 is created
+        // describeEndpoint('/types/{id}/subtypes', ['GET', 'POST'], () => {
+        //     withValidPathParams(()=>({id: initial.materialType1.id}), () => {
+        //         GET("returns subtypes", r=>r.expectArrayWith((res) => {}));
+        //     });
+        // });
+        // describeEndpoint('/types/{typeID}/supertypes', ['GET', 'POST'], () => {
+        //     withValidPathParams(()=>({id: initial.materialType2.id}), () => {
+        //         GET("returns supertypes", r=>r.expectArrayWith((res) => {}));
+        //     });
+        // });
 
     });
 
