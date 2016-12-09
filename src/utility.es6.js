@@ -3,7 +3,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _, {trim, matches, isUndefined} from 'lodash';
+import _, {trim, matches} from 'lodash';
+import isUndefined from 'lodash-bound/isUndefined';
 import isSet from 'lodash-bound/isSet';
 import isArray from 'lodash-bound/isArray';
 import isNumber from 'lodash-bound/isNumber';
@@ -81,12 +82,10 @@ export const pluckDatum = (name) => (res) => (res[0] ? res[0][name] : null);
 
 /* prepare an object to be sent directly to Neo4j */
 export const dataToNeo4j = (cls, fields) => {
-	let allPropertyFields = Object.entries(cls.properties);
 	let mappedFields = {};
-	for (let [fieldName, fieldSpec] of allPropertyFields) {
+	for (let [fieldName, fieldSpec] of Object.entries(cls.properties)) {
 		let val = fields[fieldName];
-		if (isUndefined(val)) continue;
-		//NK TODO test for 'array' and 'object'
+		if (val:: isUndefined()) continue;
 		mappedFields[fieldName] = (['array', 'object'].includes(fieldSpec.type))? JSON.stringify(val): val;
 	}
 	return mappedFields;
@@ -94,25 +93,31 @@ export const dataToNeo4j = (cls, fields) => {
 
 /* get an object from Neo4j and prepare it to be sent over the lyph-server API */
 export const neo4jToData = (cls, properties) => {
-
-	return _(properties).mapValues((val, key) => sw(cls.properties[key] && cls.properties[key].type)(
-		[['object', 'array'],()=> JSON.parse(val)],
-		[                   ,()=>            val ]
-	)).value();
+	let mappedFields = {};
+	for (let [key, val] of Object.entries(properties)){
+		let fieldName = key.replace('o__', '<--').replace('__o', '-->');
+		mappedFields[fieldName] =
+			(cls.properties[fieldName] && ['object', 'array'].includes(cls.properties[fieldName].type))?
+			JSON.parse(val): val;
+	}
+	return mappedFields;
 };
 
 /* to get the arrow-parts for a Cypher relationship */
 export const arrowEnds = (relA) => (relA.symmetric)               ? [' -','- '] :
                                    (relA.keyInRelationship === 1) ? [' -','->'] :
-	                                                   				['<-','- '] ;
+									   								['<-','- '] ;
 
+
+export const extractFieldValues = (r) =>
+	(r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
+
+//(value)? x.value: x
 
 /* extracts IDs frome resource or relationship fields */
-export const extractIds = (val) => {
-	let extractFieldValues = (array) =>
-		(array.map((r) => ((r.fields)? _(r.fields).mapValues((x) => (x.value)).value(): r)));
-	let array = extractFieldValues([...val]);
-	return array.filter(x => x::isNumber() || x.id ).map(x => x::isNumber() ? x : x.id);
+export const extractIds = (array) => {
+	let values = _(array).map(val => extractFieldValues(val));
+	return values.filter(x => x::isNumber() || x.id ).map(x => x::isNumber() ? x : x.id);
 };
 
 /* creating a Neo4j arrow matcher with nicer syntax */
@@ -123,14 +128,15 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 
 /* to get query-fragments to get relationship-info for a given resource */
 export function relationshipQueryFragments(cls, nodeName) {
-	let optionalMatches = [];
-	let objectMembers = [];
-	let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
+	let optionalMatches = [], objectMembers = [];
+    if (cls::isUndefined()) {return {}}
+
+        let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
 	let allRelationFields = Object.entries(cls.relationships);
 
 	for (let [fieldName, fieldSpec] of allRelationFields) {
 
-		let relName = (isUndefined(fieldSpec.shortcutKey))?
+		let relName = (fieldSpec.shortcutKey::isUndefined())?
 			fieldName.replace('-->', '__o').replace('<--', 'o__')
 			: fieldSpec.shortcutKey;
 
@@ -148,9 +154,6 @@ export function relationshipQueryFragments(cls, nodeName) {
 				: `${relName}: collect(DISTINCT rel_${relName}.id)`
 		);
 	}
-
-	//console.log(optionalMatches.join("\r\n"));
-	//console.log(objectMembers.join("\r\n"));
 
 	return { optionalMatches, objectMembers };
 }

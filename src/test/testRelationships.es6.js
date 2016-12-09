@@ -98,10 +98,10 @@ export function testRelationships() {
             withValidPathParams(()=>({id: [...initial.mainLyph1["-->HasLayer"]][0].id}), () => {
 
                 GET("returns a relationship with expected fields", r=>r.resource((res) => {
-                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-                    expect(res).to.have.property('name');  //{ type: 'string' }
+                    expect(res).to.have.property('id');    
+                    expect(res).to.have.property('href');  
+                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('name');  
                 }));
             });
         });
@@ -118,10 +118,10 @@ export function testRelationships() {
             withValidPathParams(()=>({id: [...initial.mainLyph1["-->HasBorder"]][0].id}), () => {
 
                 GET("returns a relationship with expected fields", r=>r.resource((res) => {
-                    expect(res).to.have.property('id');    //{ ...idSchema,         readonly: true },
-                    expect(res).to.have.property('href');  //{ ...uriSchema,        readonly: true },
-                    expect(res).to.have.property('class'); //{ ...identifierSchema, readonly: true },
-                    expect(res).to.have.property('name');  //{ type: 'string' }
+                    expect(res).to.have.property('id');    
+                    expect(res).to.have.property('href');  
+                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('name');  
                 }));
             });
         });

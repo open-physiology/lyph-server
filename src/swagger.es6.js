@@ -249,6 +249,7 @@ function addRelatedResourceEndpoint(cls, i, direction) {
             idA: singularIdKeyA,
             [direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA
         },
+        'x-i': i,
         'x-A': (direction === FORWARD ? 1 : 2),
         'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
@@ -300,6 +301,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
             [direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA,
             [direction === FORWARD ? 'id2' : 'id1']: singularIdKeyB
         },
+        'x-i': i,
         'x-A': (direction === FORWARD ? 1 : 2),
         'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
@@ -523,6 +525,7 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
             [direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA,
             [direction === FORWARD ? 'id2' : 'id1']: singularIdKeyB
         },
+        'x-i': i,
         'x-A': (direction === FORWARD ? 1 : 2),
         'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
@@ -619,6 +622,7 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
             idA: singularIdKeyA,
             [direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA
         },
+        'x-i': i,
         'x-A': (direction === FORWARD ? 1 : 2),
         'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,

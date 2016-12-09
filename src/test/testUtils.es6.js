@@ -3,12 +3,13 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import _, {template, isString, isFunction, isArray, isUndefined} from 'lodash';
-import chai, {expect}                            from 'chai';
+import chai, {expect} from 'chai';
 
 import supertest   from './custom-supertest.es6.js';
 import getServer   from '../server.es6.js';
 import {resources, relationships, model} from '../resources.es6.js';
-import {OK, NOT_FOUND} from "../http-status-codes.es6";
+import {OK, NOT_FOUND, CREATED} from "../http-status-codes.es6";
+import {extractFieldValues} from '../utility.es6';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -84,11 +85,11 @@ const getResources      = async (className, ids)    => await db.getSpecificResou
 const getSingleResource = async (className, id)     => (await getResources(className, [id]))[0];
 const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.class, res.id));
 const createResource    = async (className, fields) => await getSingleResource(className,
-    await db.createResource(resources[className], fields));
+                                                       await db.createResource(resources[className], fields));
 
 /* database operations that work with manifest resources (bypassing REST server) */
 const createCLResource = async (resource) => {
-    let fields = _(resource.fields).mapValues((val) => (val.value)).value();
+    let fields = extractFieldValues(resource);
     return await getSingleResource(resource.constructor.name, await db.createResource(resource.constructor, fields));
 };
 
@@ -210,6 +211,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
 
 /* variables to store all resources created at the beginning of each test */
 export let initial = {};
+export let portable = {};
 
 /* initial database clearing */
 before(() => db.clear('Yes! Delete all everythings!'));
@@ -218,18 +220,14 @@ before(() => db.clear('Yes! Delete all everythings!'));
 beforeEach(async () => {
 
 
-    //TODO: cause UnhandledPromiseRejectionWarning
-    //     class: "Type",
-    //     definition: initial.material1
+    //TODO: add tests to model library to detect UnhandledPromiseRejectionWarning
+    //     class: "Type", definition: initial.material1
 
-    //     class:  "Node",
-    //     locations: [initial.mainLyph1]
+    //     class:  "Node", locations: [initial.mainLyph1]
 
-    //     class: "Group",
-    //     elements: [initial.lyph1, initial.node1, initial.process1]
+    //     class: "Group", elements: [initial.lyph1, initial.node1, initial.process1]
 
-    //     class: "OmegaTree",
-    //     parts: [initial.lyph1, initial.lyph2, initial.lyph3]
+    //     class: "OmegaTree", parts: [initial.lyph1, initial.lyph2, initial.lyph3]
 
 
     ////////////////////////////////////////////////////////////////////////
@@ -364,6 +362,27 @@ beforeEach(async () => {
 
     /* refresh all resource objects */
     await Promise.all(Object.values(initial).map(refreshResource));
+
+    //Testing DB creation of resources
+    let newLyph1 = model.Lyph.new({name:  "Heart chamber"});
+    await newLyph1.commit();
+    portable.lyph1 = extractFieldValues(newLyph1);
+
+    let newLyph2 = model.Lyph.new({ name:  "Heart", layers: [newLyph1]});
+    await newLyph2.commit();
+    portable.lyph2 = extractFieldValues(newLyph2);
+
+    let newExternalResource1 = model.ExternalResource.new({
+        name: "Right fourth dorsal metatarsal vein",
+        uri: "http://purl.obolibrary.org/obo/FMA_44515",
+        type: "fma"
+    });
+    await newExternalResource1.commit();
+    portable.externalResource1 = extractFieldValues(newExternalResource1);
+
+    //TODO: add test to model library for layers:
+    //let newLyph2 = model.Lyph.new({ name:  "Heart", layers: [newLyph1, initial.lyph3]});
+    //await newLyph2.commit();
 
 });
 

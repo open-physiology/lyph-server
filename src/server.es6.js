@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _, {isArray, isString} from 'lodash';
+import _, {isArray, isString, mapValues} from 'lodash';
 import express                from 'express';
 import promisify              from 'es6-promisify';
 import cors                   from 'cors';
@@ -17,7 +17,8 @@ import {
 	customError,
 	isCustomError,
 	cleanCustomError,
-	sw
+	sw,
+	extractFieldValues
 } from './utility.es6.js';
 import {
 	relationships,
@@ -46,11 +47,16 @@ import {
 const requestHandler = {
 	resources: /*get, post*/ {
 		async get({db, type}, req, res) {
-			res.status(OK).jsonp( await db.getAllResources(type) );
+			let extractedResources = await db.getAllResources(type);
+			//TODO: replace with official model library toJSON method
+			let resSummary = [...extractedResources].map(val => extractFieldValues(val));
+			res.status(OK).jsonp( resSummary);
 		},
 		async post({db, type}, req, res) {
 			let id = await db.createResource(type, req.body);
-			res.status(CREATED).jsonp(await db.getSpecificResources(type, [id]));
+			let createdResource = await db.getSpecificResources(type, [id]);
+			console.log("Resources POST at server", createdResource);
+			res.status(CREATED).jsonp(createdResource);
 		}
 	},
 	specificResources: /*get, post, put, delete*/ {
@@ -81,24 +87,22 @@ const requestHandler = {
 		}
 	},
 	specificRelatedResource: /*put, delete*/ {
-		async put({db, relA}, req, res) {
+		async put({db, type, relA, relB}, req, res) {
 			let {idA, idB} = req.pathParams;
-			console.log("Adding specific related resource ", relA);
-			// await Promise.all([
-			// 	db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
-			// 	db.assertResourcesExist(relA.codomain.resourceClass, [idB])
-			// ]);
-			//await db.addNewRelatedResource(relA, idA, idB);
+			await Promise.all([
+				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
+				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			]);
+			await db.addNewRelatedResource(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		},
-		async delete({db, relA}, req, res) {
+		async delete({db, type, relA, relB}, req, res) {
 			let {idA, idB} = req.pathParams;
-			console.log("Deleting specific related resource ", relA);
-			// await Promise.all([
-			// 	db.assertResourcesExist(relA.resourceClass 		   , [idA]),
-			// 	db.assertResourcesExist(relA.codomain.resourceClass, [idB])
-			// ]);
-			//await db.deleteRelatedResource(relA, idA, idB);
+			await Promise.all([
+				db.assertResourcesExist(relA.resourceClass 		   , [idA]),
+				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			]);
+			await db.deleteRelatedResource(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
@@ -332,18 +336,18 @@ export default async (distDir, config) => {
 				[['resources', 'specificResources'], ()=>({
 					type: resources[pathObj['x-resource-type']]
 				})],
-				[['relatedResources', 'specificRelatedResource'], ()=>({
+				[['relatedResources', 'specificRelatedResource'], ()=> ({
 					type: relationships[pathObj['x-relationship-type']],
-					relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
-					relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
+					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']],
+					relB: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-B']]
 				})],
                 [['relationships', 'specificRelationships'], ()=>({
                     type: relationships[pathObj['x-relationship-type']]
                 })],
                 [['relatedRelationships', 'specificRelatedRelationship', 'specificRelationshipByResources'], ()=>({
                     type: relationships[pathObj['x-relationship-type']],
-					relA: relationships[pathObj['x-relationship-type']][pathObj['x-A']],
-					relB: relationships[pathObj['x-relationship-type']][pathObj['x-B']]
+					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']],
+					relB: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-B']]
                 })],
 				[['algorithm'], ()=>({
 					algorithmName: pathObj['x-algorithm-name']

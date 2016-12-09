@@ -22,6 +22,7 @@ import {
 	relationshipQueryFragments,
 	humanMsg,
 	arrowMatch,
+    extractFieldValues,
 	extractIds
 } from './utility.es6.js';
 import {
@@ -288,7 +289,7 @@ export default class LyphNeo4j extends Neo4j {
 
             let cls = relationships[rel.class];
 
-            let dbProperties = dataToNeo4j(cls, _(rel.fields).mapValues((x) => (x.value)).value());
+            let dbProperties = dataToNeo4j(cls, extractFieldValues(rel));
             await this.query(
                 {statement: `
                     MATCH (A:${resA.class} { id: ${resA.id} }), (B:${resB.class} { id: ${resB.id} })
@@ -371,7 +372,7 @@ export default class LyphNeo4j extends Neo4j {
 		`);
 
 		/* integrate relationship data into the resource object */
-		results = results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
+		results = results.map(({n, rels}) => ({...n, ...rels})).map((res) => neo4jToData(cls, res));
 
 		/* return results in proper order */
 		return ids.map((id1) => results.find(({id}) => id1 === id));
@@ -394,15 +395,8 @@ export default class LyphNeo4j extends Neo4j {
 			RETURN n, { ${objectMembers.join(', ')} } AS rels
 		`);
 
-		/* integrate relationship data into the resource object */
-		let fields = results.map(({n, rels}) => Object.assign(n, rels)).map((res) => neo4jToData(cls, res));
-        return fields;
-
-        //Restore model library objects ?
-        //return fields.map(fields => resources[n.class].new(fields));
-
+        return results.map(({n, rels}) => ({...n, ...rels})).map((res) => neo4jToData(cls, res));
 	}
-
 
 	/////////////////////////////////////////////////////////////////////////
 
@@ -423,7 +417,6 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* for all relationships specified in the request, assert that those resources exist */
 		await this[assertReferencedResourcesExist](cls, fields);
-
 
         //Create resources with given ids
 		[{id}] = await this.creationQuery(() => ({
@@ -578,7 +571,7 @@ export default class LyphNeo4j extends Neo4j {
 		let relB = relA.codomain;
 
 		/* formulating and sending the query */
-		let {optionalMatches, objectMembers} = relationshipQueryFragments(relB, 'B');
+		let {optionalMatches, objectMembers} = relationshipQueryFragments(relB.resourceClass, 'B');
 		let [l, r] = arrowEnds(relA);
 
 		let results = await this.query(`
@@ -590,14 +583,12 @@ export default class LyphNeo4j extends Neo4j {
 		`);
 
 		/* integrate relationship data into the resource object */
-		return results.map(({B, rels}) => Object.assign(B, rels)).map((res) => neo4jToData(relB, res));
+		return results.map(({B, rels}) => ({...B, ...rels})).map((res) => neo4jToData(relB.resourceClass, res));
 
 	}
 
 	
 	async addNewRelatedResource(relA, idA, idB /*, fields */) {
-	    console.log("Adding new relationship!!!");
-
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
@@ -690,7 +681,6 @@ export default class LyphNeo4j extends Neo4j {
         return results;
     }
 
-
     //TODO implement
     async getSpecificRelationships(cls, ids){
 
@@ -724,21 +714,25 @@ export default class LyphNeo4j extends Neo4j {
         }
     }
 
-
+	//TODO implement
     async addRelationship(cls, idA, fields){}
 
 
+	//TODO implement
     async updateRelationship(cls, id, fields){}
 
 
+	//TODO implement
     async replaceRelationship(cls, id, fields){
 
     }
 
+	//TODO implement
     async deleteRelationship(cls, id){
 
     }
 
+    //TODO implement
     async getRelatedRelationships(cls, id){
 
     }
