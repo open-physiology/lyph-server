@@ -5,8 +5,8 @@
 import {template, isString, isFunction, isArray, isUndefined} from 'lodash';
 import {expect}                            from 'chai';
 import swaggerSpec from '../swagger.es6.js';
-import {runSelectedTest, testResources, testAbstractResources} from './testResources.es6.js';
-import {testRelationships} from './testRelationships.es6.js';
+import {runSelectedResourceTest, testResources, testAbstractResources} from './testResources.es6.js';
+import {runSelectedRelationshipTest, testRelationships} from './testRelationships.es6.js';
 import {api} from './testUtils.es6.js';
 
 import {OK} from '../http-status-codes.es6.js'
@@ -45,7 +45,9 @@ describe("docs", () => {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-runSelectedTest();
+runSelectedRelationshipTest();
+
+runSelectedResourceTest();
 
 //testResources();
 

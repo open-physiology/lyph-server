@@ -12,8 +12,80 @@ import {template, isString, isFunction, isArray, isUndefined} from 'lodash';
 import {expect} from 'chai';
 import {initial, describeResourceClass, describeEndpoint,
     GET, POST, PUT, DELETE,
-    withInvalidPathParams, withValidPathParams} from './testUtils.es6.js';
+    withInvalidPathParams, withValidPathParams,
+    requestSingleResource, requestResources} from './testUtils.es6.js';
+import {OK, NO_CONTENT, CREATED} from "../http-status-codes.es6";
 
+
+export function runSelectedRelationshipTest(){
+    describeResourceClass('HasLayer', () => {
+
+        //Relationships
+        describeEndpoint(`/HasLayer`, ['GET', 'POST'], () => {
+            withValidPathParams(()=>{}, () => {
+
+                GET("returns HasLayer relationships", r=>r.expectArrayWith((res) => {
+                    expect(res).to.have.property('id');
+                    expect(res).to.have.property('href');
+                    expect(res).to.have.property('class').that.equals("HasLayer");
+                    expect(res).to.have.length.of.at.least(5);
+                    expect(res).to.have.property('1');
+                    expect(res).to.have.property('2');
+                    expect(res[1]).to.have.property('class').that.equals("Lyph");
+                    expect(res[2]).to.have.property('class').that.equals("Lyph");
+                }));
+            });
+        });
+
+        //Specific relationships
+        describeEndpoint('/HasLayer/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.border1.id}));
+
+            withValidPathParams(()=>({id: 200}), () => {
+
+                GET("returns a relationship with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id').that.equals(200);
+                    expect(res).to.have.property('class').that.equals("HasLayer");
+                }));
+
+                POST("update a given relationship", r=>r.send({
+                    relativePosition: 2
+                }).expect(OK).expect(isArray)
+                    .resources((resources) => {
+                        expect(resources).to.have.length.of.at.least(1);
+                        for (let res of resources) {
+                            expect(res).to.have.property('relativePosition').that.equals(2);
+                        }
+                    }));
+
+                   PUT("replace a given relationship", r=>r.send({
+                    relativePosition: 1
+                }).expect(OK).expect(isArray)
+                    .resources((resources) => {
+                        expect(resources).to.have.length.of.at.least(1);
+                        for (let res of resources) {
+                            expect(res).to.have.property('relativePosition').that.equals(1);
+                        }
+                    }));
+
+                DELETE("delete a given relationship", r=>r.expect(NO_CONTENT).then(async() => {
+                    let res = await requestResources(`/HasLayer`);
+                    expect(res).to.be.instanceof(Array);
+                    expect(res.map(x => x.id)).to.not.include(200);
+                }));
+            });
+        });
+
+        //Related relationships
+
+        //Specific relationships by resources (related relationships)
+
+    });
+
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 export function testRelationships() {

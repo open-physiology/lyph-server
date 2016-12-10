@@ -320,14 +320,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
                     description: `ID of the '${fieldName}' ${singularB} to add to the given ${singularA}`,
                     required:    true,
                     type:        'integer'
-                }//,
-                // {
-                //     name:        'properties',
-                //     in:          'body',
-                //     description: `properties of the relationship`,
-                //     required:    true,
-                //     type:        $ref(`partial_${cls.name}`)
-                // }
+                }
             ],
             responses: {
                 [NO_CONTENT]: {
@@ -380,25 +373,7 @@ function addRelationshipEndpoint(cls) {
                     schema: { type: 'array', items: $ref(cls.name) }
                 }
             }
-        },
-        ...(cls.abstract || {
-            post: {
-                summary: `create a new ${cls.name} relationship`,
-                parameters: [{
-                    name:        `new ${cls.name}`,
-                    in:          'body',
-                    description: `the new ${cls.name} relationship to create`,
-                    required:    true,
-                    schema:      $ref(cls.name)
-                }],
-                responses: {
-                    [CREATED]: {
-                        description: `an array containing one element: the newly created ${cls.name} relationship`,
-                        schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
-                    }
-                }
-            }
-        })
+        }
     };
 }
 
@@ -647,11 +622,105 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
     };
 }
 
+// function addSpecificRelatedRelationshipEndpoint(cls, i, direction) {
+//     const relA = cls.domainPairs[i][(direction === FORWARD)? 1: 2];
+//     const relName = relA.keyInResource;
+//     const abstract = relA.abstract;
+//
+//     const pluralA       = relA.resourceClass.plural;
+//     const singularA 	= relA.resourceClass.singular;
+//     const singularIdKeyA = `${toCamelCase(singularA )}ID`;
+//
+//     const pluralKeyA     = toCamelCase(pluralA);
+//     const singularIdKey = `${toCamelCase(cls.name)}ID`;
+//
+//
+//     relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${relName}/{${singularIdKey}}`] = {
+//         'x-path-type': 'specificRelatedRelationships',
+//         'x-param-map': {
+//             idA: singularIdKeyA,
+//             id: singularIdKey,
+//             [direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA
+//         },
+//         'x-i': i,
+//         'x-A': (direction === FORWARD ? 1 : 2),
+//         'x-B': (direction === FORWARD ? 2 : 1),
+//         'x-relationship-type': cls.name,
+//         get: {
+//             summary: `retrieve given ${relName} relationship of given ${singularA}`,
+//             parameters: [
+//                 {
+//                     name: singularIdKeyA,
+//                     in: 'path',
+//                     description: `ID of the ${singularA} which is the start node of the relationship ${relName}`,
+//                     required: true,
+//                     type: 'integer'
+//                 }, {
+//                     name: singularIdKey,
+//                     in: 'path',
+//                     description: `ID of the ${relName} relationship`,
+//                     required: true,
+//                     type: 'integer'
+//                 }
+//             ],
+//             responses: {
+//                 [OK]: {
+//                     description: `an array containing ${relName} relationships of given ${singularA}`,
+//                     schema: { type: 'array', items: $ref(cls.name)}
+//                 }
+//             }
+//         },
+//         delete: {
+//             summary: `remove given ${relName} relationship of given ${singularA}`,
+//             parameters: [
+//                 {
+//                     name:        singularIdKeyA,
+//                     in:          'path',
+//                     description: `ID of the ${singularA} which is the start node of the relationship ${relName}`,
+//                     required:    true,
+//                     type:        'integer'
+//                 }, {
+//                     name:        singularIdKey,
+//                     in:          'path',
+//                     description: `ID of the ${relName} relationship`,
+//                     required:    true,
+//                     type:        'integer'
+//                 }
+//             ],
+//             responses: {
+//                 [NO_CONTENT]: {
+//                     description: `successfully removed the relationship ${relName}`
+//                 }
+//             }
+//         },
+//         ...(abstract || {
+//             put: {
+//                 summary: `add given ${relName} relationship of given ${singularA}`,
+//                 parameters: [
+//                     {
+//                         name: singularIdKeyA,
+//                         in: 'path',
+//                         description: `ID of the ${singularA} which is the start node of the relationship ${relName}`,
+//                         required: true,
+//                         type: 'integer'
+//                     }, {
+//                         name: singularIdKeyB,
+//                         in: 'path',
+//                         description: `ID of the ${singularB} which is the end node of the relationship ${relName}`,
+//                         required: true,
+//                         type: 'integer'
+//                     }
+//                 ],
+//                 responses: {
+//                     [NO_CONTENT]: {
+//                         description: `successfully added the relationship ${relName}`
+//                     }
+//                 }
+//             }
+//         })
+//     }
+// }
 
-//TODO: addSpecificRelatedRelationshipEndpoint
-//extracting relationships of a given resource with given relationship ID is not first priority
-//one can get relationship by ID and filter to find the resource (or vice versa)
-//also likely to cause path clash with SpecificRelationshipByResource
 
 ////////////////////////////////////////////////////////////////
 

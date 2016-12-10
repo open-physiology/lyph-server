@@ -360,18 +360,14 @@ beforeEach(async () => {
         initial[resName] = await createCLResource(resSpec);
     }
 
+    ///////////////////////////////////////////////////
+    //Test direct DB operations here                 //
+    ///////////////////////////////////////////////////
+
     /* refresh all resource objects */
     await Promise.all(Object.values(initial).map(refreshResource));
 
     //Testing DB creation of resources
-    let newLyph1 = model.Lyph.new({name:  "Heart chamber"});
-    await newLyph1.commit();
-    portable.lyph1 = extractFieldValues(newLyph1);
-
-    let newLyph2 = model.Lyph.new({ name:  "Heart", layers: [newLyph1]});
-    await newLyph2.commit();
-    portable.lyph2 = extractFieldValues(newLyph2);
-
     let newExternalResource1 = model.ExternalResource.new({
         name: "Right fourth dorsal metatarsal vein",
         uri: "http://purl.obolibrary.org/obo/FMA_44515",
@@ -380,9 +376,27 @@ beforeEach(async () => {
     await newExternalResource1.commit();
     portable.externalResource1 = extractFieldValues(newExternalResource1);
 
+    let newLyph1 = model.Lyph.new({name:  "Heart chamber"});
+    await newLyph1.commit();
+    portable.lyph1 = extractFieldValues(await createCLResource(newLyph1));
+
+    let newLyph2 = model.Lyph.new({ name:  "Heart"});
+    await newLyph2.commit();
+    portable.lyph2 = extractFieldValues(await createCLResource(newLyph2));
+
+    //HasLayer with ID
+    await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
+        portable.lyph1.id, portable.lyph2.id, {id: 200, class: "HasLayer"});
+    await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
+
     //TODO: add test to model library for layers:
     //let newLyph2 = model.Lyph.new({ name:  "Heart", layers: [newLyph1, initial.lyph3]});
     //await newLyph2.commit();
+
+    //let rels = await db.getAllRelationships(relationships["HasLayer"]);
+
+    //await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {name: "Head"});
+    //await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
 
 });
 
