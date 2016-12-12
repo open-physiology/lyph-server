@@ -271,6 +271,7 @@ function addRelatedResourceEndpoint(cls, i, direction) {
                 }
             }
         }
+        //TODO add delete
     };
 }
 
@@ -305,6 +306,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
         'x-A': (direction === FORWARD ? 1 : 2),
         'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
+        //TODO add post
         put: {
             summary: putSummary || `add a given ${pluralB} to a given ${singularA}`,
             parameters: [
@@ -320,6 +322,12 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
                     description: `ID of the '${fieldName}' ${singularB} to add to the given ${singularA}`,
                     required:    true,
                     type:        'integer'
+                }, {
+                    name:        toCamelCase(`new ${cls.name}`),
+                    in:          'body',
+                    description: `properties of new ${cls.name} relationship`,
+                    required:    true,
+                    schema:      $ref(cls.name)
                 }
             ],
             responses: {
@@ -468,7 +476,7 @@ function addSpecificRelationshipEndpoint(cls) {
                         schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
                     }
                 }
-            },
+            }
         })
     };
 }
@@ -479,7 +487,8 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
     const relB = cls.domainPairs[i][(direction === FORWARD)? 2: 1];
 
     const relName = relA.keyInResource;
-    const abstract = relA.abstract;
+    const pathRelName = relName.replace("-->", "__o").replace("<--", "o__");
+    const {abstract} = cls;
 
     const pluralA       = relA.resourceClass.plural;
     const singularA 	= relA.resourceClass.singular;
@@ -492,7 +501,7 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
 
     const msg = relA.resourceClass === relB.resourceClass? pluralA: singularA + " and " + singularB;
 
-    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${relName}/{${singularIdKeyB}}`] = {
+    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${pathRelName}/{${singularIdKeyB}}`] = {
         'x-path-type': 'specificRelationshipByResources',
         'x-param-map': {
             idA: singularIdKeyA,
@@ -525,6 +534,36 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
                 [OK]: {
                     description: `an array containing ${relName} relationships between given ${msg}`,
                     schema: { type: 'array', items: $ref(cls.name)}
+                }
+            }
+        },
+        post: {
+            summary: `updatea ${relName} relationship between given ${msg}`,
+            parameters: [
+                {
+                    name:        singularIdKeyA,
+                    in:          'path',
+                    description: `ID of the ${singularA} which is the start node of the relationship ${relName}`,
+                    required:    true,
+                    type:        'integer'
+                }, {
+                    name:        singularIdKeyB,
+                    in:          'path',
+                    description: `ID of the ${singularB} which is the end node of the relationship ${relName}`,
+                    required:    true,
+                    type:        'integer'
+                }, {
+                    name:        toCamelCase(`new ${cls.name}`),
+                    in:          'body',
+                    description: `a (partial) ${cls.name} relationship object with the data that should be updated`,
+                    required:    true,
+                    schema:      $ref(`partial_${cls.name}`)
+                }
+            ],
+            responses: {
+                [OK]: {
+                    description: `an array containing one element: the full ${relName} relationship after the update`,
+                    schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
                 }
             }
         },
@@ -567,11 +606,18 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
                         description: `ID of the ${singularB} which is the end node of the relationship ${relName}`,
                         required: true,
                         type: 'integer'
+                    }, {
+                        name:        toCamelCase(`new ${cls.name}`),
+                        in:          'body',
+                        description: `the new ${cls.name} relationship to replace the old one with`,
+                        required:    true,
+                        schema:      $ref(cls.name)
                     }
                 ],
                 responses: {
-                    [NO_CONTENT]: {
-                        description: `successfully added the relationship ${relName}`
+                    [OK]: {
+                        description: `an array containing one element: the full added ${relName} relationship`,
+                        schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
                     }
                 }
             }
@@ -581,17 +627,18 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
 
 
 function addRelatedRelationshipEndpoint(cls, i, direction) {
-    const relA = cls.domainPairs[i][(direction === FORWARD)? 1: 2];
-    const nameRelA = relA.keyInResource;
+    const relA        = cls.domainPairs[i][(direction === FORWARD)? 1: 2];
+    const relName     = relA.keyInResource.replace("-->", "__o").replace("<--", "o__");
+    const pathRelName = relName.replace("-->", "__o").replace("<--", "o__");
 
     const {getSummary, putSummary, deleteSummary} = relA;
 
-    const pluralA       = relA.resourceClass.plural;
-    const singularA 	= relA.resourceClass.singular;
+    const pluralA        = relA.resourceClass.plural;
+    const singularA 	 = relA.resourceClass.singular;
     const singularIdKeyA = `${toCamelCase(singularA )}ID`;
     const pluralKeyA     = toCamelCase(pluralA);
 
-    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${nameRelA}`] = {
+    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${pathRelName}`] = {
         'x-path-type': 'relatedRelationships',
         'x-param-map': {
             idA: singularIdKeyA,
@@ -602,19 +649,19 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
         'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
         get: {
-            summary: getSummary || `retrieve all the ${nameRelA} relationships of a given ${singularA}`,
+            summary: getSummary || `retrieve all the ${relName} relationships of a given ${singularA}`,
             parameters: [
                 {
                     name:        singularIdKeyA,
                     in:          'path',
-                    description: `ID of the ${singularA} of which to retrieve the ${nameRelA} relationships`,
+                    description: `ID of the ${singularA} of which to retrieve the ${relName} relationships`,
                     required:    true,
                     type:        'integer'
                 }
             ],
             responses: {
                 [OK]: {
-                    description: `an array containing the ${nameRelA} relationships of the given ${singularA}`,
+                    description: `an array containing the ${relName} relationships of the given ${singularA}`,
                     schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
                 }
             }
@@ -622,104 +669,6 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
     };
 }
 
-// function addSpecificRelatedRelationshipEndpoint(cls, i, direction) {
-//     const relA = cls.domainPairs[i][(direction === FORWARD)? 1: 2];
-//     const relName = relA.keyInResource;
-//     const abstract = relA.abstract;
-//
-//     const pluralA       = relA.resourceClass.plural;
-//     const singularA 	= relA.resourceClass.singular;
-//     const singularIdKeyA = `${toCamelCase(singularA )}ID`;
-//
-//     const pluralKeyA     = toCamelCase(pluralA);
-//     const singularIdKey = `${toCamelCase(cls.name)}ID`;
-//
-//
-//     relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${relName}/{${singularIdKey}}`] = {
-//         'x-path-type': 'specificRelatedRelationships',
-//         'x-param-map': {
-//             idA: singularIdKeyA,
-//             id: singularIdKey,
-//             [direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA
-//         },
-//         'x-i': i,
-//         'x-A': (direction === FORWARD ? 1 : 2),
-//         'x-B': (direction === FORWARD ? 2 : 1),
-//         'x-relationship-type': cls.name,
-//         get: {
-//             summary: `retrieve given ${relName} relationship of given ${singularA}`,
-//             parameters: [
-//                 {
-//                     name: singularIdKeyA,
-//                     in: 'path',
-//                     description: `ID of the ${singularA} which is the start node of the relationship ${relName}`,
-//                     required: true,
-//                     type: 'integer'
-//                 }, {
-//                     name: singularIdKey,
-//                     in: 'path',
-//                     description: `ID of the ${relName} relationship`,
-//                     required: true,
-//                     type: 'integer'
-//                 }
-//             ],
-//             responses: {
-//                 [OK]: {
-//                     description: `an array containing ${relName} relationships of given ${singularA}`,
-//                     schema: { type: 'array', items: $ref(cls.name)}
-//                 }
-//             }
-//         },
-//         delete: {
-//             summary: `remove given ${relName} relationship of given ${singularA}`,
-//             parameters: [
-//                 {
-//                     name:        singularIdKeyA,
-//                     in:          'path',
-//                     description: `ID of the ${singularA} which is the start node of the relationship ${relName}`,
-//                     required:    true,
-//                     type:        'integer'
-//                 }, {
-//                     name:        singularIdKey,
-//                     in:          'path',
-//                     description: `ID of the ${relName} relationship`,
-//                     required:    true,
-//                     type:        'integer'
-//                 }
-//             ],
-//             responses: {
-//                 [NO_CONTENT]: {
-//                     description: `successfully removed the relationship ${relName}`
-//                 }
-//             }
-//         },
-//         ...(abstract || {
-//             put: {
-//                 summary: `add given ${relName} relationship of given ${singularA}`,
-//                 parameters: [
-//                     {
-//                         name: singularIdKeyA,
-//                         in: 'path',
-//                         description: `ID of the ${singularA} which is the start node of the relationship ${relName}`,
-//                         required: true,
-//                         type: 'integer'
-//                     }, {
-//                         name: singularIdKeyB,
-//                         in: 'path',
-//                         description: `ID of the ${singularB} which is the end node of the relationship ${relName}`,
-//                         required: true,
-//                         type: 'integer'
-//                     }
-//                 ],
-//                 responses: {
-//                     [NO_CONTENT]: {
-//                         description: `successfully added the relationship ${relName}`
-//                     }
-//                 }
-//             }
-//         })
-//     }
-// }
 
 
 ////////////////////////////////////////////////////////////////

@@ -219,17 +219,6 @@ before(() => db.clear('Yes! Delete all everythings!'));
 /* before each test, reset the database */
 beforeEach(async () => {
 
-
-    //TODO: add tests to model library to detect UnhandledPromiseRejectionWarning
-    //     class: "Type", definition: initial.material1
-
-    //     class:  "Node", locations: [initial.mainLyph1]
-
-    //     class: "Group", elements: [initial.lyph1, initial.node1, initial.process1]
-
-    //     class: "OmegaTree", parts: [initial.lyph1, initial.lyph2, initial.lyph3]
-
-
     ////////////////////////////////////////////////////////////////////////
     /*Create test resources via client library*/
 
@@ -360,12 +349,13 @@ beforeEach(async () => {
         initial[resName] = await createCLResource(resSpec);
     }
 
-    ///////////////////////////////////////////////////
-    //Test direct DB operations here                 //
-    ///////////////////////////////////////////////////
-
     /* refresh all resource objects */
     await Promise.all(Object.values(initial).map(refreshResource));
+
+
+    ///////////////////////////////////////////////////
+    //Test various direct DB operations here         //
+    ///////////////////////////////////////////////////
 
     //Testing DB creation of resources
     let newExternalResource1 = model.ExternalResource.new({
@@ -374,29 +364,35 @@ beforeEach(async () => {
         type: "fma"
     });
     await newExternalResource1.commit();
-    portable.externalResource1 = extractFieldValues(newExternalResource1);
 
     let newLyph1 = model.Lyph.new({name:  "Heart chamber"});
     await newLyph1.commit();
-    portable.lyph1 = extractFieldValues(await createCLResource(newLyph1));
 
     let newLyph2 = model.Lyph.new({ name:  "Heart"});
     await newLyph2.commit();
+
+    //Portable contains object with arrays of values instead of Rel$Field etc.
+    portable.externalResource1 = extractFieldValues(newExternalResource1);
+    portable.lyph1 = extractFieldValues(await createCLResource(newLyph1));
     portable.lyph2 = extractFieldValues(await createCLResource(newLyph2));
 
     //HasLayer with ID
-    await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
-        portable.lyph1.id, portable.lyph2.id, {id: 200, class: "HasLayer"});
-    await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
+    // await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
+    //     portable.lyph1.id, portable.lyph2.id, {id: 200, class: "HasLayer"});
+    // await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
+    //
+    // await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
+    //    initial.mainLyph1.id, initial.lyph2.id, {relativePosition: 1});
+    // await db.assertRelationshipsExist(relationships["HasLayer"], [201]);
 
-    //TODO: add test to model library for layers:
-    //let newLyph2 = model.Lyph.new({ name:  "Heart", layers: [newLyph1, initial.lyph3]});
-    //await newLyph2.commit();
+    // await db.replaceRelationship(resources["Lyph"].relationships["-->HasLayer"],
+    //     initial.mainLyph1.id, initial.lyph2.id, {id: 202, class: "HasLayer"});
+    // await db.assertRelationshipsExist(relationships["HasLayer"], [202]);
 
-    //let rels = await db.getAllRelationships(relationships["HasLayer"]);
+    // await db.getAllRelationships(relationships["HasLayer"]);
 
-    //await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {name: "Head"});
-    //await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
+    // await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {name: "Head"});
+    // await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
 
 });
 
@@ -404,6 +400,15 @@ beforeEach(async () => {
 afterEach(() => { db.clear('Yes! Delete all everythings!'); });
 
 
+//TODO: add test to model library for layers:
+//let newLyph2 = model.Lyph.new({ name:  "Heart", layers: [newLyph1, initial.lyph3]});
+//await newLyph2.commit();
 
+//TODO: add tests to model library to detect UnhandledPromiseRejectionWarning
+//     class: "Type", definition: initial.material1
 
+//     class:  "Node", locations: [initial.mainLyph1]
 
+//     class: "Group", elements: [initial.lyph1, initial.node1, initial.process1]
+
+//     class: "OmegaTree", parts: [initial.lyph1, initial.lyph2, initial.lyph3]

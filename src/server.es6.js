@@ -137,35 +137,35 @@ const requestHandler = {
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
-    specificRelationshipByResources: /*get, post, put, delete*/ {
-		async get({db, type, relA}, req, res) {
-            let {idA, idB} = req.pathParams;
-            let extracted = await db.getRelationships(relA, idA, idB);
-			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
-		},
-		async post({db, type}, req, res) {
-            let {idA, idB} = req.pathParams;
-            await db.updateRelationship(relA, idA, idB, req.body);
-            let extracted = await db.getRelationships(relA, idA, idB);
-			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
-		},
-		async put({db, type, reqA}, req, res) {
-            let {idA, idB} = req.pathParams;
-            await db.replaceRelationship(relA, idA, idB, req.body);
-            let extracted = await db.getRelationships(relA, idA, idB);
-            res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
-		},
-		async delete({db, type, relA}, req, res) {
-            let {idA, idB} = req.pathParams;
-            await db.deleteRelationship(relA, idA, idB);
-			res.status(NO_CONTENT).jsonp();
-		}
-	},
     relatedRelationships: /* get, delete */{
 		async get({db, relA}, req, res) {
 			await db.assertResourcesExist(relA, [req.pathParams.idA]);
             let extracted = await db.getRelatedRelationships(relA, req.pathParams.idA);
 			res.status(OK).jsonp( [...extracted].map(val => extractFieldValues(val)));
+		}
+	},
+	specificRelationshipByResources: /*get, post, put, delete*/ {
+		async get({db, type, relA}, req, res) {
+			let {idA, idB} = req.pathParams;
+			let extracted = await db.getRelationships(relA, idA, idB);
+			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+		},
+		async post({db, type, relA}, req, res) {
+			let {idA, idB} = req.pathParams;
+			await db.updateRelationship(relA, idA, idB, req.body);
+			let extracted = await db.getRelationships(relA, idA, idB);
+			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+		},
+		async put({db, type, relA}, req, res) {
+			let {idA, idB} = req.pathParams;
+			await db.replaceRelationship(relA, idA, idB, req.body);
+			let extracted = await db.getRelationships(relA, idA, idB);
+			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+		},
+		async delete({db, type, relA}, req, res) {
+			let {idA, idB} = req.pathParams;
+			await db.deleteRelationship(relA, idA, idB);
+			res.status(NO_CONTENT).jsonp();
 		}
 	},
 	algorithm: {

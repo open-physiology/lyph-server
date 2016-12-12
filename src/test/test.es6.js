@@ -47,7 +47,7 @@ describe("docs", () => {
 
 runSelectedRelationshipTest();
 
-runSelectedResourceTest();
+//runSelectedResourceTest();
 
 //testResources();
 
