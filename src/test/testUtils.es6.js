@@ -394,6 +394,8 @@ beforeEach(async () => {
     // await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {name: "Head"});
     // await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
 
+    //await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
+
 });
 
 /* clear database for every tear-down */

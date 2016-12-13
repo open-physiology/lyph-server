@@ -5,8 +5,6 @@
 /* external libs */
 import _, {trim, matches} from 'lodash';
 import isUndefined from 'lodash-bound/isUndefined';
-import isSet from 'lodash-bound/isSet';
-import isArray from 'lodash-bound/isArray';
 import isNumber from 'lodash-bound/isNumber';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -95,7 +93,7 @@ export const dataToNeo4j = (cls, fields) => {
 export const neo4jToData = (cls, properties) => {
 	let mappedFields = {};
 	for (let [key, val] of Object.entries(properties)){
-		let fieldName = key.replace('o__', '<--').replace('__o', '-->');
+		let fieldName = key.replace('`', '');
 		mappedFields[fieldName] =
 			(cls.properties[fieldName] && ['object', 'array'].includes(cls.properties[fieldName].type))?
 			JSON.parse(val): val;
@@ -131,15 +129,10 @@ export function relationshipQueryFragments(cls, nodeName) {
 	let optionalMatches = [], objectMembers = [];
     if (cls::isUndefined()) {return {}}
 
-        let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
-	let allRelationFields = Object.entries(cls.relationships);
+    let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
+	for (let [fieldName, fieldSpec] of Object.entries(cls.relationships)) {
 
-	for (let [fieldName, fieldSpec] of allRelationFields) {
-
-		let relName = (fieldSpec.shortcutKey::isUndefined())?
-			fieldName.replace('-->', '__o').replace('<--', 'o__')
-			: fieldSpec.shortcutKey;
-
+		let relName = `\`rel_${fieldName}\`` ;
 		if (handledFieldNames[fieldName]) { continue }
 		handledFieldNames[fieldName] = true;
 
@@ -147,11 +140,11 @@ export function relationshipQueryFragments(cls, nodeName) {
 		optionalMatches.push(`
 			OPTIONAL MATCH (${nodeName})
 		    ${l}[:${fieldSpec.relationshipClass.name}]${r}
-		    (rel_${relName}:${fieldSpec.codomain.resourceClass.name})
+		    (${relName}:${fieldSpec.codomain.resourceClass.name})
 		`);
 		objectMembers.push((fieldSpec.cardinality.max === 1)
-				? `${relName}: rel_${relName}.id`
-				: `${relName}: collect(DISTINCT rel_${relName}.id)`
+			? `\`${fieldName}\`: ${relName}.id`
+			: `\`${fieldName}\`: collect(DISTINCT ${relName}.id)`
 		);
 	}
 

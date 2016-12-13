@@ -3,7 +3,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _, {isUndefined} from 'lodash';
+import _ from 'lodash';
+import isUndefined from 'lodash-bound/isUndefined';
+
 import cloneDeep from 'lodash/cloneDeep';
 import pick from 'lodash/pick';
 
@@ -232,7 +234,7 @@ function addRelatedResourceEndpoint(cls, i, direction) {
 	const relB = cls.domainPairs[i][(direction === FORWARD)? 2: 1];
 
     const fieldName = relA.shortcutKey;
-    if (isUndefined(fieldName)) return;
+    if (fieldName::isUndefined()) return;
 
     const {getSummary, putSummary, deleteSummary} = relA;
 
@@ -281,7 +283,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
     const relB = cls.domainPairs[i][(direction === FORWARD)? 2: 1];
 
     const fieldName = relA.shortcutKey;
-    if (isUndefined(fieldName)) return;
+    if (fieldName::isUndefined()) return;
 
     const {getSummary, putSummary, deleteSummary, abstract} = relA;
 
@@ -482,12 +484,56 @@ function addSpecificRelationshipEndpoint(cls) {
 }
 
 
+function addRelatedRelationshipEndpoint(cls, i, direction) {
+    const relA        = cls.domainPairs[i][(direction === FORWARD)? 1: 2];
+    const relName     = relA.keyInResource;
+    const pathRelName = relName.replace(">", "%3E").replace("<", "%3C");
+
+    const {getSummary, putSummary, deleteSummary} = relA;
+
+    const pluralA        = relA.resourceClass.plural;
+    const singularA 	 = relA.resourceClass.singular;
+    const singularIdKeyA = `${toCamelCase(singularA )}ID`;
+    const pluralKeyA     = toCamelCase(pluralA);
+
+    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${pathRelName}`] = {
+        'x-path-type': 'relatedRelationships',
+        'x-param-map': {
+            idA: singularIdKeyA,
+            [direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA
+        },
+        'x-i': i,
+        'x-A': (direction === FORWARD ? 1 : 2),
+        'x-B': (direction === FORWARD ? 2 : 1),
+        'x-relationship-type': cls.name,
+        get: {
+            summary: getSummary || `retrieve all the ${relName} relationships of a given ${singularA}`,
+            parameters: [
+                {
+                    name:        singularIdKeyA,
+                    in:          'path',
+                    description: `ID of the ${singularA} of which to retrieve the ${relName} relationships`,
+                    required:    true,
+                    type:        'integer'
+                }
+            ],
+            responses: {
+                [OK]: {
+                    description: `an array containing the ${relName} relationships of the given ${singularA}`,
+                    schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
+                }
+            }
+        }
+    };
+}
+
+
 function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
     const relA = cls.domainPairs[i][(direction === FORWARD)? 1: 2];
     const relB = cls.domainPairs[i][(direction === FORWARD)? 2: 1];
 
     const relName = relA.keyInResource;
-    const pathRelName = relName.replace("-->", "__o").replace("<--", "o__");
+    const pathRelName = relName.replace(">", "%3E").replace("<", "%3C");
     const {abstract} = cls;
 
     const pluralA       = relA.resourceClass.plural;
@@ -624,51 +670,6 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
         })
     }
 }
-
-
-function addRelatedRelationshipEndpoint(cls, i, direction) {
-    const relA        = cls.domainPairs[i][(direction === FORWARD)? 1: 2];
-    const relName     = relA.keyInResource.replace("-->", "__o").replace("<--", "o__");
-    const pathRelName = relName.replace("-->", "__o").replace("<--", "o__");
-
-    const {getSummary, putSummary, deleteSummary} = relA;
-
-    const pluralA        = relA.resourceClass.plural;
-    const singularA 	 = relA.resourceClass.singular;
-    const singularIdKeyA = `${toCamelCase(singularA )}ID`;
-    const pluralKeyA     = toCamelCase(pluralA);
-
-    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${pathRelName}`] = {
-        'x-path-type': 'relatedRelationships',
-        'x-param-map': {
-            idA: singularIdKeyA,
-            [direction === FORWARD ? 'id1' : 'id2']: singularIdKeyA
-        },
-        'x-i': i,
-        'x-A': (direction === FORWARD ? 1 : 2),
-        'x-B': (direction === FORWARD ? 2 : 1),
-        'x-relationship-type': cls.name,
-        get: {
-            summary: getSummary || `retrieve all the ${relName} relationships of a given ${singularA}`,
-            parameters: [
-                {
-                    name:        singularIdKeyA,
-                    in:          'path',
-                    description: `ID of the ${singularA} of which to retrieve the ${relName} relationships`,
-                    required:    true,
-                    type:        'integer'
-                }
-            ],
-            responses: {
-                [OK]: {
-                    description: `an array containing the ${relName} relationships of the given ${singularA}`,
-                    schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
-                }
-            }
-        }
-    };
-}
-
 
 
 ////////////////////////////////////////////////////////////////
