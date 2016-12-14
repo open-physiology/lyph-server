@@ -388,14 +388,14 @@ export default class LyphNeo4j extends Neo4j {
 	async getAllResources(cls) {
 
 		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runClassSpecificHook](cls, 'getAll', {});
-		if (result) { return result }
+		// let result = await this[runClassSpecificHook](cls, 'getAll', {});
+		// if (result) { return result }
 
 		/* preparing the part of the query that adds relationship info */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(cls, 'n');
 
 		/* formulating and sending the query */
-		result = await this.query(`
+		let result = await this.query(`
 			MATCH (n:${cls.name})
 			${optionalMatches.join(' ')}
 			RETURN n, { ${objectMembers.join(', ')} } AS rels
@@ -596,17 +596,12 @@ export default class LyphNeo4j extends Neo4j {
 
 
 	///////////////////////////////////////////////////////////////
-    //Operations with relationships                              //
+    //Operations on relationships                                //
     ///////////////////////////////////////////////////////////////
 
 	async getAllRelationships(cls) {
-
-		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runClassSpecificHook](cls, 'getAll', {});
-		if (result) { return result }
-
 		/* formulating and sending the query */
-		result = await this.query(`
+		let result = await this.query(`
 			MATCH (A) -[rel:${cls.name}]-> (B) RETURN A, rel, B
 		`);
 
@@ -615,8 +610,6 @@ export default class LyphNeo4j extends Neo4j {
 			...{1: neo4jToData(resources[A.class], A)},
 			...{2: neo4jToData(resources[B.class], B)}
 		}));
-
-		//TODO: why A and B are empty?
     }
 
 
@@ -656,10 +649,6 @@ export default class LyphNeo4j extends Neo4j {
 	//Relationships by ID                             //
 	////////////////////////////////////////////////////
 	async assertRelationshipsExist(cls, ids){
-		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runClassSpecificHook](cls, 'assertrelationshipsExist', { ids });
-		if (result) { return result::isArray() ? result : [result] }
-
 		/* eliminate duplication */
 		ids = [...new Set(ids)];
 
@@ -684,10 +673,6 @@ export default class LyphNeo4j extends Neo4j {
 
 
 	async getSpecificRelationships(cls, ids){
-		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runClassSpecificHook](cls, 'getSpecific', { ids });
-		if (result) { return result::isArray() ? result : [result]}
-
 		/* throw a 404 if any of the resources don't exist */
 		await this.assertRelationshipsExist(cls, ids);
 
@@ -709,15 +694,8 @@ export default class LyphNeo4j extends Neo4j {
 
 
     async updateRelationshipByID(cls, id, fields){
-		/* is there a hook to completely replace entity updates? */
-		let hooked = await this[runClassSpecificHook](cls, 'update', { id, fields });
-		if (hooked) { return }
-
 		/* get the current fields of the relationship */
 		let [oldRelationship] = await this.getSpecificRelationships(cls, [id]);
-
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'beforeUpdate', { id, oldRelationship, fields });
 
 		/* the main query for creating the resource */
 		await this.query({
@@ -728,22 +706,12 @@ export default class LyphNeo4j extends Neo4j {
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
-
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'afterUpdate', { id, oldRelationship, fields });
 	}
 
 
     async replaceRelationshipByID(cls, id, fields){
-		/* is there a hook to completely replace entity updates? */
-		let hooked = await this[runClassSpecificHook](cls, 'update', { id, fields });
-		if (hooked) { return }
-
 		/* get the current fields of the relationship */
 		let [oldRelationship] = await this.getSpecificRelationships(cls, [id]);
-
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'beforeReplace', { id, oldRelationship, fields });
 
 		/* the main query for creating the resource */
 		await this.query({
@@ -762,9 +730,6 @@ export default class LyphNeo4j extends Neo4j {
 			// `,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
-
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'afterReplace', { id, oldRelationship, fields });
     }
 
 

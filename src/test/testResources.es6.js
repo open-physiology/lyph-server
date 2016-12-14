@@ -12,6 +12,7 @@ import {initial, portable, describeResourceClass, describeEndpoint,
     withInvalidPathParams, withValidPathParams,
     requestSingleResource, requestResources} from './testUtils.es6.js';
 import {OK, NO_CONTENT, CREATED} from "../http-status-codes.es6";
+import {resources} from '../resources.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -136,19 +137,25 @@ export function runSelectedResourceTest(){
     });
 }
 
-export function gereralResourceTests(){
+export function testResourcesGeneral(){
 
     //Resource is tested separately because general "wrong-class" test is not applicable to it
     for (let className of [
-        "ExternalResource", "Border", "Material", "Measurable", "Causality", "Lyph", "Node", "Process",
+        "ExternalResource", "Border", "Material", "Measurable",
+        "Causality", "Lyph", "Node", "Process",
         "Group", "OmegaTree", "Publication", "ClinicalIndex", "Correlation", "Coalescence",
         "CoalescenceScenario", "Type", "Template", "NodeLocation", "MeasurableLocation",
         "OmegaTreePart"
     ]){
-        describeResourceClass(className, () => {
-            describeEndpoint(`/${className}`, ['GET', 'POST']);
+        let plural = resources[className].plural;
+        // it(`plural of class ${className} is defined`, () =>
+        //     expect(plural).to.not.be.undefined
+        // );
 
-            describeEndpoint(`/${className}/{id}`, ['GET', 'POST', 'PUT', 'DELETE'], () => {
+        describeResourceClass(className, () => {
+            describeEndpoint(`/${plural}`, ['GET', 'POST']);
+
+            describeEndpoint(`/${plural}/{id}`, ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
                 withInvalidPathParams("non-existing", {id: 999999});
 
@@ -163,6 +170,7 @@ export function gereralResourceTests(){
 
 /* Test all resource endpoints */
 export function testResources() {
+
 
     describeResourceClass('ExternalResource', () => {
 

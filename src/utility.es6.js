@@ -93,7 +93,7 @@ export const dataToNeo4j = (cls, fields) => {
 export const neo4jToData = (cls, properties) => {
 	let mappedFields = {};
 	for (let [key, val] of Object.entries(properties)){
-		let fieldName = key.replace('`', '');
+		let fieldName = key.replace(/["'`]/g, "");
 		mappedFields[fieldName] =
 			(cls.properties[fieldName] && ['object', 'array'].includes(cls.properties[fieldName].type))?
 			JSON.parse(val): val;

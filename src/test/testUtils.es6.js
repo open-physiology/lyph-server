@@ -400,8 +400,9 @@ beforeEach(async () => {
 
     // await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
 
-    //let res = await db.getAllRelationships(relationships["HasLayer"]);
-    //res = [...res].map(val => extractFieldValues(val));
+    let res = await db.getAllRelationships(relationships["HasLayer"]);
+    res = [...res].map(val => extractFieldValues(val));
+
 
 });
 
