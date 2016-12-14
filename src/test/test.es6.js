@@ -8,7 +8,6 @@ import swaggerSpec from '../swagger.es6.js';
 import {runSelectedResourceTest, testResources, testAbstractResources} from './testResources.es6.js';
 import {runSelectedRelationshipTest, testRelationships} from './testRelationships.es6.js';
 import {api} from './testUtils.es6.js';
-
 import {OK} from '../http-status-codes.es6.js'
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

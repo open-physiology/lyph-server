@@ -95,11 +95,11 @@ export function runSelectedResourceTest(){
                     }));
 
                 DELETE("delete a given external resource", r=>r.expect(NO_CONTENT).then(async() => {
-                    let res = await requestResources(`/lyphs`);
-                    expect(res).to.be.instanceof(Array);
-                    expect(res.map(x => x.id)).to.not.include(initial.mainLyph1.id);
+                    let res = await requestSingleResource(`/lyphs/${initial.mainLyph1.id}`);
+                    let res2 = await requestSingleResource(`/lyphs/${initial.mainLyph2.id}`);
+                    expect(res).to.be.undefined;
+                    expect(res2).to.have.property("id").that.equals(initial.mainLyph2.id);
                 }));
-
             });
         });
 
@@ -136,18 +136,37 @@ export function runSelectedResourceTest(){
     });
 }
 
+export function gereralResourceTests(){
+
+    //Resource is tested separately because general "wrong-class" test is not applicable to it
+    for (let className of [
+        "ExternalResource", "Border", "Material", "Measurable", "Causality", "Lyph", "Node", "Process",
+        "Group", "OmegaTree", "Publication", "ClinicalIndex", "Correlation", "Coalescence",
+        "CoalescenceScenario", "Type", "Template", "NodeLocation", "MeasurableLocation",
+        "OmegaTreePart"
+    ]){
+        describeResourceClass(className, () => {
+            describeEndpoint(`/${className}`, ['GET', 'POST']);
+
+            describeEndpoint(`/${className}/{id}`, ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+                withInvalidPathParams("non-existing", {id: 999999});
+
+                withInvalidPathParams("wrong-class", ()=>({id:
+                    (className === "ExternalResource")
+                        ? initial.mainLyph1.id
+                        : initial.externalResource1.id}));
+            });
+        });
+    }
+}
+
 /* Test all resource endpoints */
 export function testResources() {
 
     describeResourceClass('ExternalResource', () => {
 
-        describeEndpoint('/externalResources', ['GET', 'POST']);
-
         describeEndpoint('/externalResources/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.border1.id}));
 
             withValidPathParams(()=>({id: initial.externalResource1.id}), () => {
 
@@ -200,13 +219,7 @@ export function testResources() {
 
     describeResourceClass('Border', () => {
 
-        describeEndpoint('/borders', ['GET', 'POST']);
-
         describeEndpoint('/borders/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.border1.id}), () => {
 
@@ -226,13 +239,8 @@ export function testResources() {
 
     describeResourceClass('Material', () => {
 
-        describeEndpoint('/materials', ['GET', 'POST']);
 
         describeEndpoint('/materials/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.material1.id}), () => {
 
@@ -258,13 +266,8 @@ export function testResources() {
 
     describeResourceClass('Measurable', () => {
 
-        describeEndpoint('/measurables', ['GET', 'POST']);
 
         describeEndpoint('/measurables/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.measurable1.id}), () => {
 
@@ -307,13 +310,8 @@ export function testResources() {
 
     describeResourceClass('Causality', () => {
 
-        describeEndpoint('/causalities', ['GET', 'POST']);
 
         describeEndpoint('/causalities/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.causality1.id}), () => {
 
@@ -351,10 +349,6 @@ export function testResources() {
 
         //Specific resource
         describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
 
@@ -483,13 +477,8 @@ export function testResources() {
 
     describeResourceClass('Node', () => {
 
-        describeEndpoint('/nodes', ['GET', 'POST']);
 
         describeEndpoint('/nodes/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.node1.id}), () => {
 
@@ -535,13 +524,8 @@ export function testResources() {
 
     describeResourceClass('Process', () => {
 
-        describeEndpoint('/processes', ['GET', 'POST']);
 
         describeEndpoint('/processes/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.process1.id}), () => {
 
@@ -585,13 +569,8 @@ export function testResources() {
 
     describeResourceClass('Group', () => {
 
-        describeEndpoint('/groups', ['GET', 'POST']);
 
         describeEndpoint('/groups/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.group1.id}), () => {
 
@@ -619,13 +598,8 @@ export function testResources() {
 
     describeResourceClass('OmegaTree', () => {
 
-        describeEndpoint('/omegaTrees', ['GET', 'POST']);
 
         describeEndpoint('/omegaTrees/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.omegaTree1.id}), () => {
 
@@ -658,13 +632,8 @@ export function testResources() {
 
     describeResourceClass('Publication', () => {
 
-        describeEndpoint('/publications', ['GET', 'POST']);
 
         describeEndpoint('/publications/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.publication1.id}), () => {
 
@@ -690,13 +659,8 @@ export function testResources() {
 
     describeResourceClass('ClinicalIndex', () => {
 
-        describeEndpoint('/clinicalIndices', ['GET', 'POST']);
 
         describeEndpoint('/clinicalIndices/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.clinicalIndex2.id}), () => {
 
@@ -724,13 +688,7 @@ export function testResources() {
 
     describeResourceClass('Correlation', () => {
 
-        describeEndpoint('/correlations', ['GET', 'POST']);
-
         describeEndpoint('/correlations/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.correlation1.id}), () => {
 
@@ -764,13 +722,7 @@ export function testResources() {
 
     describeResourceClass('Coalescence', () => {
 
-        describeEndpoint('/coalescences', ['GET', 'POST']);
-
         describeEndpoint('/coalescences/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.coalescence1.id}), () => {
 
@@ -802,13 +754,7 @@ export function testResources() {
 
     describeResourceClass('CoalescenceScenario', () => {
 
-        describeEndpoint('/coalescenceScenarios', ['GET', 'POST']);
-
         describeEndpoint('/coalescenceScenarios/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.coalescenceScenario1.id}), () => {
 
@@ -834,13 +780,8 @@ export function testResources() {
 
     describeResourceClass('Type', () => {
 
-        describeEndpoint('/types', ['GET', 'POST']);
 
         describeEndpoint('/types/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             //TODO uncomment when materialType1 is created
             // withValidPathParams(()=>({id: initial.materialType1.id}), () => {
@@ -880,7 +821,7 @@ export function testAbstractResources(){
 
     describeResourceClass('Resource', () => {
 
-        describeEndpoint('/resources', ['GET', 'POST']);
+        describeEndpoint(`/resources`, ['GET', 'POST']);
 
         describeEndpoint('/resources/{id}', ['GET', 'POST', 'DELETE'], () => {
 
@@ -916,13 +857,7 @@ export function testAbstractResources(){
 
     describeResourceClass('Template', () => {
 
-        describeEndpoint('/templates', ['GET', 'POST']);
-
         describeEndpoint('/templates/{id}', ['GET', 'POST', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
 
@@ -966,13 +901,7 @@ export function testAbstractResources(){
 
     describeResourceClass('NodeLocation', () => {
 
-        describeEndpoint('/nodeLocations', ['GET', 'POST']);
-
         describeEndpoint('/nodeLocations/{id}', ['GET', 'POST', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
 
@@ -1001,13 +930,7 @@ export function testAbstractResources(){
 
     describeResourceClass('MeasurableLocation', () => {
 
-        describeEndpoint('/measurableLocations', ['GET', 'POST']);
-
         describeEndpoint('/measurableLocations/{id}', ['GET', 'POST', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.node1.id}), () => {
 
@@ -1036,13 +959,7 @@ export function testAbstractResources(){
 
     describeResourceClass('OmegaTreePart', () => {
 
-        describeEndpoint('/omegaTreeParts', ['GET', 'POST']);
-
         describeEndpoint('/omegaTreeParts/{id}', ['GET', 'POST', 'DELETE'], () => {
-
-            withInvalidPathParams("non-existing", {id: 999999});
-
-            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.lyph1.id}), () => {
 

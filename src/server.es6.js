@@ -120,27 +120,23 @@ const requestHandler = {
 			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
 		async post({db, type}, req, res) {
-			await db.assertRelationshipsExist(type, [req.pathParams.id]);
 			await db.updateRelationshipByID(type, req.pathParams.id, req.body);
 			let extracted = await db.getSpecificRelationships(type, [req.pathParams.id]);
 			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
 		async put({db, type}, req, res) {
-			await db.assertRelationshipsExist(type, [req.pathParams.id]);
 			await db.replaceRelationshipByID(type, req.pathParams.id, req.body);
             let extracted = await db.getSpecificRelationships(type, [req.pathParams.id]);
             res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
 		async delete({db, type}, req, res) {
-			await db.assertRelationshipsExist(type, [req.pathParams.id]);
 			await db.deleteRelationshipByID(type, req.pathParams.id);
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
     relatedRelationships: /* get, delete */{
 		async get({db, relA}, req, res) {
-			await db.assertResourcesExist(relA, [req.pathParams.idA]);
-            let extracted = await db.getRelatedRelationships(relA, req.pathParams.idA);
+			let extracted = await db.getRelatedRelationships(relA, req.pathParams.idA);
 			res.status(OK).jsonp( [...extracted].map(val => extractFieldValues(val)));
 		}
 	},
@@ -199,7 +195,6 @@ function parameterNormalizer(req, res, next) {
 	}
 	return next();
 }
-
 
 /* error normalizer */
 function errorNormalizer(err, req, res, next) {
@@ -289,6 +284,8 @@ export default async (distDir, config) => {
 	/* load the middleware */
 	let [middleware] = await swaggerMiddleware(`${distDir}/swagger.json`, server);
 
+	server.use(decodePath);
+
 	/* use Swagger middleware */
 	//noinspection JSUnresolvedFunction (there is no .d.ts file for swagger-express-middleware)
 	server.use(
@@ -316,10 +313,16 @@ export default async (distDir, config) => {
 	/* normalize parameter names */
 	server.use(parameterNormalizer);
 
+	function decodePath (req, res, next) {
+		req.url = decodeURI(req.url);
+		return next();
+	}
+
 	/* request handling */
 	for (let path of Object.keys(swagger.paths)) {
 		let pathObj = swagger.paths[path];
 		let expressStylePath = path.replace(/{(\w+)}/g, ':$1');
+
 		for (let method of _(pathObj).keys().intersection(['get', 'post', 'put', 'delete'])) {
 			let info = sw(pathObj['x-path-type'])(
 				[['resources', 'specificResources'], ()=>({
@@ -337,14 +340,16 @@ export default async (distDir, config) => {
                     type: relationships[pathObj['x-relationship-type']],
 					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']],
 					relB: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-B']]
-                })], //TODO 'specificRelatedRelationship'
+                })],
 				[['algorithm'], ()=>({
 					algorithmName: pathObj['x-algorithm-name']
 				})]
 			);
 			Object.assign(info, { db });
 			server[method](expressStylePath, (req, res, next) => {
-				try { requestHandler[pathObj['x-path-type']][method](info, req, res).catch(next) }
+				try {
+					req.url = encodeURI(req.url);
+					requestHandler[pathObj['x-path-type']][method](info, req, res).catch(next) }
 				catch (err) { next(err) }
 			});
 		}

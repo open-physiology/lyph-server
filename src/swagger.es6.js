@@ -487,7 +487,6 @@ function addSpecificRelationshipEndpoint(cls) {
 function addRelatedRelationshipEndpoint(cls, i, direction) {
     const relA        = cls.domainPairs[i][(direction === FORWARD)? 1: 2];
     const relName     = relA.keyInResource;
-    const pathRelName = relName.replace(">", "%3E").replace("<", "%3C");
 
     const {getSummary, putSummary, deleteSummary} = relA;
 
@@ -496,7 +495,7 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
     const singularIdKeyA = `${toCamelCase(singularA )}ID`;
     const pluralKeyA     = toCamelCase(pluralA);
 
-    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${pathRelName}`] = {
+    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${relName}`] = {
         'x-path-type': 'relatedRelationships',
         'x-param-map': {
             idA: singularIdKeyA,
@@ -507,7 +506,7 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
         'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
         get: {
-            summary: getSummary || `retrieve all the ${relName} relationships of a given ${singularA}`,
+            summary: getSummary || `retrieve all ${relName} relationships of a given ${singularA}`,
             parameters: [
                 {
                     name:        singularIdKeyA,
@@ -520,7 +519,7 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
             responses: {
                 [OK]: {
                     description: `an array containing the ${relName} relationships of the given ${singularA}`,
-                    schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
+                    schema: { type: 'array', items: $ref(cls.name)}
                 }
             }
         }
@@ -533,7 +532,6 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
     const relB = cls.domainPairs[i][(direction === FORWARD)? 2: 1];
 
     const relName = relA.keyInResource;
-    const pathRelName = relName.replace(">", "%3E").replace("<", "%3C");
     const {abstract} = cls;
 
     const pluralA       = relA.resourceClass.plural;
@@ -547,7 +545,7 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
 
     const msg = relA.resourceClass === relB.resourceClass? pluralA: singularA + " and " + singularB;
 
-    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${pathRelName}/{${singularIdKeyB}}`] = {
+    relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${relName}/{${singularIdKeyB}}`] = {
         'x-path-type': 'specificRelationshipByResources',
         'x-param-map': {
             idA: singularIdKeyA,
@@ -579,7 +577,7 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
             responses: {
                 [OK]: {
                     description: `an array containing ${relName} relationships between given ${msg}`,
-                    schema: { type: 'array', items: $ref(cls.name)}
+                    schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
                 }
             }
         },

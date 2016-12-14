@@ -601,19 +601,22 @@ export default class LyphNeo4j extends Neo4j {
 
 	async getAllRelationships(cls) {
 
-        /* is there a hook to completely replace entity retrieval? */
-        let result = await this[runClassSpecificHook](cls, 'getAll', {});
-        if (result) { return result }
+		/* is there a hook to completely replace entity retrieval? */
+		let result = await this[runClassSpecificHook](cls, 'getAll', {});
+		if (result) { return result }
 
-        /* formulating and sending the query */
-        result = await this.query(`
+		/* formulating and sending the query */
+		result = await this.query(`
 			MATCH (A) -[rel:${cls.name}]-> (B) RETURN A, rel, B
 		`);
 
-        return result.map(({A, rel, B}) => ({
+		return result.map(({A, rel, B}) => ({
 			...neo4jToData(cls, rel),
 			...{1: neo4jToData(resources[A.class], A)},
-			...{2: neo4jToData(resources[B.class], B)}}));
+			...{2: neo4jToData(resources[B.class], B)}
+		}));
+
+		//TODO: why A and B are empty?
     }
 
 
@@ -625,6 +628,33 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 
+	async getRelatedRelationships(relA, idA){
+		let cls = relA.relationshipClass;
+		let relB = relA.codomain;
+
+		await this.assertResourcesExist(relA.resourceClass, [idA]);
+
+		/* formulating and sending the query */
+		let [l, r] = arrowEnds(relA);
+		let result = await this.query(`
+			MATCH (A:${relA.resourceClass.name} { id: ${idA} })
+			      ${l}[rel:${cls.name}]${r}
+			      (B:${relB.resourceClass.name})
+			RETURN A, rel, B
+		`);
+
+		/* integrate relationship data into the resource object */
+		return result.map(({A, rel, B}) => ({
+			...neo4jToData(cls, rel),
+			...{1: neo4jToData(relA.resourceClass, A)},
+			...{2: neo4jToData(relB.resourceClass, B)}
+		}));
+	}
+
+
+	////////////////////////////////////////////////////
+	//Relationships by ID                             //
+	////////////////////////////////////////////////////
 	async assertRelationshipsExist(cls, ids){
 		/* is there a hook to completely replace entity retrieval? */
 		let result = await this[runClassSpecificHook](cls, 'assertrelationshipsExist', { ids });
@@ -675,31 +705,7 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* return results in proper order */
 		return ids.map((id1) => result.find(({id}) => id1 === id));
-    }
-
-
-	async getRelatedRelationships(relA, idA){
-		let cls = relA.relationshipClass;
-		let relB = relA.codomain;
-
-		/* formulating and sending the query */
-		let [l, r] = arrowEnds(relA);
-		let result = await this.query(`
-			MATCH (A:${relA.resourceClass.name} { id: ${idA} })
-			      ${l}[rel:${cls.name}]${r}
-			      (B:${relB.resourceClass.name})
-			RETURN A, rel, B
-		`);
-
-		/* integrate relationship data into the resource object */
-		return result.map(({A, rel, B}) => ({
-			...neo4jToData(cls, rel),
-			...{1: neo4jToData(relA.resourceClass, A)},
-			...{2: neo4jToData(relB.resourceClass, B)}}));
 	}
-
-
-    ///////////////////////////////////////////////
 
 
     async updateRelationshipByID(cls, id, fields){
@@ -763,17 +769,24 @@ export default class LyphNeo4j extends Neo4j {
 
 
     async deleteRelationshipByID(cls, id){
+		await this.assertRelationshipsExist(cls, [id]);
+
 		await this.query(`
 			MATCH () -[rel:${cls.name} {id: ${id}}]- () DELETE rel
 		`);
     }
 
 
-    ////////////////////////////////////////////////
+    ////////////////////////////////////////////////////
+	//Relationships by resources                      //
+	////////////////////////////////////////////////////
 
 	async getRelationships(relA, idA, idB){
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
+
+		await this.assertResourcesExist(relA.resourceClass, [idA]);
+		await this.assertResourcesExist(relB.resourceClass, [idB]);
 
 		/* formulating and sending the query */
 		let [l, r] = arrowEnds(relA);
@@ -817,31 +830,14 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 
-	async deleteRelationship(relA, idA, idB) {
-
+	async updateRelationship(relA, idA, idB, fields){
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
-		/* throw a 404 if either of the resources doesn't exist */
 		await Promise.all([
 			this.assertResourcesExist(relA.resourceClass, [idA]),
 			this.assertResourcesExist(relB.resourceClass, [idB])
 		]);
-
-		/* the main query for removing the relationship */
-		let [l, r] = arrowEnds(relA);
-		await this.query(`
-			MATCH (A:${relA.resourceClass.name} { id: ${idA} })
-			      ${l}[rel:${cls.name}]${r}
-			      (B:${relB.resourceClass.name} { id: ${idB} })
-			DELETE rel
-		`);
-	}
-
-
-	async updateRelationship(relA, idA, idB, fields){
-		let cls = relA.relationshipClass;
-		let relB = relA.codomain;
 
 		/* formulating and sending the query */
 		let [l, r] = arrowEnds(relA);
@@ -884,4 +880,27 @@ export default class LyphNeo4j extends Neo4j {
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
 	}
+
+
+	async deleteRelationship(relA, idA, idB) {
+
+		let cls = relA.relationshipClass;
+		let relB = relA.codomain;
+
+		/* throw a 404 if either of the resources doesn't exist */
+		await Promise.all([
+			this.assertResourcesExist(relA.resourceClass, [idA]),
+			this.assertResourcesExist(relB.resourceClass, [idB])
+		]);
+
+		/* the main query for removing the relationship */
+		let [l, r] = arrowEnds(relA);
+		await this.query(`
+			MATCH (A:${relA.resourceClass.name} { id: ${idA} })
+			      ${l}[rel:${cls.name}]${r}
+			      (B:${relB.resourceClass.name} { id: ${idB} })
+			DELETE rel
+		`);
+	}
+
 }

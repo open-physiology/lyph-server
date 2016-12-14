@@ -2,7 +2,10 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import _, {template, isString, isFunction, isArray, isUndefined} from 'lodash';
+import _, {template, isArray} from 'lodash';
+import isString from 'lodash-bound/isString';
+import isFunction from 'lodash-bound/isFunction';
+
 import chai, {expect} from 'chai';
 
 import supertest   from './custom-supertest.es6.js';
@@ -134,9 +137,9 @@ export const describeResourceClass = (className, runResourceClassTests) => {
 
                 /* DESCRIBE BLOCK: given valid path parameters */
                 withValidPathParams = (desc, params, runParamTests) => {
-                    if (!isString(desc)) { [desc, params, runParamTests] = ["valid", desc, params] }
+                    if (!desc::isString()) { [desc, params, runParamTests] = ["valid", desc, params] }
                     describe(`(${desc} path parameters)`, () => {
-                        beforeEach(() => { compiledPath = compilePath(isFunction(params) ? params() : params) });
+                        beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
 
                         /* run tests common to all endpoints with valid path params */
                         if (/^\/\w+\/{\w+}$/.test(givenPath)) {
@@ -159,10 +162,10 @@ export const describeResourceClass = (className, runResourceClassTests) => {
 
                 /* DESCRIBE BLOCK: given invalid path parameters */
                 withInvalidPathParams = (desc, params, runParamTests) => {
-                    if (!isString(desc)) { [desc, params, runParamTests] = ["invalid", desc, params] }
+                    if (!desc::isString()) { [desc, params, runParamTests] = ["invalid", desc, params] }
                     describe(`(${desc} path parameters)`, () => {
                         /* set the compiled path before each test */
-                        beforeEach(() => { compiledPath = compilePath(isFunction(params) ? params() : params) });
+                        beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
 
                         /* run tests common to all endpoints with invalid path params  */
                         if (/^\/\w+\/{\w+}$/.test(givenPath)) {
@@ -372,15 +375,16 @@ beforeEach(async () => {
     await newLyph2.commit();
 
     //Portable contains object with arrays of values instead of Rel$Field etc.
+
     portable.externalResource1 = extractFieldValues(newExternalResource1);
-    portable.lyph1 = extractFieldValues(await createCLResource(newLyph1));
-    portable.lyph2 = extractFieldValues(await createCLResource(newLyph2));
+    portable.lyph1             = extractFieldValues(await createCLResource(newLyph1));
+    portable.lyph2             = extractFieldValues(await createCLResource(newLyph2));
 
     //HasLayer with ID
-    // await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
-    //     portable.lyph1.id, portable.lyph2.id, {id: 200, class: "HasLayer"});
-    // await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
-    //
+    await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
+        portable.lyph1.id, portable.lyph2.id, {id: 200, class: "HasLayer"});
+    await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
+
     // await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
     //    initial.mainLyph1.id, initial.lyph2.id, {relativePosition: 1});
     // await db.assertRelationshipsExist(relationships["HasLayer"], [201]);
@@ -394,7 +398,10 @@ beforeEach(async () => {
     // await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {name: "Head"});
     // await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
 
-    //await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
+    // await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
+
+    //let res = await db.getAllRelationships(relationships["HasLayer"]);
+    //res = [...res].map(val => extractFieldValues(val));
 
 });
 

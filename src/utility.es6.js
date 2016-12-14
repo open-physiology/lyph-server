@@ -107,10 +107,9 @@ export const arrowEnds = (relA) => (relA.symmetric)               ? [' -','- '] 
 									   								['<-','- '] ;
 
 
-export const extractFieldValues = (r) =>
-	(r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
+export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 
-//(value)? x.value: x
+
 
 /* extracts IDs frome resource or relationship fields */
 export const extractIds = (array) => {
@@ -142,10 +141,15 @@ export function relationshipQueryFragments(cls, nodeName) {
 		    ${l}[:${fieldSpec.relationshipClass.name}]${r}
 		    (${relName}:${fieldSpec.codomain.resourceClass.name})
 		`);
-		objectMembers.push((fieldSpec.cardinality.max === 1)
-			? `\`${fieldName}\`: ${relName}.id`
-			: `\`${fieldName}\`: collect(DISTINCT ${relName}.id)`
-		);
+
+		let res = (fieldSpec.cardinality.max === 1) ? `${relName}.id` : `collect(DISTINCT ${relName}.id)`;
+		objectMembers.push(`\`${fieldName}\`: ${res}`);
+
+		//Repeats some queries to restore shortcut fields
+		//Alternatively, copy extracted relationship data to shortcut fields in neo4jToData
+		if (fieldSpec.shortcutKey){
+			objectMembers.push(`${fieldSpec.shortcutKey}: ${res}`);
+		}
 	}
 
 	return { optionalMatches, objectMembers };
