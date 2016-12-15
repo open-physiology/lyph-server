@@ -148,9 +148,9 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                                 .expect(isArray)
                                 .resources((resources) => {
                                     expect(resources).to.have.length.of.at.least(1);
-                                    for (let res of resources) {
-                                        expect(res).to.have.property('class', cls.name);
-                                    }
+                                    // for (let res of resources) {
+                                    //     expect(res).to.have.property('class', cls.name);
+                                    // }
                                 })
                             );
                         }
@@ -189,9 +189,9 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                         .expect(isArray)
                         .resources((resources) => {
                             expect(resources).to.have.instanceOf(Array);
-                            for (let res of resources) {
-                                expect(res).to.have.property('class', cls.name);
-                            }
+                            // for (let res of resources) {
+                            //     expect(res).to.have.property('class', cls.name);
+                            // }
                         })
                     );
                 }
@@ -400,8 +400,8 @@ beforeEach(async () => {
 
     // await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
 
-    let res = await db.getAllRelationships(relationships["HasLayer"]);
-    res = [...res].map(val => extractFieldValues(val));
+    //let res = await db.getAllRelationships(relationships["HasLayer"]);
+    //res = [...res].map(val => extractFieldValues(val));
 
 
 });

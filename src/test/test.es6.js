@@ -44,11 +44,8 @@ describe("docs", () => {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//testResourcesGeneral();
 
-testRelationshipsGeneral();
-
-//runSelectedRelationshipTest();
+runSelectedRelationshipTest();
 
 //runSelectedResourceTest();
 
@@ -57,6 +54,10 @@ testRelationshipsGeneral();
 //testAbstractResources();
 
 //testRelationships();
+
+//testResourcesGeneral();
+
+//testRelationshipsGeneral();
 
 
 

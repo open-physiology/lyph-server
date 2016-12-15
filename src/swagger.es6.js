@@ -582,7 +582,7 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
             }
         },
         post: {
-            summary: `updatea ${relName} relationship between given ${msg}`,
+            summary: `update a ${relName} relationship between given ${msg}`,
             parameters: [
                 {
                     name:        singularIdKeyA,

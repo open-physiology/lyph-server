@@ -122,6 +122,13 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 	? `OPTIONAL MATCH (${a}) ${l}[:${relTypes.map(({relationship:{name}})=>name).join('|')}]${r} (${b})`
 	: ``;
 
+/* to get node or relationship match labels for a given entity class */
+export function matchLabelsQueryFragment(cls, entityName){
+	//TODO: what property gives sub classes?
+	let parentClasses = (cls.subClasses)? cls.subClasses.map(x => x.name): [cls.name];
+	if (entityName::isUndefined() || cls.isRelationship){ return parentClasses; }
+	return parentClasses.map((label) => (`${entityName}: ${label}`));
+}
 
 /* to get query-fragments to get relationship-info for a given resource */
 export function relationshipQueryFragments(cls, nodeName) {
