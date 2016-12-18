@@ -26,14 +26,7 @@ import {
 // utilities                                                                                                          //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//NK TODO: remove overriding of specific types
-//Reason: model library exports Type but uses secific types, e.g., MaterialType in relationships
-//This causes a problem with generated Swagger end points
-const $ref = (className) => (
-	(className.indexOf("Type") > -1)?
-		  { $ref: `#/definitions/Type`}
-		: { $ref: `#/definitions/${className}` }
-	);
+const $ref = (className) => ({ $ref: `#/definitions/${className}` });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // swagger data types                                                                                                 //
@@ -62,22 +55,28 @@ for (let [className, cls] of Object.entries(model)) {
         return properties;
     }
 
-	swaggerDataTypes[className] = {
+    let allExposedFields = {...cls.properties, ...cls.relationshipShortcuts};
+
+    swaggerDataTypes[className] = {
 		type:       'object',
-		properties: (() => { return replaceProperties(cloneDeep(cls.properties)); })()
+		properties: (() => { return replaceProperties(cloneDeep(allExposedFields)); })()
 	};
     swaggerDataTypes[className][xTag] = cls.name;
 
-	let required = [...Object.entries(cls.properties)]
-			.filter(([fieldName, {'x-required': required}]) => required)
+
+	let required = Object.entries(allExposedFields)
+			.filter(([fieldName, {'required': required}]) => required)
 			.map(([fieldName]) => fieldName);
+
+    //TODO: all objects have to come with id
+    required.push("id");
 
 	if (required.length > 0) { swaggerDataTypes[className].required = required; }
 
 	swaggerDataTypes[`partial_${className}`] = {
 		// partial = allow required fields to be absent for update commands
 		type: 'object',
-		properties: (() => { return replaceProperties(cloneDeep(cls.properties)); })()
+		properties: (() => { return replaceProperties(cloneDeep(allExposedFields)); })()
 	};
     swaggerDataTypes[`partial_${className}`][xTag] = cls.name;
 

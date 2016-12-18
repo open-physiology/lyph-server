@@ -210,8 +210,7 @@ export function testRelationshipsGeneral(){
         "PrescribesStyleFor",
         "PresentsModel",
         "PullsIntoTypeDefinition",
-        "TransportsMaterial",
-        "provisional_FlowsTo"
+        "TransportsMaterial"
     ]){
         describeResourceClass(className, () => {
             describeEndpoint(`/${className}`, ['GET', 'POST']);

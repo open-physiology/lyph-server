@@ -46,35 +46,38 @@ import {
 
 const requestHandler = {
 	resources: /*get, post*/ {
-		async get({db, type}, req, res) {
-			let extracted = await db.getAllResources(type);
+		async get({db, cls}, req, res) {
+			let extracted = await db.getAllResources(cls);
 			//TODO: replace with official model library toJSON method
 			res.status(OK).jsonp( [...extracted].map(val => extractFieldValues(val)));
 		},
-		async post({db, type}, req, res) {
-			//
-			let id = await db.createResource(type, req.body);
-			let createdResource = await db.getSpecificResources(type, [id]);
+		async post({db, cls}, req, res) {
+			//let resource = model[cls.name].new(req.body);
+			//let fields = extractFieldValues(resource);
+			//let id = await db.createResource(resource.constructor, fields);
+			let id = await db.createResource(cls, req.body);
+			let createdResource = await db.getSpecificResources(cls, [id]);
 			res.status(CREATED).jsonp(createdResource);
 		}
 	},
 	specificResources: /*get, post, put, delete*/ {
-		async get({db, type}, req, res) {
-			res.status(OK).jsonp(await db.getSpecificResources(type, req.pathParams.ids));
+		async get({db, cls}, req, res) {
+			await db.assertResourcesExist(cls, req.pathParams.ids);
+			res.status(OK).jsonp(await db.getSpecificResources(cls, req.pathParams.ids));
 		},
-		async post({db, type}, req, res) {
-			await db.assertResourcesExist(type, [req.pathParams.id]);
-			await db.updateResource(type, req.pathParams.id, req.body);
-			res.status(OK).jsonp(await db.getSpecificResources(type, [req.pathParams.id]));
+		async post({db, cls}, req, res) {
+			await db.assertResourcesExist(cls, [req.pathParams.id]);
+			await db.updateResource(cls, req.pathParams.id, req.body);
+			res.status(OK).jsonp(await db.getSpecificResources(cls, [req.pathParams.id]));
 		},
-		async put({db, type}, req, res) {
-			await db.assertResourcesExist(type, [req.pathParams.id]);
-			await db.replaceResource(type, req.pathParams.id, req.body);
-			res.status(OK).jsonp(await db.getSpecificResources(type, [req.pathParams.id]));
+		async put({db, cls}, req, res) {
+			await db.assertResourcesExist(cls, [req.pathParams.id]);
+			await db.replaceResource(cls, req.pathParams.id, req.body);
+			res.status(OK).jsonp(await db.getSpecificResources(cls, [req.pathParams.id]));
 		},
-		async delete({db, type}, req, res) {
-			await db.assertResourcesExist(type, [req.pathParams.id]);
-			await db.deleteResource(type, req.pathParams.id);
+		async delete({db, cls}, req, res) {
+			await db.assertResourcesExist(cls, [req.pathParams.id]);
+			await db.deleteResource(cls, req.pathParams.id);
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
@@ -85,7 +88,7 @@ const requestHandler = {
 		}
 	},
 	specificRelatedResource: /*put, delete*/ {
-		async put({db, type, relA, relB}, req, res) {
+		async put({db, cls, relA, relB}, req, res) {
 			let {idA, idB} = req.pathParams;
 			await Promise.all([
 				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
@@ -94,7 +97,7 @@ const requestHandler = {
 			await db.addRelationship(relA, idA, idB, req.body);
 			res.status(NO_CONTENT).jsonp();
 		},
-		async delete({db, type, relA, relB}, req, res) {
+		async delete({db, cls, relA, relB}, req, res) {
 			let {idA, idB} = req.pathParams;
 			await Promise.all([
 				db.assertResourcesExist(relA.resourceClass 		   , [idA]),
@@ -105,33 +108,36 @@ const requestHandler = {
 		}
 	},
 	relationships: /*get, delete*/  {
-        async get({db, type}, req, res) {
-            let extracted = await db.getAllRelationships(type);
+        async get({db, cls}, req, res) {
+            let extracted = await db.getAllRelationships(cls);
             //TODO: replace with official model library toJSON method
             res.status(OK).jsonp( [...extracted].map(val => extractFieldValues(val)));
         },
-        async delete({db, type}, req, res) {
-            await db.deleteAllRelationships(type);
+        async delete({db, cls}, req, res) {
+            await db.deleteAllRelationships(cls);
             res.status(NO_CONTENT).jsonp();
         }
     },
     specificRelationships: /*get, post, put, delete*/ {
-		async get({db, type}, req, res) {
-		    let extracted = await db.getSpecificRelationships(type, req.pathParams.ids);
+		async get({db, cls}, req, res) {
+			await db.assertRelationshipsExist(cls, req.pathParams.ids);
+		    let extracted = await db.getSpecificRelationships(cls, req.pathParams.ids);
 			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
-		async post({db, type}, req, res) {
-			await db.updateRelationshipByID(type, req.pathParams.id, req.body);
-			let extracted = await db.getSpecificRelationships(type, [req.pathParams.id]);
+		async post({db, cls}, req, res) {
+			await db.assertRelationshipsExist(cls, req.pathParams.id);
+			await db.updateRelationshipByID(cls, req.pathParams.id, req.body);
+			let extracted = await db.getSpecificRelationships(cls, [req.pathParams.id]);
 			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
-		async put({db, type}, req, res) {
-			await db.replaceRelationshipByID(type, req.pathParams.id, req.body);
-            let extracted = await db.getSpecificRelationships(type, [req.pathParams.id]);
+		async put({db, cls}, req, res) {
+			await db.replaceRelationshipByID(cls, req.pathParams.id, req.body);
+            let extracted = await db.getSpecificRelationships(cls, [req.pathParams.id]);
             res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
-		async delete({db, type}, req, res) {
-			await db.deleteRelationshipByID(type, req.pathParams.id);
+		async delete({db, cls}, req, res) {
+			await db.assertRelationshipsExist(cls, req.pathParams.id);
+			await db.deleteRelationshipByID(cls, req.pathParams.id);
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
@@ -142,25 +148,41 @@ const requestHandler = {
 		}
 	},
 	specificRelationshipByResources: /*get, post, put, delete*/ {
-		async get({db, type, relA}, req, res) {
+		async get({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
+			await Promise.all([
+				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
+				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			]);
 			let extracted = await db.getRelationships(relA, idA, idB);
 			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
-		async post({db, type, relA}, req, res) {
+		async post({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
+			await Promise.all([
+				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
+				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			]);
 			await db.updateRelationship(relA, idA, idB, req.body);
 			let extracted = await db.getRelationships(relA, idA, idB);
 			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
-		async put({db, type, relA}, req, res) {
+		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
+			await Promise.all([
+				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
+				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			]);
 			await db.replaceRelationship(relA, idA, idB, req.body);
 			let extracted = await db.getRelationships(relA, idA, idB);
 			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
 		},
-		async delete({db, type, relA}, req, res) {
+		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
+			await Promise.all([
+				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
+				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
+			]);
 			await db.deleteRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
 		}
@@ -327,18 +349,18 @@ export default async (distDir, config) => {
 		for (let method of _(pathObj).keys().intersection(['get', 'post', 'put', 'delete'])) {
 			let info = sw(pathObj['x-path-type'])(
 				[['resources', 'specificResources'], ()=>({
-					type: resources[pathObj['x-resource-type']]
+					cls: resources[pathObj['x-resource-type']]
 				})],
 				[['relatedResources', 'specificRelatedResource'], ()=> ({
-					type: relationships[pathObj['x-relationship-type']],
+					cls: relationships[pathObj['x-relationship-type']],
 					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']],
 					relB: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-B']]
 				})],
                 [['relationships', 'specificRelationships'], ()=>({
-                    type: relationships[pathObj['x-relationship-type']]
+                    cls: relationships[pathObj['x-relationship-type']]
                 })],
                 [['relatedRelationships', 'specificRelationshipByResources'], ()=>({
-                    type: relationships[pathObj['x-relationship-type']],
+                    cls: relationships[pathObj['x-relationship-type']],
 					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']],
 					relB: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-B']]
                 })],

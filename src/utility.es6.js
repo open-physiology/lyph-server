@@ -125,7 +125,7 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 /* to get node or relationship match labels for a given entity class */
 export function matchLabelsQueryFragment(cls, entityName){
 	//TODO: what property gives sub classes?
-	let parentClasses = (cls.subClasses)? cls.subClasses.map(x => x.name): [cls.name];
+	let parentClasses = (cls.allSubclasses)? [...cls.allSubclasses()].map(x => x.name): [cls.name];
 	if (entityName::isUndefined() || cls.isRelationship){ return parentClasses; }
 	return parentClasses.map((label) => (`${entityName}: ${label}`));
 }

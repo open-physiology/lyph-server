@@ -114,7 +114,6 @@ export const describeResourceClass = (className, runResourceClassTests) => {
     (only ? describe.only : describe)(className, () => {
 
         /* set useful variables */
-        //before(() => { cls = resources[className] });
         before(() => { cls = model[className] });
 
         /* DESCRIBE BLOCK: given endpoint */
@@ -148,9 +147,11 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                                 .expect(isArray)
                                 .resources((resources) => {
                                     expect(resources).to.have.length.of.at.least(1);
-                                    // for (let res of resources) {
-                                    //     expect(res).to.have.property('class', cls.name);
-                                    // }
+                                    let subClasses = [...cls.allSubclasses()].map(x => x.name);
+                                    for (let res of resources) {
+                                        expect(res).to.have.property('class');
+                                        expect(subClasses).to.include(res.class);
+                                    }
                                 })
                             );
                         }
@@ -189,9 +190,11 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                         .expect(isArray)
                         .resources((resources) => {
                             expect(resources).to.have.instanceOf(Array);
-                            // for (let res of resources) {
-                            //     expect(res).to.have.property('class', cls.name);
-                            // }
+                            let subClasses = [...cls.allSubclasses()].map(x => x.name);
+                            for (let res of resources) {
+                                expect(res).to.have.property('class');
+                                expect(subClasses).to.include(res.class);
+                            }
                         })
                     );
                 }
@@ -214,7 +217,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
 
 /* variables to store all resources created at the beginning of each test */
 export let initial = {};
-export let portable = {};
+export let dynamic = {};
 
 /* initial database clearing */
 before(() => db.clear('Yes! Delete all everythings!'));
@@ -242,10 +245,9 @@ beforeEach(async () => {
     initial.material2 = model.Material.new({ name: "Urine" });
 
     /* types */
-    //initial.materialType1 = model.Type.new({
-    // name: "Blood",
-    // definition: initial.material1});
-    //await initial.materialType1.commit();
+    initial.materialType1 = model.Type.new({
+    name: "Blood",
+    definition: initial.material1});
 
     /* measurables */
     initial.measurable1 =  model.Measurable.new({ name:  "Concentration of water" });
@@ -269,7 +271,7 @@ beforeEach(async () => {
         thickness : {value: 1},
         length    : {min: 1, max: 10},
         externals: [initial.externalResource1],
-        //materials: [initial.materialType1],
+        materials: [initial.materialType1],
         longitudinalBorders: [initial.border1, initial.border2],
         axis: initial.border1,
         layers:    [initial.lyph1, initial.lyph2],
@@ -283,19 +285,31 @@ beforeEach(async () => {
         longitudinalBorders: [initial.border3, initial.border4]
     });
 
+    initial.lyphType1 = model.Type.new({
+        name: "Renal hilum type",
+        definition: initial.lyph1});
+
+    initial.lyphType2 = model.Type.new({
+        name: "Renal parenchyma type",
+        definition: initial.lyph2});
+
+    initial.lyphType3 = model.Type.new({
+        name: "Renal capsule type",
+        definition: initial.lyph3});
+
     /* processes */
     initial.process1 = model.Process.new({
         name : "Blood advective process",
-        transportPhenomenon: "advection"//,  //TODO test with array
-        //sourceLyph: initial.lyph1,
+        transportPhenomenon: "advection",  //TODO test with array
+        //sourceLyph: initial.lyph1,       //TODO - these will be removed from modle library for now
         //targetLyph: initial.lyph2,
-        //conveyingLyph: [initial.mainLyph1]
+        conveyingLyph: [initial.mainLyph1]
     });
 
     /* nodes */
     initial.node1 = model.Node.new({
         measurables: [initial.measurable1],
-       // incomingProcesses:  [initial.process1],
+        //incomingProcesses:  [initial.process1],
         locations: [initial.mainLyph1]
     });
 
@@ -305,10 +319,22 @@ beforeEach(async () => {
         elements: [initial.lyph1, initial.node1, initial.process1]
     });
 
-    /* omega trees */
-    initial.omegaTree1 = model.OmegaTree.new({
+    /* canonical trees */
+    initial.canonicalTree1 = model.CanonicalTree.new({
         name:  "Short Looped Nephrone",
-        parts: [initial.lyph1, initial.lyph2, initial.lyph3]
+        conveyingLyphType: initial.lyphType1
+    });
+
+    initial.canonicalTree1_2 = model.CanonicalTree.new({
+        name:  "Second level of SLN",
+        conveyingLyphType: initial.lyphType2,
+        parentTree: initial.canonicalTree1
+    });
+
+    initial.canonicalTree2 = model.CanonicalTree.new({
+        name:  "Long Looped Nephrone",
+        parentTree: [initial.canonicalTree1],
+        conveyingLyphType: [initial.lyphType3]
     });
 
     /* publications */
@@ -368,21 +394,28 @@ beforeEach(async () => {
     });
     await newExternalResource1.commit();
 
-    let newLyph1 = model.Lyph.new({name:  "Heart chamber"});
+    let newLyph1 = model.Lyph.new({
+        name:  "Heart chamber"});
     await newLyph1.commit();
 
-    let newLyph2 = model.Lyph.new({ name:  "Heart"});
+    let newLyph2 = model.Lyph.new({
+        name:  "Heart"});
     await newLyph2.commit();
+
+    let newLyph3 = model.Lyph.new({
+        name:  "Liver"});
+    await newLyph3.commit();
 
     //Portable contains object with arrays of values instead of Rel$Field etc.
 
-    portable.externalResource1 = extractFieldValues(newExternalResource1);
-    portable.lyph1             = extractFieldValues(await createCLResource(newLyph1));
-    portable.lyph2             = extractFieldValues(await createCLResource(newLyph2));
+    dynamic.externalResource1 = extractFieldValues(await createCLResource(newExternalResource1));
+    dynamic.lyph1             = extractFieldValues(await createCLResource(newLyph1));
+    dynamic.lyph2             = extractFieldValues(await createCLResource(newLyph2));
+    dynamic.lyph3             = extractFieldValues(newLyph3);
 
     //HasLayer with ID
     await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
-        portable.lyph1.id, portable.lyph2.id, {id: 200, class: "HasLayer"});
+        dynamic.lyph1.id, dynamic.lyph2.id, {id: 200, class: "HasLayer"});
     await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
 
     // await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
@@ -403,6 +436,11 @@ beforeEach(async () => {
     //let res = await db.getAllRelationships(relationships["HasLayer"]);
     //res = [...res].map(val => extractFieldValues(val));
 
+    //await db.replaceResource(resources["ExternalResource"], 300, dynamic.externalResource1);
+    //await db.getSpecificResources(resources["ExternalResource"], [300]);
+
+    //await db.createResource(resources["Lyph"], dynamic.lyph3);
+    //await db.getSpecificResources(resources["Lyph"], [dynamic.lyph3.id]);
 
 });
 
@@ -415,10 +453,9 @@ afterEach(() => { db.clear('Yes! Delete all everythings!'); });
 //await newLyph2.commit();
 
 //TODO: add tests to model library to detect UnhandledPromiseRejectionWarning
-//     class: "Type", definition: initial.material1
+//     "Type", definition: initial.material1
 
-//     class:  "Node", locations: [initial.mainLyph1]
+//     "Node", locations: [initial.mainLyph1]
 
-//     class: "Group", elements: [initial.lyph1, initial.node1, initial.process1]
+//     "Group", elements: [initial.lyph1, initial.node1, initial.process1]
 
-//     class: "OmegaTree", parts: [initial.lyph1, initial.lyph2, initial.lyph3]

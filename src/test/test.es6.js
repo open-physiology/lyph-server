@@ -45,9 +45,9 @@ describe("docs", () => {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-runSelectedRelationshipTest();
+//runSelectedRelationshipTest();
 
-//runSelectedResourceTest();
+runSelectedResourceTest();
 
 //testResources();
 

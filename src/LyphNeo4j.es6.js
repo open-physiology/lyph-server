@@ -80,7 +80,7 @@ export default class LyphNeo4j extends Neo4j {
 
 		let [{existing}] = await this.query(`
 			MATCH (n)
-			WHERE ${matchLabelsQueryFragment(cls, 'n').join(' OR ')}
+			WHERE (${matchLabelsQueryFragment(cls, 'n').join(' OR ')})
 			AND n.id IN [${ids.join(',')}]
 			RETURN collect(n.id) as existing
 		`);
@@ -198,11 +198,12 @@ export default class LyphNeo4j extends Neo4j {
 
 			let [l, r] = arrowEnds(fieldSpec);
             await this.query(`
-				MATCH (A { id: ${id} }) ${l}[rel]${r} (B)
-			 	WHERE ${matchLabelsQueryFragment(cls, 'A').join(' OR ')}
-				  AND ${matchLabelsQueryFragment(fieldSpec.codomain.resourceClass, 'B').join(' OR ')} 
-			 	  AND ${matchLabelsQueryFragment(fieldSpec.relationshipClass, 'rel').join(' OR ')}
-			 	  AND NOT B.id IN [${ids.join(', ')}]
+				MATCH (A { id: ${id} }) 
+			           ${l}[rel: ${matchLabelsQueryFragment(fieldSpec.relationshipClass).join('|')}]${r} 
+					  (B)
+			 	WHERE (${matchLabelsQueryFragment(cls, 'A').join(' OR ')})
+				   AND (${matchLabelsQueryFragment(fieldSpec.codomain.resourceClass, 'B').join(' OR ')}) 			 	  
+			 	   AND NOT B.id IN [${ids.join(', ')}]
 			 	DELETE rel
 			`);
 		}
@@ -342,10 +343,9 @@ export default class LyphNeo4j extends Neo4j {
 		ids = [...new Set(ids)];
 
 		/* a query for checking existence of these resources */
-
 		let [{count}] = await this.query(`
 			MATCH (n)
-			WHERE ${matchLabelsQueryFragment(cls, 'n').join(' OR ')}
+			WHERE (${matchLabelsQueryFragment(cls, 'n').join(' OR ')})
 			AND n.id IN [${ids.join(',')}]
 			RETURN count(n) AS count
 		`);
@@ -589,8 +589,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		let result = await this.query(`
 			MATCH (A { id: ${idA} }) ${l}[rel: ${matchLabelsQueryFragment(cls).join('|')}]${r} (B)
-			WHERE ${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')}
-			  AND ${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')}
+			WHERE (${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')})
+			  AND (${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')})
 			${optionalMatches.join(' ')}
 			RETURN B, { ${objectMembers.join(', ')} } AS rels
 		`);
@@ -638,8 +638,8 @@ export default class LyphNeo4j extends Neo4j {
 		let [l, r] = arrowEnds(relA);
 		let result = await this.query(`
 			MATCH (A { id: ${idA} }) ${l}[rel:${matchLabelsQueryFragment(cls).join(' |')}]${r} (B)
-			WHERE ${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')}
-			  AND ${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')}      
+			WHERE (${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')})
+			  AND (${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')})      
 			RETURN A, rel, B
 		`);
 
@@ -678,11 +678,10 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
+	//Assertions were removed from these functions to improve performance
+	//It is job of server requestHandler to check that entities in request params exist
 
 	async getSpecificRelationships(cls, ids){
-		/* throw a 404 if any of the resources don't exist */
-		await this.assertRelationshipsExist(cls, ids);
-
 		/* formulating and sending the query */
 		let result = await this.query(`
 			MATCH (A) -[rel:${matchLabelsQueryFragment(cls).join('|')}]-> (B) 
@@ -747,19 +746,19 @@ export default class LyphNeo4j extends Neo4j {
 	//Relationships by resources                      //
 	////////////////////////////////////////////////////
 
+	//Assertions were removed from these functions to improve performance
+	//It is job of server requestHandler to check that entities in request params exist
+
 	async getRelationships(relA, idA, idB){
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
-
-		await this.assertResourcesExist(relA.resourceClass, [idA]);
-		await this.assertResourcesExist(relB.resourceClass, [idB]);
 
 		/* formulating and sending the query */
 		let [l, r] = arrowEnds(relA);
 		let result = await this.query(`
 			MATCH (A { id: ${idA} }) ${l}[rel:${matchLabelsQueryFragment(cls).join('|')}]${r} (B { id: ${idB} })
-			WHERE ${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')}
-			  AND ${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')}    
+			WHERE (${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')})
+			  AND (${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')})    
 			RETURN A, rel, B
 		`);
 
@@ -774,12 +773,6 @@ export default class LyphNeo4j extends Neo4j {
 	async addRelationship(relA, idA, idB, fields) {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
-
-		/* throw a 404 if either of the resources doesn't exist */
-		await Promise.all([
-			this.assertResourcesExist(relA.resourceClass, [idA]),
-			this.assertResourcesExist(relB.resourceClass, [idB])
-		]);
 
 		/* the main query for adding the new relationship */
 		let [l, r] = arrowEnds(relA);
@@ -799,19 +792,14 @@ export default class LyphNeo4j extends Neo4j {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
-		await Promise.all([
-			this.assertResourcesExist(relA.resourceClass, [idA]),
-			this.assertResourcesExist(relB.resourceClass, [idB])
-		]);
-
 		/* formulating and sending the query */
 		let [l, r] = arrowEnds(relA);
 		/* the main query for creating the resource */
 		await this.query({
 			statement: `
 				MATCH (A { id: ${idA} }) ${l}[rel:${matchLabelsQueryFragment(cls).join('|')}]${r} (B { id: ${idB} })
-			    WHERE ${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')}
-			  		AND ${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')}      	  
+			    WHERE (${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')})
+			  	  AND (${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')})      	  
 				SET rel += {dbProperties}
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
@@ -822,19 +810,14 @@ export default class LyphNeo4j extends Neo4j {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
-		await Promise.all([
-			this.assertResourcesExist(relA.resourceClass, [idA]),
-			this.assertResourcesExist(relB.resourceClass, [idB])
-		]);
-
 		/* formulating and sending the query */
 		let [l, r] = arrowEnds(relA);
 		/* the main query for creating the resource */
 		await this.query({
 			statement: `
 				MATCH (A { id: ${idA} }), (B { id: ${idB} })
-			    WHERE ${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')}
-			  	  AND ${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')}    
+			    WHERE (${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')})
+			  	  AND (${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')})    
 			  	MERGE (A) ${l}[rel:${cls.name}]${r} (B)
 				SET rel += {dbProperties}
 				SET rel.class = "${cls.name}"    	  
@@ -849,20 +832,13 @@ export default class LyphNeo4j extends Neo4j {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
-		/* throw a 404 if either of the resources doesn't exist */
-		await Promise.all([
-			this.assertResourcesExist(relA.resourceClass, [idA]),
-			this.assertResourcesExist(relB.resourceClass, [idB])
-		]);
-
 		/* the main query for removing the relationship */
 		let [l, r] = arrowEnds(relA);
 		await this.query(`
 			MATCH (A { id: ${idA} }) ${l}[rel:${matchLabelsQueryFragment(cls).join('|')}]${r} (B { id: ${idB} })
-			WHERE ${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')}
-			  AND ${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')}          
+			WHERE (${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')})
+			  AND (${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')})          
 			DELETE rel
 		`);
 	}
-
 }
