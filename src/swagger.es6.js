@@ -43,6 +43,10 @@ for (let [className, cls] of Object.entries(model)) {
         for (let prop of Object.values(properties)) {
             delete prop.default;
             delete prop.key;
+            if (prop.required) {
+                prop['x-required'] = prop.required;
+                delete prop.required;
+            }
             if (prop.readonly) {
                 prop['x-readonly'] = prop.readonly;
                 delete prop.readonly;
@@ -50,6 +54,17 @@ for (let [className, cls] of Object.entries(model)) {
             if (prop.patternProperties){
                 prop['x-patternProperties'] = prop.patternProperties;
                 delete prop.patternProperties;
+            }
+            //Select required fields from inline models
+            if (prop.properties){
+                let required = [];
+                for (let [key, value] of Object.entries(prop.properties)){
+                    if (value.required) { required.push(key) }
+                    delete value.required;
+                }
+                if (required.length > 0){
+                    prop['required'] = required;
+                }
             }
         }
         return properties;
@@ -72,7 +87,7 @@ for (let [className, cls] of Object.entries(model)) {
 
 
 	let required = Object.entries(allExposedFields)
-			.filter(([fieldName, {'required': required}]) => required)
+			.filter(([fieldName, {'x-required': required}]) => required)
 			.map(([fieldName]) => fieldName);
 
     //TODO: all objects have to come with id

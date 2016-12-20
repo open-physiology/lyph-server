@@ -31,7 +31,73 @@ export function runSelectedResourceTest(){
                     }
                 }));
 
-                POST("creates a new lyph", r=>r.send(dynamic.lyph3).expect(CREATED).then(async() => {
+                POST("creates a new lyph", r=>r.send(
+                    { "thickness": { "min": 0, "class": "Range" },
+                        "length": { "min": 0, "class": "Range" },
+                        "cardinalityBase": {"value": 1, "class": "Value"},
+                        "id": dynamic.lyph3.id,
+                        "href": dynamic.lyph3.href,
+                        "class": "Lyph",
+                        "name": "Liver",
+                        "-->DefinesType": null,
+                        "-->HasAxis": null,
+                        "<--HasTreeChildren": null,
+                        "-->IsRelatedTo": [],
+                        "<--IsRelatedTo": [],
+                        "-->CorrespondsTo": [],
+                        "-->HasCardinalityMultipliedByThatOf": [],
+                        "<--HasCardinalityMultipliedByThatOf": [],
+                        "-->HasType": [],
+                        "-->PullsIntoTypeDefinition": [],
+                        "<--PullsIntoTypeDefinition": [],
+                        "-->Has": [],
+                        "<--Has": [],
+                        "-->ContainsMaterial": [],
+                        "-->HasPart": [],
+                        "<--HasPart": [],
+                        "-->HasLayer": [],
+                        "<--HasLayer": [],
+                        "-->HasPatch": [],
+                        "<--HasPatch": [],
+                        "-->HasSegment": [],
+                        "<--HasSegment": [],
+                        "-->HasBorder": [],
+                        "-->HasLongitudinalBorder": [ 5000, 6000 ],
+                        "-->HasRadialBorder": [],
+                        "<--JoinsLyph": [],
+                        "<--Coalesces": [],
+                        "-->ContainsNode": [],
+                        "<--IncludesElement": [],
+                        "-->provisional_FlowsTo": [],
+                        "<--provisional_FlowsTo": [],
+                        "-->ConveysProcess": [],
+                        "-->HasMeasurable": [],
+                        "<--PrescribesStyleFor": [],
+                        "<--PresentsModel": [],
+                        "-->HasTreeChildren": [],
+                        "<--HasTreePart": [],
+                        "externals": [],
+                        "cardinalityMultipliers": [],
+                        "types": [],
+                        "children": [ 500, 600 ],
+                        "parents": [],
+                        "materials": [],
+                        "parts": [],
+                        "layers": [],
+                        "patches": [],
+                        "segments": [],
+                        "borders": [ 500, 600 ],
+                        "longitudinalBorders": [ 500, 600 ],
+                        "radialBorders": [],
+                        "coalescences": [],
+                        "nodes": [],
+                        "outgoingProcesses": [],
+                        "incomingProcesses": [],
+                        "processes": [],
+                        "measurables": [],
+                        "themes": [],
+                        "treeChildren": [] }
+                ).expect(CREATED).then(async() => {
                     let res = await requestSingleResource(`/lyphs/${dynamic.lyph3.id}`);
                     expect(res).to.have.property('id').that.equals(dynamic.lyph3.id);
                 }));
@@ -82,7 +148,9 @@ export function runSelectedResourceTest(){
                     }
                 }));
 
+                //Note: for PUT all required fields must be given, so we repeat id
                 PUT("replaces properties of a given resource", r=>r.send({
+                    id: initial.mainLyph1.id,
                     name: "Head"
                 }).expect(OK).expect(isArray)
                     .resources((resources) => {

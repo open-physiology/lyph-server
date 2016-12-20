@@ -298,8 +298,11 @@ export default class LyphNeo4j extends Neo4j {
             if (resA.id::isUndefined() || resB.id::isUndefined()) { continue }
 
             let cls = relationships[rel.class];
+			let fields = extractFieldValues(rel);
+			//await this[assertIdIsGiven](cls, fields);
 
-            let dbProperties = dataToNeo4j(cls, extractFieldValues(rel));
+			let dbProperties = dataToNeo4j(cls, fields);
+
 			await this.query({
 				statement: `
                     MATCH (A:${resA.class} { id: ${resA.id} }), (B:${resB.class} { id: ${resB.id} })
@@ -318,7 +321,6 @@ export default class LyphNeo4j extends Neo4j {
             let resA = rel[1], resB = rel[2];
             if (resA.id::isUndefined() || resB.id::isUndefined()) { continue }
 
-            //TODO: collect relationship ids and write 1 query?
             await this.query(`
                 MATCH (A:${resA.class} { id: ${resA.id} }), 
                        -[rel:${rel.class}]-> 
@@ -441,17 +443,6 @@ export default class LyphNeo4j extends Neo4j {
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		}));
-		// [{id}] = await this.creationQuery(({withNewId}) => ({
-		// 	statement: `
-		// 		${withNewId('newID')}
-		// 		CREATE (n:${cls.name} { id: newID, class: "${cls.name}" })
-		// 		SET n += {dbProperties}
-		// 		RETURN newID as id
-		// 	`,
-		// 	parameters: {  dbProperties: dataToNeo4j(cls, fields)  }
-		// }));
-
-
 
 		/* create the required relationships */
 		await this[createAllResourceRelationships](cls, id, fields);
@@ -784,6 +775,8 @@ export default class LyphNeo4j extends Neo4j {
 	async addRelationship(relA, idA, idB, fields) {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
+
+		//await this[assertIdIsGiven](cls, fields);
 
 		/* the main query for adding the new relationship */
 		let [l, r] = arrowEnds(relA);
