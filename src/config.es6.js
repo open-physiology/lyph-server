@@ -19,7 +19,7 @@ commander
 	.option('-c, --config [file]', "a JSON configuration file", 'config.json')
 	.parse(without(process.argv, 'help', '--help', 'h', '-h')); // do not trigger help yet at this stage
 
-let config = {};//findConfig(commander.config);
+let config = findConfig(commander.config);
 
 commander
 	.option('--host      [host]',  "the host through which this server is exposed",  config['host']      || 'localhost' )
@@ -28,7 +28,7 @@ commander
 	.option('--db-user   [user]',  "the database username",                          config['db-user']   || 'neo4j'     )
 	.option('--db-pass   [pass]',  "the database password",                          config['db-pass']   || 'nknk14'     )
 	.option('--db-host   [host]',  "the database host",                              config['db-host']   || '192.168.99.100' ) //localhost
-	.option('--db-port   [port]',  "the database port",         a=>parseInt(a, 10),  config['db-port']   ||  32769       ) //7474
+	.option('--db-port   [port]',  "the database port",         a=>parseInt(a, 10),  config['db-port']   ||  32769      ) //7474
 	.parse(process.argv);
 
 export default commander;

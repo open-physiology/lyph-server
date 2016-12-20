@@ -52,10 +52,11 @@ const requestHandler = {
 			res.status(OK).jsonp( [...extracted].map(val => extractFieldValues(val)));
 		},
 		async post({db, cls}, req, res) {
-			//let resource = model[cls.name].new(req.body);
-			//let fields = extractFieldValues(resource);
-			//let id = await db.createResource(resource.constructor, fields);
-			let id = await db.createResource(cls, req.body);
+			// let resource = model[cls.name].new(req.body);
+			// let fields = extractFieldValues(resource);
+			// let id = await db.createResource(resource.constructor, fields);
+
+            let id = await db.createResource(cls, req.body);
 			let createdResource = await db.getSpecificResources(cls, [id]);
 			res.status(CREATED).jsonp(createdResource);
 		}

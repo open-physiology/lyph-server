@@ -6,6 +6,7 @@
 import _, {trim, matches} from 'lodash';
 import isUndefined from 'lodash-bound/isUndefined';
 import isNumber from 'lodash-bound/isNumber';
+import isSet from 'lodash-bound/isSet';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // very general stuff                                                                                                 //
@@ -109,11 +110,18 @@ export const arrowEnds = (relA) => (relA.symmetric)               ? [' -','- '] 
 
 export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 
-
+export const setsToArrayOfIds = (obj) => {
+	for (let [key, value] of Object.entries(obj)){
+		if (value::isSet()) {
+			obj[key] = [...value].map(val => extractFieldValues(val)).filter(val => val.id).map(val => val.id);
+		}
+	}
+	return obj;
+};
 
 /* extracts IDs frome resource or relationship fields */
-export const extractIds = (array) => {
-	let values = _(array).map(val => extractFieldValues(val));
+export const extractIds = (obj) => {
+	let values = _(obj).map(val => extractFieldValues(val));
 	return values.filter(x => x::isNumber() || x.id ).map(x => x::isNumber() ? x : x.id);
 };
 

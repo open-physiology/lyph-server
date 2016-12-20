@@ -12,7 +12,7 @@ import supertest   from './custom-supertest.es6.js';
 import getServer   from '../server.es6.js';
 import {resources, relationships, model} from '../resources.es6.js';
 import {OK, NOT_FOUND, CREATED} from "../http-status-codes.es6";
-import {extractFieldValues} from '../utility.es6';
+import {extractFieldValues, setsToArrayOfIds} from '../utility.es6';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -402,8 +402,14 @@ beforeEach(async () => {
         name:  "Heart"});
     await newLyph2.commit();
 
+    let border1 = model.Border.new({id: 500, nature: "open" });
+    let border2 = model.Border.new({id: 600, nature: "closed" });
+
     let newLyph3 = model.Lyph.new({
-        name:  "Liver"});
+        name:  "Liver",
+        longitudinalBorders: [border1, border2]});
+    await border1.commit();
+    await border2.commit();
     await newLyph3.commit();
 
     //Portable contains object with arrays of values instead of Rel$Field etc.
@@ -412,6 +418,9 @@ beforeEach(async () => {
     dynamic.lyph1             = extractFieldValues(await createCLResource(newLyph1));
     dynamic.lyph2             = extractFieldValues(await createCLResource(newLyph2));
     dynamic.lyph3             = extractFieldValues(newLyph3);
+
+    dynamic.lyph3 = setsToArrayOfIds(dynamic.lyph3);
+    //console.log(dynamic.lyph3);
 
     //HasLayer with ID
     await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],

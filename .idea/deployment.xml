@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="Linode (lyph-server:8889)" showEqualInSync="true">
+  <component name="PublishConfigData" serverName="Linode (lyph-server:8880)" showEqualInSync="true">
     <serverData>
+      <paths name="Linode (lyph-server:8880)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/app8880" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="Linode (lyph-server:8888)">
         <serverdata>
           <mappings>

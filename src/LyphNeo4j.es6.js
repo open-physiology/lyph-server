@@ -441,6 +441,17 @@ export default class LyphNeo4j extends Neo4j {
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		}));
+		// [{id}] = await this.creationQuery(({withNewId}) => ({
+		// 	statement: `
+		// 		${withNewId('newID')}
+		// 		CREATE (n:${cls.name} { id: newID, class: "${cls.name}" })
+		// 		SET n += {dbProperties}
+		// 		RETURN newID as id
+		// 	`,
+		// 	parameters: {  dbProperties: dataToNeo4j(cls, fields)  }
+		// }));
+
+
 
 		/* create the required relationships */
 		await this[createAllResourceRelationships](cls, id, fields);

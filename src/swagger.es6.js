@@ -55,7 +55,14 @@ for (let [className, cls] of Object.entries(model)) {
         return properties;
     }
 
-    let allExposedFields = {...cls.properties, ...cls.relationshipShortcuts};
+    let filteredRelationshipShortcuts = {};
+    if (cls.relationshipShortcuts){
+        for (let [key, value] of Object.entries(cls.relationshipShortcuts)){
+            if (!value.resourceClass.abstract) { filteredRelationshipShortcuts[key] = value }
+        }
+    }
+
+    let allExposedFields = {...cls.properties, ...filteredRelationshipShortcuts};
 
     swaggerDataTypes[className] = {
 		type:       'object',

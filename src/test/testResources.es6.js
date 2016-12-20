@@ -31,10 +31,7 @@ export function runSelectedResourceTest(){
                     }
                 }));
 
-                //TODO: fix bad request (the operation db.replaceResource was tested directly and works ok)
-                POST("creates a new lyph", r=>r.send(
-                    dynamic.lyph3
-                ).expect(CREATED).then(async() => {
+                POST("creates a new lyph", r=>r.send(dynamic.lyph3).expect(CREATED).then(async() => {
                     let res = await requestSingleResource(`/lyphs/${dynamic.lyph3.id}`);
                     expect(res).to.have.property('id').that.equals(dynamic.lyph3.id);
                 }));
