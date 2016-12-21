@@ -451,6 +451,15 @@ beforeEach(async () => {
     //await db.createResource(resources["Lyph"], dynamic.lyph3);
     //await db.getSpecificResources(resources["Lyph"], [dynamic.lyph3.id]);
 
+    //let lyphs = await db.getAllResources(resources["Lyph"]);
+    //console.log("All lyphs:", lyphs);
+
+    //let allRes = await db.getAllResources(resources["Resource"]);
+    //console.log("All resources:", allRes);
+
+    let relatedResources = await db.getRelatedResources(resources["Lyph"].relationships['-->HasLayer'], initial.mainLyph1.id);
+    console.log("related resources",  relatedResources);
+
 });
 
 /* clear database for every tear-down */

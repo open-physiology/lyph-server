@@ -19,17 +19,14 @@ import {
 	dataToNeo4j,
 	neo4jToData,
 	arrowEnds,
-	relationshipQueryFragments,
 	matchLabelsQueryFragment,
+	extractRelationshipFields,
 	humanMsg,
 	arrowMatch,
     extractFieldValues,
 	extractIds
 } from './utility.es6.js';
-import {
-	relationships,
-	resources
-} from './resources.es6.js';
+import {relationships, resources } from './resources.es6.js';
 import {
 	OK,
 	CREATED,
@@ -374,19 +371,16 @@ export default class LyphNeo4j extends Neo4j {
 		await this.assertResourcesExist(cls, ids);
 
 		/* preparing the part of the query that adds relationship info */
-		let {optionalMatches, objectMembers} = relationshipQueryFragments(cls, 'n');
-
-		/* formulating and sending the query */
 		result = await this.query(`
 			UNWIND [${ids.join(',')}] AS id WITH id
-			MATCH (n { id: id })
-			WHERE ${matchLabelsQueryFragment(cls, 'n').join(' OR ')}
-			${optionalMatches.join(' ')}
-			RETURN n, { ${objectMembers.join(', ')} } AS rels
-		`);
+		 	MATCH (A { id: id })
+			WHERE ${matchLabelsQueryFragment(cls, 'A').join(' OR ')}
+			OPTIONAL MATCH (A)-[rel]-(B)
+			RETURN A, collect({rel: rel, B: B, s: startNode(rel).id}) as rels
+		 `);
 
 		/* integrate relationship data into the resource object */
-		result = result.map(({n, rels}) => ({...n, ...rels})).map((res) => neo4jToData(cls, res));
+		result = result.map(({A, rels}) => extractRelationshipFields(A, rels));
 
 		/* return results in proper order */
 		return ids.map((id1) => result.find(({id}) => id1 === id));
@@ -395,25 +389,13 @@ export default class LyphNeo4j extends Neo4j {
 	
 	async getAllResources(cls) {
 
-		/* is there a hook to completely replace entity retrieval? */
-		// let result = await this[runClassSpecificHook](cls, 'getAll', {});
-		// if (result) { return result }
+		let result = await this.query(`
+			MATCH (A) where ${matchLabelsQueryFragment(cls, 'A').join(' OR ')} 
+			OPTIONAL MATCH (A)-[rel]-(B) 
+			RETURN A, collect({rel: rel, B: B, s: startNode(rel).id}) as rels
+		`);
 
-		/* preparing the part of the query that adds relationship info */
-		let {optionalMatches, objectMembers} = relationshipQueryFragments(cls, 'n');
-
-        let q = `
-			MATCH (n)
-            WHERE ${matchLabelsQueryFragment(cls, 'n').join(' OR ')}
-			${optionalMatches.join(' ')}
-			RETURN n, { ${objectMembers.join(', ')} } AS rels
-		`;
-
-		/* formulating and sending the query */
-		let result = await this.query(q);
-        //console.log(q);
-
-        return result.map(({n, rels}) => ({...n, ...rels})).map((res) => neo4jToData(cls, res));
+		return result.map(({A, rels}) => extractRelationshipFields(A, rels));
 	}
 
 
@@ -588,20 +570,18 @@ export default class LyphNeo4j extends Neo4j {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
-		/* formulating and sending the query */
-		let {optionalMatches, objectMembers} = relationshipQueryFragments(relB.resourceClass, 'B');
 		let [l, r] = arrowEnds(relA);
 
+		/* formulating and sending the query */
 		let result = await this.query(`
 			MATCH (A { id: ${idA} }) ${l}[rel: ${matchLabelsQueryFragment(cls).join('|')}]${r} (B)
 			WHERE (${matchLabelsQueryFragment(relA.resourceClass, 'A').join(' OR ')})
 			  AND (${matchLabelsQueryFragment(relB.resourceClass, 'B').join(' OR ')})
-			${optionalMatches.join(' ')}
-			RETURN B, { ${objectMembers.join(', ')} } AS rels
+			OPTIONAL MATCH (B)-[r]-(C) 
+			RETURN B, collect({rel: r, B: C, s: startNode(r).id}) as rels			
 		`);
 
-		/* integrate relationship data into the resource object */
-		return result.map(({B, rels}) => ({...B, ...rels})).map((res) => neo4jToData(relB.resourceClass, res));
+		return result.map(({B, rels}) => extractRelationshipFields(B, rels));
 
 	}
 
@@ -799,9 +779,9 @@ export default class LyphNeo4j extends Neo4j {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
-		/* formulating and sending the query */
 		let [l, r] = arrowEnds(relA);
-		/* the main query for creating the resource */
+
+		/* formulating and sending the query */
 		await this.query({
 			statement: `
 				MATCH (A { id: ${idA} }) ${l}[rel:${matchLabelsQueryFragment(cls).join('|')}]${r} (B { id: ${idB} })

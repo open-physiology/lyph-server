@@ -48,8 +48,7 @@ const requestHandler = {
 	resources: /*get, post*/ {
 		async get({db, cls}, req, res) {
 			let extracted = await db.getAllResources(cls);
-			//TODO: replace with official model library toJSON method
-			res.status(OK).jsonp( [...extracted].map(val => extractFieldValues(val)));
+			res.status(OK).jsonp(extracted);
 		},
 		async post({db, cls}, req, res) {
 			// let resource = model[cls.name].new(req.body);

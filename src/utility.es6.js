@@ -7,6 +7,8 @@ import _, {trim, matches} from 'lodash';
 import isUndefined from 'lodash-bound/isUndefined';
 import isNumber from 'lodash-bound/isNumber';
 import isSet from 'lodash-bound/isSet';
+import isNull from 'lodash-bound/isNull';
+import {relationships, resources } from './resources.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // very general stuff                                                                                                 //
@@ -132,23 +134,54 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 
 /* to get node or relationship match labels for a given entity class */
 export function matchLabelsQueryFragment(cls, entityName){
-	//TODO: what property gives sub classes?
 	let parentClasses = (cls.allSubclasses)? [...cls.allSubclasses()].map(x => x.name): [cls.name];
 	if (entityName::isUndefined() || cls.isRelationship){ return parentClasses; }
 	return parentClasses.map((label) => (`${entityName}: ${label}`));
 }
 
-/* to get query-fragments to get relationship-info for a given resource */
+/* to get relationships of a given resource*/
+export function extractRelationshipFields(A, rels){
+	let objA = neo4jToData(resources[A.class], A);
+	let relFields = {};
+	for (let {rel, B, s} of rels){
+		if (rel::isNull() || B::isNull()) { continue }
+		if (rel.class::isUndefined() || B.class::isUndefined()) { continue }
+
+		let objB = neo4jToData(resources[B.class], B);
+
+		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
+		let relObj = {
+			...neo4jToData(relationships[rel.class], rel),
+			1: (s === A.id)? objA: objB,
+			2: (s === A.id)? objB: objA
+		};
+		relFields[fieldName] = relObj;
+
+		let relA = resources[A.class].relationships[fieldName];
+		if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
+			if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
+			relFields[relA.shortcutKey].push(objB);
+		}
+	}
+	return {...objA, ...relFields};
+}
+
+/* to get query-fragments to get relationships shortcuts for a given resource */
+/* NOT USED ANYMORE */
 export function relationshipQueryFragments(cls, nodeName) {
 	let optionalMatches = [], objectMembers = [];
     if (cls::isUndefined()) {return {}}
 
     let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationships)) {
+		if (fieldSpec.resourceClass.abstract || fieldSpec.codomain.resourceClass.abstract) continue;
+		if (fieldSpec.shortcutKey::isUndefined()) continue;
 
-		let relName = `\`rel_${fieldName}\`` ;
-		if (handledFieldNames[fieldName]) { continue }
-		handledFieldNames[fieldName] = true;
+		//Note: the query below extracts other side resources and hence cannot be used to fill '-->RelName' fields
+
+		let relName = `rel_${fieldName.shortcutKey}` ;
+		if (handledFieldNames[fieldName.shortcutKey]) { continue }
+		handledFieldNames[fieldName.shortcutKey] = true;
 
 		let [l, r] = arrowEnds(fieldSpec);
 		optionalMatches.push(`
@@ -158,13 +191,7 @@ export function relationshipQueryFragments(cls, nodeName) {
 		`);
 
 		let res = (fieldSpec.cardinality.max === 1) ? `${relName}.id` : `collect(DISTINCT ${relName}.id)`;
-		objectMembers.push(`\`${fieldName}\`: ${res}`);
-
-		//Repeats some queries to restore shortcut fields
-		//Alternatively, copy extracted relationship data to shortcut fields in neo4jToData
-		if (fieldSpec.shortcutKey){
-			objectMembers.push(`${fieldSpec.shortcutKey}: ${res}`);
-		}
+		objectMembers.push(`${fieldName.shortcutKey}: ${res}`);
 	}
 
 	return { optionalMatches, objectMembers };
