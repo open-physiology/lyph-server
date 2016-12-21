@@ -5,6 +5,7 @@
 /* external libs */
 import _ from 'lodash';
 import isUndefined from 'lodash-bound/isUndefined';
+import isEmpty from 'lodash-bound/isEmpty';
 
 import cloneDeep from 'lodash/cloneDeep';
 import pick from 'lodash/pick';
@@ -39,6 +40,15 @@ for (let [className, cls] of Object.entries(model)) {
 
     let xTag = (cls.isResource)? 'x-resource-type': 'x-relationship-type';
 
+    let filteredRelationshipShortcuts = {};
+    if (cls.relationshipShortcuts){
+        for (let [key, value] of Object.entries(cls.relationshipShortcuts)){
+            if (!value.resourceClass.abstract) { filteredRelationshipShortcuts[key] = value }
+        }
+    }
+
+    let allExposedFields = {...cls.properties, ...filteredRelationshipShortcuts};
+
     function replaceProperties(properties){
         for (let prop of Object.values(properties)) {
             delete prop.default;
@@ -67,31 +77,38 @@ for (let [className, cls] of Object.entries(model)) {
                 }
             }
         }
+        for (let [fieldName, fieldSpec] of Object.entries(filteredRelationshipShortcuts)) {
+            if (properties[fieldName]::isEmpty()) {
+                if (fieldSpec.cardinality.max === 1) {
+                    properties[fieldName] = {
+                        "type": "integer"
+                    }
+                }
+                else {
+                    properties[fieldName] = {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "uniqueItems": true
+                    }
+                }
+            }
+        }
         return properties;
     }
-
-    let filteredRelationshipShortcuts = {};
-    if (cls.relationshipShortcuts){
-        for (let [key, value] of Object.entries(cls.relationshipShortcuts)){
-            if (!value.resourceClass.abstract) { filteredRelationshipShortcuts[key] = value }
-        }
-    }
-
-    let allExposedFields = {...cls.properties, ...filteredRelationshipShortcuts};
 
     swaggerDataTypes[className] = {
 		type:       'object',
 		properties: (() => { return replaceProperties(cloneDeep(allExposedFields)); })()
 	};
+
     swaggerDataTypes[className][xTag] = cls.name;
 
-
 	let required = Object.entries(allExposedFields)
-			.filter(([fieldName, {'x-required': required}]) => required)
+			.filter(([fieldName, {'required': required}]) => required)
 			.map(([fieldName]) => fieldName);
 
-    //TODO: all objects have to come with id
-    required.push("id");
 
 	if (required.length > 0) { swaggerDataTypes[className].required = required; }
 
@@ -306,7 +323,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
     const fieldName = relA.shortcutKey;
     if (fieldName::isUndefined()) return;
 
-    const {getSummary, putSummary, deleteSummary, abstract} = relA;
+    const {getSummary, putSummary, postSummary, deleteSummary, abstract} = relA;
 
     const pluralA       = relA.resourceClass.plural;
     const singularA 	= relA.resourceClass.singular;
@@ -316,6 +333,8 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
     const singularIdKeyA = `${toCamelCase(singularA )}ID`;
     const singularIdKeyB = `${toCamelCase((relA.resourceClass === relB.resourceClass? "other " : "") + (singularB))}ID`;
     const pluralKeyA     = toCamelCase(pluralA);
+
+    const msg = relA.resourceClass === relB.resourceClass? pluralA: singularA + " and " + singularB;
 
     resourceEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}/{${singularIdKeyB}}`] = {
         'x-path-type': 'specificRelatedResource',
@@ -331,24 +350,24 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
         'x-relationship-type': cls.name,
         //TODO add post
         put: {
-            summary: putSummary || `add a given ${pluralB} to a given ${singularA}`,
+            summary: putSummary || `add a given ${singularB} to a given ${singularA}`,
             parameters: [
                 {
                     name:        singularIdKeyA,
                     in:          'path',
-                    description: `ID of the ${singularA} to which to add the '${fieldName}' ${singularB}`,
+                    description: `ID of the ${singularA} to which the ${singularB} is added`,
                     required:    true,
                     type:        'integer'
                 }, {
                     name:        singularIdKeyB,
                     in:          'path',
-                    description: `ID of the '${fieldName}' ${singularB} to add to the given ${singularA}`,
+                    description: `ID of the ${singularB} which is added to the given ${singularA}`,
                     required:    true,
                     type:        'integer'
                 }, {
                     name:        toCamelCase(`new ${cls.name}`),
                     in:          'body',
-                    description: `properties of new ${cls.name} relationship`,
+                    description: `properties of a new ${cls.name} relationship between given ${msg}`,
                     required:    true,
                     schema:      $ref(cls.name)
                 }
@@ -360,7 +379,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
             }
         },
         delete: {
-            summary: deleteSummary || `remove a ${pluralB} from a given ${singularA}`,
+            summary: deleteSummary || `remove a ${singularB} from a given ${singularA}`,
             parameters: [
                 {
                     name:        singularIdKeyA,

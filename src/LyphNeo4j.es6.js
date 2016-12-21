@@ -402,13 +402,16 @@ export default class LyphNeo4j extends Neo4j {
 		/* preparing the part of the query that adds relationship info */
 		let {optionalMatches, objectMembers} = relationshipQueryFragments(cls, 'n');
 
-		/* formulating and sending the query */
-		let result = await this.query(`
+        let q = `
 			MATCH (n)
             WHERE ${matchLabelsQueryFragment(cls, 'n').join(' OR ')}
 			${optionalMatches.join(' ')}
 			RETURN n, { ${objectMembers.join(', ')} } AS rels
-		`);
+		`;
+
+		/* formulating and sending the query */
+		let result = await this.query(q);
+        //console.log(q);
 
         return result.map(({n, rels}) => ({...n, ...rels})).map((res) => neo4jToData(cls, res));
 	}
