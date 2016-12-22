@@ -137,7 +137,11 @@ export function runSelectedRelationshipTest(){
                             expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);                        }
                     }));
 
-                PUT("adds HasLayer relationship", r=>r.send({"id": 201, "class": "HasLayer"})
+                PUT("replaces HasLayer relationship", r=>r.send({
+                    id: 201,
+                    relativePosition: 1,
+                    class: "HasLayer"
+                })
                     .expect(OK).expect(isArray)
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
@@ -350,70 +354,8 @@ export function testRelationships() {
     // Specific related relationships                  //
     /////////////////////////////////////////////////////
 
+    //copy tests for HasLayer from selected tests
 
-    describeResourceClass('HasLayer', () => {
-
-        describeEndpoint('/lyphs/{lyphID}/-->HasLayer/{otherLyphID}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withValidPathParams(()=>({lyphID: initial.mainLyph1.id, otherLyphID: initial.lyph2.id}), () => {
-
-                GET("returns HasLayer relationships with expected fields", r=>
-                    r.expect(OK).expect(isArray)
-                        .resources((resources) => {
-                            for (let res of resources) {
-                                expect(res).to.have.property('class').that.equals("HasLayer");
-                                expect(res).to.have.property('1');
-                                expect(res).to.have.property('2');
-                                expect(res[1]).to.have.property('class').that.equals("Lyph");
-                                expect(res[1]).to.have.property('id').that.equals(initial.mainLyph1.id);
-                                expect(res[2]).to.have.property('class').that.equals("Lyph");
-                                expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);
-                            }
-                        }));
-
-                POST("updates HasLayer relationship", r=>r.send({relativePosition: 1})
-                    .expect(OK).expect(isArray)
-                    .resources((resources) => {
-                        expect(resources).to.have.length.of.at.least(1);
-                        for (let res of resources) {
-                            expect(res).to.have.property('class').that.equals("HasLayer");
-                            expect(res).to.have.property('relativePosition').that.equals(1);
-                            expect(res).to.have.property('1');
-                            expect(res).to.have.property('2');
-                            expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('id').that.equals(initial.mainLyph1.id);
-                            expect(res[2]).to.have.property('class').that.equals("Lyph");
-                            expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);                        }
-                    }));
-
-                PUT("replaces HasLayer relationship", r=>r.send({
-                    "id": 201,
-                    "relativePosition": 1,
-                    "class": "HasLayer"
-                })
-                    .expect(OK).expect(isArray)
-                    .resources((resources) => {
-                        expect(resources).to.have.length.of.at.least(1);
-                        for (let res of resources) {
-                            expect(res).to.have.property('id').that.equals(201);
-                            expect(res).to.have.property('class').that.equals("HasLayer");
-                            expect(res).to.have.property('1');
-                            expect(res).to.have.property('2');
-                            expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('id').that.equals(initial.mainLyph1.id);
-                            expect(res[2]).to.have.property('class').that.equals("Lyph");
-                            expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);                        }
-                    }));
-
-                DELETE("removes HasLayer relationship", r=>r.expect(NO_CONTENT).then(async() => {
-                    let res = await db.getRelationships(resources["Lyph"].relationships["-->HasLayer"],
-                        initial.mainLyph1.id, initial.lyph2.id);
-                    expect(res).to.have.length.of(0);
-                }));
-            });
-        });
-
-    });
 
 }
 
