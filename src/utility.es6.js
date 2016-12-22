@@ -105,10 +105,10 @@ export const neo4jToData = (cls, properties) => {
 };
 
 /* to get the arrow-parts for a Cypher relationship */
-export const arrowEnds = (relA) => (relA.symmetric)               ? [' -','- '] :
-                                   (relA.keyInRelationship === 1) ? [' -','->'] :
-									   								['<-','- '] ;
-
+export const arrowEnds = (relA) =>
+	  (relA.keyInRelationship === 1) ? [' -','->']
+	: (relA.keyInRelationship === 2) ? ['<-','- ']
+	: 								   [' -','- '];
 
 export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 
@@ -129,7 +129,7 @@ export const extractIds = (obj) => {
 
 /* creating a Neo4j arrow matcher with nicer syntax */
 export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
-	? `OPTIONAL MATCH (${a}) ${l}[:${relTypes.map(({relationship:{name}})=>name).join('|')}]${r} (${b})`
+	? `OPTIONAL MATCH (${a}) ${l}[:${relTypes.map(({relationshipClass:{name}})=>name).join('|')}]${r} (${b})`
 	: ``;
 
 /* to get node or relationship match labels for a given entity class */
@@ -146,7 +146,6 @@ export function extractRelationshipFields(A, rels){
 	for (let {rel, B, s} of rels){
 		if (rel::isNull() || B::isNull()) { continue }
 		if (rel.class::isUndefined() || B.class::isUndefined()) { continue }
-
 		let objB = neo4jToData(resources[B.class], B);
 
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
@@ -172,7 +171,7 @@ export function relationshipQueryFragments(cls, nodeName) {
 	let optionalMatches = [], objectMembers = [];
     if (cls::isUndefined()) {return {}}
 
-    let handledFieldNames = {}; // to avoid duplicates (can happen with symmetric relationships)
+    let handledFieldNames = {}; // to avoid duplicates
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationships)) {
 		if (fieldSpec.resourceClass.abstract || fieldSpec.codomain.resourceClass.abstract) continue;
 		if (fieldSpec.shortcutKey::isUndefined()) continue;

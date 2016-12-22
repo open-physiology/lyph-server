@@ -47,8 +47,7 @@ import {
 const requestHandler = {
 	resources: /*get, post*/ {
 		async get({db, cls}, req, res) {
-			let extracted = await db.getAllResources(cls);
-			res.status(OK).jsonp(extracted);
+			res.status(OK).jsonp( await db.getAllResources(cls));
 		},
 		async post({db, cls}, req, res) {
 			// let resource = model[cls.name].new(req.body);
@@ -109,9 +108,7 @@ const requestHandler = {
 	},
 	relationships: /*get, delete*/  {
         async get({db, cls}, req, res) {
-            let extracted = await db.getAllRelationships(cls);
-            //TODO: replace with official model library toJSON method
-            res.status(OK).jsonp( [...extracted].map(val => extractFieldValues(val)));
+            res.status(OK).jsonp( await db.getAllRelationships(cls));
         },
         async delete({db, cls}, req, res) {
             await db.deleteAllRelationships(cls);
@@ -121,30 +118,26 @@ const requestHandler = {
     specificRelationships: /*get, post, put, delete*/ {
 		async get({db, cls}, req, res) {
 			await db.assertRelationshipsExist(cls, req.pathParams.ids);
-		    let extracted = await db.getSpecificRelationships(cls, req.pathParams.ids);
-			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+			res.status(OK).jsonp( await db.getSpecificRelationships(cls, req.pathParams.ids));
 		},
 		async post({db, cls}, req, res) {
-			await db.assertRelationshipsExist(cls, req.pathParams.id);
+			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
 			await db.updateRelationshipByID(cls, req.pathParams.id, req.body);
-			let extracted = await db.getSpecificRelationships(cls, [req.pathParams.id]);
-			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+			res.status(OK).jsonp(await db.getSpecificRelationships(cls, [req.pathParams.id]));
 		},
 		async put({db, cls}, req, res) {
 			await db.replaceRelationshipByID(cls, req.pathParams.id, req.body);
-            let extracted = await db.getSpecificRelationships(cls, [req.pathParams.id]);
-            res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+            res.status(OK).jsonp(await db.getSpecificRelationships(cls, [req.pathParams.id]));
 		},
 		async delete({db, cls}, req, res) {
-			await db.assertRelationshipsExist(cls, req.pathParams.id);
+			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
 			await db.deleteRelationshipByID(cls, req.pathParams.id);
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
     relatedRelationships: /* get, delete */{
 		async get({db, relA}, req, res) {
-			let extracted = await db.getRelatedRelationships(relA, req.pathParams.idA);
-			res.status(OK).jsonp( [...extracted].map(val => extractFieldValues(val)));
+			res.status(OK).jsonp( await db.getRelatedRelationships(relA, req.pathParams.idA));
 		}
 	},
 	specificRelationshipByResources: /*get, post, put, delete*/ {
@@ -154,8 +147,7 @@ const requestHandler = {
 				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
 				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
 			]);
-			let extracted = await db.getRelationships(relA, idA, idB);
-			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async post({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
@@ -164,8 +156,7 @@ const requestHandler = {
 				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
 			]);
 			await db.updateRelationship(relA, idA, idB, req.body);
-			let extracted = await db.getRelationships(relA, idA, idB);
-			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
@@ -174,8 +165,7 @@ const requestHandler = {
 				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
 			]);
 			await db.replaceRelationship(relA, idA, idB, req.body);
-			let extracted = await db.getRelationships(relA, idA, idB);
-			res.status(OK).jsonp([...extracted].map(val => extractFieldValues(val)));
+			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
@@ -203,7 +193,6 @@ const requestHandler = {
 		}
 	}
 };
-
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

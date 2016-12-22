@@ -134,20 +134,20 @@ export function runSelectedResourceTest(){
                     expect(res).to.have.property('name');
                     expect(res).to.have.property('species');
                     expect(res).to.have.property('layers');
-                    expect(rel.layers.map(x => x.id)).with.members([initial.lyph1.id, initial.lyph2.id]);
+                    expect(res.layers.map(x => x.id)).with.members([initial.lyph1.id, initial.lyph2.id]);
                     expect(res).to.have.property('externals');
-                    expect(rel.externals.map(x => x.id)).with.members([initial.externalResource1.id]);
+                    expect(res.externals.map(x => x.id)).with.members([initial.externalResource1.id]);
                     expect(res).to.have.property('longitudinalBorders');
-                    //expect(res.longitudinalBorders.map(x => x.id)).with.members([initial.border1.id, initial.border2.id]);
-                    expect(res).to.have.property('radialBorders');
+                    //w3expect(res.longitudinalBorders.map(x => x.id)).with.members([initial.border1.id, initial.border2.id]);
+                    //expect(res).to.have.property('radialBorders');
                     expect(res).to.have.property('axis');
                     expect(res).to.have.property('thickness').that.deep.equals({value: 1});
                     expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
                     //expect(res).to.have.property('segments');
                     //expect(res).to.have.property('patches');
                     //expect(res).to.have.property('coalecences');
-                    expect(res).to.have.property('incomingProcesses');
-                    expect(res).to.have.property('outgoingProcesses');
+                    //expect(res).to.have.property('incomingProcesses');
+                    //expect(res).to.have.property('outgoingProcesses');
                     expect(res).to.have.property('processes');
                     //expect(res).to.have.property('nodes');
                     expect(res).to.have.property('materials');
@@ -167,7 +167,7 @@ export function runSelectedResourceTest(){
                 }));
 
                 PUT("replaces properties of a given resource", r=>r.send({
-                    name: "Head"
+                    "name": "Head"
                 }).expect(OK).expect(isArray)
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
@@ -443,146 +443,8 @@ export function testResources() {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    describeResourceClass('Lyph', () => {
 
-        //Resources
-        describeEndpoint('/lyphs', ['GET', 'POST'], () => {
-            withValidPathParams(()=>{}, () => {
-
-                GET("returns lyphs", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
-                    for (let res of resources) {
-                        expect(res).to.have.property('id');
-                        expect(res).to.have.property('href');
-                        expect(res).to.have.property('class').that.equals("Lyph");
-                    }
-                }));
-
-                //TODO: POST
-            });
-        });
-
-        //Specific resource
-        describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-
-                GET("returns a resource with expected fields", r=>r.resource((res) => {
-                    expect(res).to.have.property('id');
-                    expect(res).to.have.property('href');
-                    expect(res).to.have.property('class');
-                    expect(res).to.have.property('name');
-                    expect(res).to.have.property('species');
-                    expect(res).to.have.property('layers');
-                    expect(res).to.have.property('externals');
-                    expect(res).to.have.property('longitudinalBorders');
-                    expect(res).to.have.property('radialBorders');
-                    expect(res).to.have.property('axis');
-                    expect(res).to.have.property('thickness').that.deep.equals({value: 1});
-                    expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
-                    //expect(res).to.have.property('segments');
-                    //expect(res).to.have.property('patches');
-                    //expect(res).to.have.property('coalecences');
-                    //expect(res).to.have.property('incomingProcesses');
-                    //expect(res).to.have.property('outgoingProcesses');
-                    //expect(res).to.have.property('processes');
-                    //expect(res).to.have.property('nodes');
-                    //expect(res).to.have.property('materials').with.members([ initial.materialType1.id]);
-                    expect(res).to.have.property('measurables');
-                }));
-            });
-        });
-
-
-        //Specific related resource
-        describeEndpoint('/lyphs/{lyphID}/layers/{otherLyphID}', ['PUT', 'DELETE'], () => {
-
-            withValidPathParams(()=>({lyphID: initial.mainLyph1.id, otherLyphID: initial.lyph3.id}), () => {
-
-                PUT("returns a lyph with added layer", r=>r.expect(NO_CONTENT).then(async() => {
-                    let res = await requestResources(`/lyphs/${initial.mainLyph1.id}/layers`);
-                    expect(res).to.have.length.of(3);
-                }));
-
-                DELETE("returns a lyph with removed layer", r=>r.expect(NO_CONTENT).then(async() => {
-                    let res = await requestResources(`/lyphs/${initial.mainLyph1.id}/layers`);
-                    expect(res).to.have.length.of(2);
-                }));
-            });
-        });
-
-        //Related resources - all
-        describeEndpoint('/lyphs/{id}/layers', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns layers", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
-                    for (let res of resources){
-                        expect(res).to.have.property('id');
-                        expect(res).to.have.property('href');
-                        expect(res).to.have.property('class').that.equals("Lyph");
-                    }
-                }));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/parts', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns parts",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/patches', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns patches",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/segments', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns segments",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/borders', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns borders",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/longitudinalBorders', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns longitudinal borders",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/radialBorders', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns radial borders",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/coalescences', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns coalescences",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/outgoingProcesses', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns ongoing processes",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/incomingProcesses', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns incoming processes",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-
-        describeEndpoint('/lyphs/{id}/processes', ['GET'], () => {
-            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-                GET("returns processes",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
-            });
-        });
-    });
+    //Lyph - copy from selected tests
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

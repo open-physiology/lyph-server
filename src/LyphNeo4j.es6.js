@@ -175,6 +175,7 @@ export default class LyphNeo4j extends Neo4j {
 	
 	async [createAllResourceRelationships](cls, id, fields) {
         for (let fieldName of Object.keys(fields).filter(key => !!cls.relationships[key])){
+
             let val = fields[fieldName];
 			if (val::isUndefined() || val::isNull()) { continue }
 			this[createRelationshipSet](fieldName, val);
@@ -209,28 +210,28 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	//TODO: test
 	async [getResourcesToDelete](cls, id) {
 		/* collect nodes to delete */
 		let markedNodes = new Map();
 
-		let sustainingRelationships = [...cls.relationships].filter(relA => relA.options.sustains);
+		let sustainingRelationships = [];
+		for (let rel of Object.values(cls.relationships)){
+			if (rel.options.sustains) { sustainingRelationships.push(rel)}
+		}
 
 		/* traverse graph to find nodes to delete, based on 'sustaining' relationships */
-		const symmetricSustaining = sustainingRelationships.filter((relA) =>  relA.symmetric);
-		const l2rSustaining       = sustainingRelationships.filter((relA) => !relA.symmetric && relA.keyInRelationship === 1);
-		const r2lSustaining       = sustainingRelationships.filter((relA) => !relA.symmetric && relA.keyInRelationship === 2);
+		const l2rSustaining       = sustainingRelationships.filter((relA) => relA.keyInRelationship === 1);
+		const r2lSustaining       = sustainingRelationships.filter((relA) => relA.keyInRelationship === 2);
+
 		const recurse = async ({cls, id}) => {
 			if (markedNodes.has(id)) { return }
 			markedNodes.set(id, { cls, id });
 			let nResources = await this.query(`
 				MATCH (a { id: ${id} })
-				${arrowMatch(symmetricSustaining, 'a', ' -','- ', 'x')}
 				${arrowMatch(l2rSustaining,       'a', ' -','->', 'y')}
 				${arrowMatch(r2lSustaining,       'a', '<-','- ', 'z')}
 				WHERE ${matchLabelsQueryFragment(cls, 'a').join(' OR ')}
-				WITH ${symmetricSustaining.length ? 'collect(x)' : '[]'} +
-				     ${l2rSustaining      .length ? 'collect(y)' : '[]'} +
+				WITH ${l2rSustaining      .length ? 'collect(y)' : '[]'} +
 				     ${r2lSustaining      .length ? 'collect(z)' : '[]'} AS coll UNWIND coll AS n
 				WITH DISTINCT n
 				RETURN { id: n.id, cls: n.class } AS n
@@ -242,36 +243,31 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* return the nodes that would be deleted */
 		return [...markedNodes.values()];
-
 	}
 
-
-	//TODO: test
 	async [anythingAnchoredFromOutside](cls, ids) {
-		//TODO NK: likely to be wrong
-		let anchoringRelationships = [...cls.relationships].filter(relA => relA.options.anchors);
 
-		const symmetricAnchoring = anchoringRelationships.filter((relA) =>  relA.symmetric);
-		const l2rAnchoring       = anchoringRelationships.filter((relA) => !relA.symmetric && relA.keyInRelationship === 1);
-		const r2lAnchoring       = anchoringRelationships.filter((relA) => !relA.symmetric && relA.keyInRelationship === 2);
+		let anchoringRelationships = [];
+		for (let rel of Object.values(cls.relationships)){
+			if (rel.options.anchors) { anchoringRelationships.push(rel)}
+		}
+
+		const l2rAnchoring       = anchoringRelationships.filter((relA) => relA.keyInRelationship === 1);
+		const r2lAnchoring       = anchoringRelationships.filter((relA) => relA.keyInRelationship === 2);
+
 		return await this.query(`
 			WITH [${ids.join(',')}] AS ids
-			${ symmetricAnchoring.length ? `
-				OPTIONAL MATCH (x) -[:${symmetricAnchoring.map(({relationship:{name}})=>name).join('|')}]- (a)
-				WHERE (NOT x.id in ids) AND (a.id in ids)
-				WITH ids, collect({ anchoring: x.id, anchored: a.id }) AS anchors1
-			` : 'WITH ids, [] AS anchors1' }
 			${ l2rAnchoring.length ? `
-				OPTIONAL MATCH (y) -[:${l2rAnchoring.map(({relationship:{name}})=>name).join('|')}]-> (b)
+				OPTIONAL MATCH (y) -[:${l2rAnchoring.map(({relationshipClass:{name}})=>name).join('|')}]-> (b)
 				WHERE (NOT y.id in ids) AND (b.id in ids)
-				WITH ids, anchors1 + collect({ anchoring: y.id, anchored: b.id }) AS anchors2
-			` : 'WITH ids, anchors1 AS anchors2' }
+				WITH ids, collect({ anchoring: y.id, anchored: b.id }) AS anchors1
+			` : 'WITH ids, [] AS anchors1' }
 			${ r2lAnchoring.length ? `
-				OPTIONAL MATCH (z) <-[:${r2lAnchoring.map(({relationship:{name}})=>name).join('|')}]- (c)
+				OPTIONAL MATCH (z) <-[:${r2lAnchoring.map(({relationshipClass:{name}})=>name).join('|')}]- (c)
 				WHERE (NOT z.id in ids) AND (c.id in ids)
-				WITH ids, anchors2 + collect({ anchoring: z.id, anchored: c.id }) AS anchors3
-			` : 'WITH ids, anchors2 AS anchors3' }
-			UNWIND anchors3 AS n
+				WITH ids, anchors1 + collect({ anchoring: z.id, anchored: c.id }) AS anchors2
+			` : 'WITH ids, anchors1 AS anchors2' }
+			UNWIND anchors2 AS n
 			WITH DISTINCT n
 			WHERE n.anchoring IS NOT NULL
 			RETURN DISTINCT n
@@ -283,13 +279,12 @@ export default class LyphNeo4j extends Neo4j {
     //////////////////////////////////////////////////////
 
 
-    async [createRelationshipSet](fieldName, relSet) {
-    	let i = 0;
-        for (let rel of [...relSet]){
-
-            //Skip more general collections, only create top most relationships
+    async [createRelationshipSet](fieldName, val) {
+        let rels = (val::isSet())? [...val]: [val];
+    	for (let rel of rels){
+			//Skip more general collections, only create top most relationships
             //Relationships to create have to correspond to the relationship field, e.g., -->HasLayer vs HasLayer
-            if (fieldName.substring(3) !== rel.class){ continue; }
+			if (fieldName.substring(3) !== rel.class){ continue; }
 
             const resA = rel[1], resB = rel[2];
             if (resA.id::isUndefined() || resB.id::isUndefined()) { continue }
@@ -313,8 +308,9 @@ export default class LyphNeo4j extends Neo4j {
     }
 
 
-    async [removeRelationshipSet](relSet) {
-        for (let rel of [...relSet]){
+    async [removeRelationshipSet](val) {
+    	let rels = val::isSet()? [...val]: [val];
+        for (let rel of rels){
             let resA = rel[1], resB = rel[2];
             if (resA.id::isUndefined() || resB.id::isUndefined()) { continue }
 
@@ -463,7 +459,8 @@ export default class LyphNeo4j extends Neo4j {
 				MATCH (n { id: ${id} })
 				WHERE ${matchLabelsQueryFragment(cls, 'n').join(' OR ')}
 				SET n      += {dbProperties}
-				SET n.id    =  ${id}
+				SET n.id    = ${id}
+				SET n.class = n.class
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
@@ -506,7 +503,8 @@ export default class LyphNeo4j extends Neo4j {
 				MATCH (n { id: ${id} })
 				WHERE ${matchLabelsQueryFragment(cls, 'n').join(' OR ')}
 				SET n       = {dbProperties}
-				SET n.id    =  ${id}
+				SET n.id    = ${id}
+				SET n.class = "${cls.name}"
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
@@ -534,12 +532,14 @@ export default class LyphNeo4j extends Neo4j {
 		/* then test whether of those are still anchored, and we have to abort the delete operation */
 		let anchors = await this[anythingAnchoredFromOutside](cls, dResources.map(property('id')));
 		if (anchors.length > 0) {
+
 			throw customError({
 				status: CONFLICT,
 				anchors,
 				message: humanMsg`
 					Certain resources would need to be deleted in response to this request,
-					but they are being kept alive by other resources.
+					but they are being kept alive by other resources 
+					[${anchors.map(x => x.anchoring + "=>" + x.anchored).join(', ')}]
 				`
 			});
 		}

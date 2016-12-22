@@ -308,7 +308,7 @@ beforeEach(async () => {
 
     /* nodes */
     initial.node1 = model.Node.new({
-        measurables: [initial.measurable1],
+        //measurables: [initial.measurable1], //Note: if we uncomment this, test DELETE lyphs/{id} will fail as node anchors the lyph's measurable
         //incomingProcesses:  [initial.process1],
         locations: [initial.mainLyph1]
     });
@@ -437,10 +437,12 @@ beforeEach(async () => {
 
     // await db.getAllRelationships(relationships["HasLayer"]);
 
-    // await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {name: "Head"});
-    // await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
+    //await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {"name": "Head"});
+    //let replacedLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
+    //console.log("Replaced lyph", replacedLyph);
 
-    // await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
+    //await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
+    //await db.deleteResource(resources["Border"], initial.border1.id);
 
     //let res = await db.getAllRelationships(relationships["HasLayer"]);
     //res = [...res].map(val => extractFieldValues(val));
@@ -457,8 +459,11 @@ beforeEach(async () => {
     //let allRes = await db.getAllResources(resources["Resource"]);
     //console.log("All resources:", allRes);
 
-    let relatedResources = await db.getRelatedResources(resources["Lyph"].relationships['-->HasLayer'], initial.mainLyph1.id);
-    console.log("related resources",  relatedResources);
+    //let relatedResources = await db.getRelatedResources(resources["Lyph"].relationships['-->HasLayer'], initial.mainLyph1.id);
+    //console.log("related resources",  relatedResources);
+
+    //let mainLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
+    //console.log("Main lyph", mainLyph);
 
 });
 

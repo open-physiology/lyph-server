@@ -57,7 +57,7 @@ export function runSelectedRelationshipTest(){
                 }));
 
                 POST("update a given relationship", r=>r.send({
-                    relativePosition: 2
+                    "relativePosition": 2
                 }).expect(OK).expect(isArray)
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
@@ -137,7 +137,7 @@ export function runSelectedRelationshipTest(){
                             expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);                        }
                     }));
 
-                PUT("adds HasLayer relationship", r=>r.send({id: 201, class: "HasLayer"})
+                PUT("adds HasLayer relationship", r=>r.send({"id": 201, "class": "HasLayer"})
                     .expect(OK).expect(isArray)
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
@@ -386,9 +386,10 @@ export function testRelationships() {
                             expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);                        }
                     }));
 
-                PUT("adds HasLayer relationship", r=>r.send({
-                    id: 201,
-                    class: "HasLayer"
+                PUT("replaces HasLayer relationship", r=>r.send({
+                    "id": 201,
+                    "relativePosition": 1,
+                    "class": "HasLayer"
                 })
                     .expect(OK).expect(isArray)
                     .resources((resources) => {

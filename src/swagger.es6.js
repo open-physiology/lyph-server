@@ -58,7 +58,7 @@ for (let [className, cls] of Object.entries(model)) {
                 delete prop.required;
             }
             if (prop.readonly) {
-                prop['x-readonly'] = prop.readonly;
+                prop['readOnly'] = prop.readonly;
                 delete prop.readonly;
             }
             if (prop.patternProperties){
