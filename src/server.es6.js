@@ -6,6 +6,8 @@
 import _, {mapValues} from 'lodash';
 import isArray from 'lodash-bound/isArray';
 import isNumber from 'lodash-bound/isNumber';
+import isNull from 'lodash-bound/isNull';
+import isUndefined from 'lodash-bound/isUndefined';
 
 import express                from 'express';
 import promisify              from 'es6-promisify';
@@ -49,13 +51,12 @@ import {
 async function getFields(db, cls, reqFields, id){
 	let fields = {};
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-		if (reqFields[fieldName] && reqFields[fieldName].length > 0){
-			for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-				if (reqFields[fieldName] && reqFields[fieldName].length > 0){
-					let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, reqFields[fieldName]);
-					reqFields[fieldName] = objects.map(o => resources[o.class].new(o));
-				}
-			}
+		if (reqFields[fieldName]::isUndefined() || reqFields[fieldName]::isNull()) { continue }
+		if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = [reqFields[fieldName]];}
+		if (reqFields[fieldName].length > 0){
+			let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, reqFields[fieldName]);
+			reqFields[fieldName] = objects.map(o => resources[o.class].new(o));
+			if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0];}
 		}
 	}
 	if (id::isNumber()){

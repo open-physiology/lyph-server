@@ -4,7 +4,7 @@
   "description": "the lyph server",
   "main": "dist/index.js",
   "scripts": {
-    "build-server": "webpack && node dist/tools/buildSwaggerJSON.js && copyfiles src/tools/old-server-dump.json dist/tools",
+    "build-server": "webpack && node dist/tools/buildSwaggerJSON.js",
     "build-docs": "cd src && copyfiles docs/**/* ../dist",
     "build": "npm run build-server && npm run build-docs",
     "prestart": "npm run build",
@@ -20,7 +20,7 @@
   "authors": [
     "Michiel Helvensteijn <mhelvens@gmail.com>",
     "Samuel Alexander <rmhiale@ucl.ac.uk>",
-    "Natallia Kokash <rmhinko@ucl.ac.uk>"
+    "Natallia Kokash <natallia.kokash@gmail.com>"
   ],
   "dependencies": {
     "commander": "~2",

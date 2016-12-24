@@ -2,7 +2,6 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import {template, isString, isFunction, isArray, isUndefined} from 'lodash';
 import {expect}                            from 'chai';
 import swaggerSpec from '../swagger.es6.js';
 import {runSelectedResourceTest, testResourcesGeneral, testResources, testAbstractResources} from './testResources.es6.js';
@@ -45,9 +44,9 @@ describe("docs", () => {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-runSelectedRelationshipTest();
+//runSelectedRelationshipTest();
 
-//runSelectedResourceTest();
+runSelectedResourceTest();
 
 //testResources();
 

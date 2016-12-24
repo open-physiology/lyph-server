@@ -2,10 +2,13 @@
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import _, {template, isArray} from 'lodash';
+import _, {template} from 'lodash';
 import isString from 'lodash-bound/isString';
 import isFunction from 'lodash-bound/isFunction';
 import isNumber from 'lodash-bound/isNumber';
+import isArray from 'lodash-bound/isArray';
+import isNull from 'lodash-bound/isNull';
+import isUndefined from 'lodash-bound/isUndefined';
 
 import chai, {expect} from 'chai';
 
@@ -24,7 +27,7 @@ chai.use((_chai, utils) => {
     utils.addProperty(chai.Assertion.prototype, 'sole', function () {
         /* object must be an array */
         this.assert(
-            Array.isArray(this._obj)
+            (this._obj)::isArray()
             , 'expected #{this} to be an array'
             , 'expected #{this} not to be an array'
         );
@@ -34,7 +37,7 @@ chai.use((_chai, utils) => {
     utils.addProperty(chai.Assertion.prototype, 'element', function () {
         /* object must be an array */
         this.assert(
-            Array.isArray(this._obj)
+            this._obj::isArray()
             , 'expected #{this} to be an array'
             , 'expected #{this} not to be an array'
         );
@@ -501,9 +504,12 @@ beforeEach(async () => {
     // async function getFields(cls, reqFields, id){
     //     let fields = {};
     //     for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-    //         if (reqFields[fieldName] && reqFields[fieldName].length > 0){
+    //         if (reqFields[fieldName]::isUndefined() || reqFields[fieldName]::isNull()) { continue }
+    //         if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = [reqFields[fieldName]];}
+    //         if (reqFields[fieldName].length > 0){
     //             let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, reqFields[fieldName]);
     //             reqFields[fieldName] = objects.map(o => resources[o.class].new(o));
+    //             if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0];}
     //         }
     //     }
     //     if (id::isNumber()){
@@ -526,7 +532,8 @@ beforeEach(async () => {
     //     "href": dynamic.lyph3.href,
     //     "class": "Lyph",
     //     "name": "Liver",
-    //     "longitudinalBorders": [ 500, 600 ]
+    //     "axis": 500,
+    //     "longitudinalBorders": [ 600 ]
     // };
     //
     // let id = await db.createResource(resources["Lyph"], await getFields(resources["Lyph"], reqFields));
