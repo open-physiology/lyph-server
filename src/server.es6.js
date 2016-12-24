@@ -3,7 +3,10 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _, {isArray, isString, mapValues} from 'lodash';
+import _, {mapValues} from 'lodash';
+import isArray from 'lodash-bound/isArray';
+import isNumber from 'lodash-bound/isNumber';
+
 import express                from 'express';
 import promisify              from 'es6-promisify';
 import cors                   from 'cors';
@@ -18,7 +21,7 @@ import {
 	isCustomError,
 	cleanCustomError,
 	sw,
-	extractFieldValues
+	extractFieldValues,
 } from './utility.es6.js';
 import {
 	relationships,
@@ -42,6 +45,53 @@ import {
 // request handlers                                                                                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+async function getFields(db, cls, reqFields, id){
+	let fields = {};
+	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
+		if (reqFields[fieldName] && reqFields[fieldName].length > 0){
+			for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
+				if (reqFields[fieldName] && reqFields[fieldName].length > 0){
+					let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, reqFields[fieldName]);
+					reqFields[fieldName] = objects.map(o => resources[o.class].new(o));
+				}
+			}
+		}
+	}
+	if (id::isNumber()){
+		let res = cls.new(reqFields);
+		fields = extractFieldValues(res);
+		fields.id = id;
+	} else {
+		let res = cls.new(reqFields);
+		await res.commit();
+		fields = extractFieldValues(res);
+	}
+	return fields;
+}
+
+async function getRelFields(db, cls, relA, idA, idB, reqFields){
+	/*Extract relationship ends*/
+	let [{objA}] = await db.getSpecificResources(relA.resourceClass, [idA]);
+	let resA = relA.resourceClass.new(objA); //get
+	let [{objB}] = await db.getSpecificResources(relA.codomain.resourceClass, [idB]);
+	let resB = relA.codomain.resourceClass.new(objB); //get
+
+	/*Reconstruct existing model library relationship entity to validate constraints*/
+	//TODO: replace .new() with .load() and remove .id assignment from fields
+	let fields = extractFieldValues(cls.new({...reqFields, 1: resA, 2: resB}));
+
+	/*Extract fields and reassign proper IDs*/
+	//TODO: remove after transition to .load() which will assign ids internally
+	fields[1] = extractFieldValues(resA);
+	fields[2] = extractFieldValues(resB);
+	fields[1].id = idA;
+	fields[2].id = idB;
+
+	//resA.delete(); resB.delete();
+	return fields;
+}
+
 // TODO: to avoid race conditions, use a Neo4j REST transactions to get some ACID around these multiple queries
 
 const requestHandler = {
@@ -50,13 +100,8 @@ const requestHandler = {
 			res.status(OK).jsonp( await db.getAllResources(cls));
 		},
 		async post({db, cls}, req, res) {
-			// let resource = model[cls.name].new(req.body);
-			// let fields = extractFieldValues(resource);
-			// let id = await db.createResource(resource.constructor, fields);
-
-            let id = await db.createResource(cls, req.body);
-			let createdResource = await db.getSpecificResources(cls, [id]);
-			res.status(CREATED).jsonp(createdResource);
+			let id = await db.createResource(cls, await getFields(db, cls, req.body));
+			res.status(CREATED).jsonp(await db.getSpecificResources(cls, [id]));
 		}
 	},
 	specificResources: /*get, post, put, delete*/ {
@@ -66,13 +111,17 @@ const requestHandler = {
 		},
 		async post({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			await db.updateResource(cls, req.pathParams.id, req.body);
-			res.status(OK).jsonp(await db.getSpecificResources(cls, [req.pathParams.id]));
+			await db.updateResource(cls, req.pathParams.id, await getFields(db, cls, req.body, req.pathParams.id));
+			let r = await db.getSpecificResources(cls, [req.pathParams.id]);
+			console.log(r);
+			res.status(OK).jsonp(r);
 		},
 		async put({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			await db.replaceResource(cls, req.pathParams.id, req.body);
-			res.status(OK).jsonp(await db.getSpecificResources(cls, [req.pathParams.id]));
+			await db.replaceResource(cls, req.pathParams.id, await getFields(db, cls, req.body, req.pathParams.id));
+			let r = await db.getSpecificResources(cls, [req.pathParams.id]);
+			console.log(r);
+			res.status(OK).jsonp(r);
 		},
 		async delete({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
@@ -87,16 +136,12 @@ const requestHandler = {
 		}
 	},
 	specificRelatedResource: /*put, delete*/ {
-		async put({db, cls, relA, relB}, req, res) {
+		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await Promise.all([
-				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
-				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
-			]);
-			await db.addRelationship(relA, idA, idB, req.body);
-			res.status(NO_CONTENT).jsonp();
+			await db.addRelationship(relA, idA, idB, await getRelFields(db, cls, relA, idA, idB, req.body));
+			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
-		async delete({db, cls, relA, relB}, req, res) {
+		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			await Promise.all([
 				db.assertResourcesExist(relA.resourceClass 		   , [idA]),
@@ -151,20 +196,12 @@ const requestHandler = {
 		},
 		async post({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await Promise.all([
-				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
-				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
-			]);
-			await db.updateRelationship(relA, idA, idB, req.body);
+			await db.updateRelationship(relA, idA, idB,  await getRelFields(db, cls, relA, idA, idB, req.body));
 			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await Promise.all([
-				db.assertResourcesExist(relA.resourceClass	   	   , [idA]),
-				db.assertResourcesExist(relA.codomain.resourceClass, [idB])
-			]);
-			await db.replaceRelationship(relA, idA, idB, req.body);
+			await db.replaceRelationship(relA, idA, idB, await getRelFields(db, cls, relA, idA, idB, req.body));
 			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async delete({db, cls, relA}, req, res) {
@@ -241,8 +278,8 @@ function errorNormalizer(err, req, res, next) {
 	}
 
 	/* Neo4j errors */
-	if (isArray(err) && isString(err[0].code) && err[0].code.startsWith('Neo.')) {
-		if (Array.isArray(err) && err.length === 1) { err = err[0] }
+	if (err::isArray() && err[0].code::isString() && err[0].code.startsWith('Neo.')) {
+		if (err::isArray() && err.length === 1) { err = err[0] }
 		return next({
 			status:  INTERNAL_SERVER_ERROR,
 			message: "An error occurred in the database that we did not expect. Please let us know!",
@@ -342,16 +379,14 @@ export default async (distDir, config) => {
 				})],
 				[['relatedResources', 'specificRelatedResource'], ()=> ({
 					cls: relationships[pathObj['x-relationship-type']],
-					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']],
-					relB: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-B']]
+					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
 				})],
                 [['relationships', 'specificRelationships'], ()=>({
                     cls: relationships[pathObj['x-relationship-type']]
                 })],
                 [['relatedRelationships', 'specificRelationshipByResources'], ()=>({
                     cls: relationships[pathObj['x-relationship-type']],
-					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']],
-					relB: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-B']]
+					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
                 })],
 				[['algorithm'], ()=>({
 					algorithmName: pathObj['x-algorithm-name']

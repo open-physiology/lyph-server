@@ -291,7 +291,6 @@ function addRelatedResourceEndpoint(cls, i, direction) {
         },
         'x-i': i,
         'x-A': (direction === FORWARD ? 1 : 2),
-        'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
         get: {
             summary: getSummary || `retrieve all the ${pluralB} of a given ${singularA}`,
@@ -346,9 +345,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
         },
         'x-i': i,
         'x-A': (direction === FORWARD ? 1 : 2),
-        'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
-        //TODO add post
         put: {
             summary: putSummary || `add a given ${singularB} to a given ${singularA}`,
             parameters: [
@@ -373,8 +370,9 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
                 }
             ],
             responses: {
-                [NO_CONTENT]: {
-                    description: `successfully added the ${singularB}`
+                [OK]: {
+                    description: `an array containing one element: the full added ${cls.name} relationship`,
+                     schema: { type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1 }
                 }
             }
         },
@@ -543,7 +541,6 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
         },
         'x-i': i,
         'x-A': (direction === FORWARD ? 1 : 2),
-        'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
         get: {
             summary: getSummary || `retrieve all ${relName} relationships of a given ${singularA}`,
@@ -595,7 +592,6 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
         },
         'x-i': i,
         'x-A': (direction === FORWARD ? 1 : 2),
-        'x-B': (direction === FORWARD ? 2 : 1),
         'x-relationship-type': cls.name,
         get: {
             summary: `retrieve ${relName} relationships between given ${msg}`,

@@ -112,6 +112,7 @@ export const arrowEnds = (relA) =>
 
 export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 
+
 export const setsToArrayOfIds = (obj) => {
 	for (let [key, value] of Object.entries(obj)){
 		if (value::isSet()) {
@@ -165,33 +166,3 @@ export function extractRelationshipFields(A, rels){
 	return {...objA, ...relFields};
 }
 
-/* to get query-fragments to get relationships shortcuts for a given resource */
-/* NOT USED ANYMORE */
-export function relationshipQueryFragments(cls, nodeName) {
-	let optionalMatches = [], objectMembers = [];
-    if (cls::isUndefined()) {return {}}
-
-    let handledFieldNames = {}; // to avoid duplicates
-	for (let [fieldName, fieldSpec] of Object.entries(cls.relationships)) {
-		if (fieldSpec.resourceClass.abstract || fieldSpec.codomain.resourceClass.abstract) continue;
-		if (fieldSpec.shortcutKey::isUndefined()) continue;
-
-		//Note: the query below extracts other side resources and hence cannot be used to fill '-->RelName' fields
-
-		let relName = `rel_${fieldName.shortcutKey}` ;
-		if (handledFieldNames[fieldName.shortcutKey]) { continue }
-		handledFieldNames[fieldName.shortcutKey] = true;
-
-		let [l, r] = arrowEnds(fieldSpec);
-		optionalMatches.push(`
-			OPTIONAL MATCH (${nodeName})
-		    ${l}[:${fieldSpec.relationshipClass.name}]${r}
-		    (${relName}:${fieldSpec.codomain.resourceClass.name})
-		`);
-
-		let res = (fieldSpec.cardinality.max === 1) ? `${relName}.id` : `collect(DISTINCT ${relName}.id)`;
-		objectMembers.push(`${fieldName.shortcutKey}: ${res}`);
-	}
-
-	return { optionalMatches, objectMembers };
-}

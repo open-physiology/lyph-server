@@ -26,7 +26,7 @@ import {
     extractFieldValues,
 	extractIds
 } from './utility.es6.js';
-import {relationships, resources } from './resources.es6.js';
+import {relationships, resources} from './resources.es6.js';
 import {
 	OK,
 	CREATED,
@@ -45,12 +45,14 @@ import {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* Symbols for private methods */
-const runClassSpecificHook                = Symbol('runClassSpecificHook');
+
+//TODO delete when all calls are routed via client library
 const assertRelatedResourcesExists        = Symbol('assertRelatedResourcesExists');
 const assertRequiredFieldsAreGiven        = Symbol('assertRequiredFieldsAreGiven');
-const assertIdIsGiven                     = Symbol('assertIdIsGiven');
 const assertProperCardinalityInFields     = Symbol('assertProperCardinalityInFields');
 const assertReferencedResourcesExist      = Symbol('assertReferencedResourcesExist');
+
+const assertIdIsGiven                     = Symbol('assertIdIsGiven');
 const createAllResourceRelationships      = Symbol('createAllResourceRelationships');
 const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
 const getResourcesToDelete                = Symbol('getResourcesToDelete');
@@ -65,13 +67,7 @@ export default class LyphNeo4j extends Neo4j {
 	// Common functionality for other methods //
 	////////////////////////////////////////////
 
-	async [runClassSpecificHook](cls, hook, info) {
-		if (!cls[hook]::isUndefined()) {
-			return or(await cls[hook]({...info, resources, relationships, db: this}), {});
-		}
-	}
 
-	
 	async [assertRelatedResourcesExists](ids, fieldSpec) {
 		let cls = fieldSpec.codomain.resourceClass;
 
@@ -119,14 +115,24 @@ export default class LyphNeo4j extends Neo4j {
 
 	async [assertIdIsGiven](cls, fields) {
 		if (!fields.id::isNumber()) {
-			throw customError({
-				status: BAD_REQUEST,
-				class:  cls.name,
-				field:  "id",
-				message: humanMsg`
+			//TODO remove when server side model library assigns IDs to relationships
+			/*Assign ID to relationship given ids of its pairs*/
+			if (cls.isRelationship){
+				/* Cantor pairing function */
+				let a = fields[1].id;
+				let b = fields[2].id;
+				fields.id = 0.5 * (a + b) * (a + b + 1) + b;
+				//console.log("Relationship ", cls.name, " gets ID ", fields.id, " given ", a, b);
+			} else {
+				throw customError({
+					status: BAD_REQUEST,
+					class:  cls.name,
+					field:  "id",
+					message: humanMsg`
 						You tried to create a new ${cls.singular} without valid ID.
-					`
-			});
+						`
+				});
+			}
 		}
 	}
 
@@ -290,8 +296,9 @@ export default class LyphNeo4j extends Neo4j {
             if (resA.id::isUndefined() || resB.id::isUndefined()) { continue }
 
             let cls = relationships[rel.class];
+
 			let fields = extractFieldValues(rel);
-			//await this[assertIdIsGiven](cls, fields);
+			await this[assertIdIsGiven](cls, fields);
 
 			let dbProperties = dataToNeo4j(cls, fields);
 
@@ -330,10 +337,6 @@ export default class LyphNeo4j extends Neo4j {
 
 	async assertResourcesExist(cls, ids) {
 
-		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runClassSpecificHook](cls, 'assertResourcesExist', { ids });
-		if (result) { return result::isArray() ? result : [result] }
-
 		/* eliminate duplication */
 		ids = [...new Set(ids)];
 
@@ -351,7 +354,7 @@ export default class LyphNeo4j extends Neo4j {
 				status:  NOT_FOUND,
 				class:   cls.name,
 				ids:     ids,
-				message: humanMsg`Not all specified ${cls.plural} with IDs '${ids.join(',')}' exist.`
+				message: humanMsg`Not all specified ${cls.plural} with IDs ['${ids.join(', ')}'] exist.`
 			});
 		}
 	}
@@ -359,15 +362,11 @@ export default class LyphNeo4j extends Neo4j {
 	
 	async getSpecificResources(cls, ids) {
 
-		/* is there a hook to completely replace entity retrieval? */
-		let result = await this[runClassSpecificHook](cls, 'getSpecific', { ids });
-		if (result) { return result::isArray() ? result : [result]}
-
 		/* throw a 404 if any of the resources don't exist */
 		await this.assertResourcesExist(cls, ids);
 
 		/* preparing the part of the query that adds relationship info */
-		result = await this.query(`
+		let result = await this.query(`
 			UNWIND [${ids.join(',')}] AS id WITH id
 		 	MATCH (A { id: id })
 			WHERE ${matchLabelsQueryFragment(cls, 'A').join(' OR ')}
@@ -397,13 +396,6 @@ export default class LyphNeo4j extends Neo4j {
 
 	async createResource(cls, fields) {
 
-		/* is there a hook to completely replace entity creation? */
-		let id = await this[runClassSpecificHook](cls, 'create', { fields });
-		if (id) { return id }
-
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'beforeCreate', { fields });
-
 		/* assert that all required fields are given */
 		await this[assertRequiredFieldsAreGiven](cls, fields);
 		await this[assertIdIsGiven](cls, fields);
@@ -415,7 +407,7 @@ export default class LyphNeo4j extends Neo4j {
 		await this[assertReferencedResourcesExist](cls, fields);
 
         //Create resources with given ids
-		[{id}] = await this.creationQuery(() => ({
+		let [{id}] = await this.query({
 			statement: `
 				CREATE (n:${cls.name})
 				SET n += {dbProperties}
@@ -423,13 +415,10 @@ export default class LyphNeo4j extends Neo4j {
 				RETURN n.id as id
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
-		}));
+		});
 
 		/* create the required relationships */
 		await this[createAllResourceRelationships](cls, id, fields);
-
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'afterCreate', { id, fields });
 
 		return id;
 	}
@@ -437,15 +426,8 @@ export default class LyphNeo4j extends Neo4j {
 
 	async updateResource(cls, id, fields) {
 
-		/* is there a hook to completely replace entity updates? */
-		let hooked = await this[runClassSpecificHook](cls, 'update', { id, fields });
-		if (hooked) { return }
-
 		/* get the current fields of the resource */
 		let [oldResource] = await this.getSpecificResources(cls, [id]);
-
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'beforeUpdate', { id, oldResource, fields });
 
 		/* if relationship cardinality is confused in the request, error out */
 		await this[assertProperCardinalityInFields](cls, fields);
@@ -471,22 +453,13 @@ export default class LyphNeo4j extends Neo4j {
 		/* create the required relationships */
 		await this[createAllResourceRelationships](cls, id, fields);
 
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'afterUpdate', { id, oldResource, fields });
 	}
 
 
 	async replaceResource(cls, id, fields) {
 
-		/* is there a hook to completely replace entity replacement? */
-		let hooked = await this[runClassSpecificHook](cls, 'replace', { id, fields });
-		if (hooked) { return }
-
 		/* get the current fields of the resource */
 		let [oldResource] = await this.getSpecificResources(cls, [id]);
-
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'beforeReplace', { id, oldResource, fields });
 
 		/* assert that all required fields are given */
 		await this[assertRequiredFieldsAreGiven](cls, fields);
@@ -515,16 +488,10 @@ export default class LyphNeo4j extends Neo4j {
 		/* create the required relationships */
 		await this[createAllResourceRelationships](cls, id, fields);
 
-		/* if given, run a class-specific hook */
-		await this[runClassSpecificHook](cls, 'afterReplace', { id, oldResource, fields });
 	}
 
 
 	async deleteResource(cls, id) {
-
-		/* is there a hook to completely replace entity deletion? */
-		let hooked = await this[runClassSpecificHook](cls, 'delete', { id });
-		if (hooked) { return }
 
 		/* get all ids+classes that would be auto-deleted by deleting this particular node */
 		let dResources = await this[getResourcesToDelete](cls, id);
@@ -544,14 +511,6 @@ export default class LyphNeo4j extends Neo4j {
 			});
 		}
 
-		// TODO: delete one at a time so that hooks are called properly
-		// TODO: also query the connected relationships first, and delete those with the individual function too
-		// TODO: provide 'oldResource' in hooks
-
-		/* if given, run a class-specific hook */
-		await Promise.all(dResources.reverse().map(({id: dId, cls: dClass}) =>
-				this[runClassSpecificHook](dClass, 'beforeDelete', { id: dId })));
-
 		/* the main query for deleting the node */
 		await this.query(`
 			MATCH (n)
@@ -559,10 +518,6 @@ export default class LyphNeo4j extends Neo4j {
 			OPTIONAL MATCH (n)-[r]-()
 			DELETE n, r
 		`);
-
-		/* if given, run a class-specific hook */
-		await Promise.all(dResources.reverse().map(({id: dId, cls: dClass}) =>
-				this[runClassSpecificHook](dClass, 'afterDelete', { id: dId })));
 
 	}
 
@@ -759,7 +714,7 @@ export default class LyphNeo4j extends Neo4j {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
-		//await this[assertIdIsGiven](cls, fields);
+		await this[assertIdIsGiven](cls, fields);
 
 		/* the main query for adding the new relationship */
 		let [l, r] = arrowEnds(relA);

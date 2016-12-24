@@ -26,13 +26,13 @@ export function runSelectedResourceTest(){
                 GET("returns resources", r=>r.expect(OK).expect(isArray).resources((resources) => {
                     for (let res of resources) {
                         expect(res).to.have.property('id');
-                        expect(res).to.have.property('href');
                         expect(res).to.have.property('class');
                     }
                 }));
             });
         });
-    })
+    });
+
     describeResourceClass('Lyph', () => {
 
         //Resources
@@ -47,70 +47,16 @@ export function runSelectedResourceTest(){
                 }));
 
                 POST("creates a new lyph", r=>r.send(
-                    { "thickness": { "min": 0, "class": "Range" },
+                    {
+                        "thickness": { "min": 0, "class": "Range" },
                         "length": { "min": 0, "class": "Range" },
                         "cardinalityBase": {"value": 1, "class": "Value"},
                         "id": dynamic.lyph3.id,
                         "href": dynamic.lyph3.href,
                         "class": "Lyph",
                         "name": "Liver",
-                        "-->IsRelatedTo": [],
-                        "<--IsRelatedTo": [],
-                        "-->CorrespondsTo": [],
-                        "-->HasCardinalityMultipliedByThatOf": [],
-                        "<--HasCardinalityMultipliedByThatOf": [],
-                        "-->HasType": [],
-                        "-->PullsIntoTypeDefinition": [],
-                        "<--PullsIntoTypeDefinition": [],
-                        "-->Has": [],
-                        "<--Has": [],
-                        "-->ContainsMaterial": [],
-                        "-->HasPart": [],
-                        "<--HasPart": [],
-                        "-->HasLayer": [],
-                        "<--HasLayer": [],
-                        "-->HasPatch": [],
-                        "<--HasPatch": [],
-                        "-->HasSegment": [],
-                        "<--HasSegment": [],
-                        "-->HasBorder": [],
-                        "-->HasLongitudinalBorder": [
-                            {"id": 5000, "class": "HasLongitudinalBorder"},
-                            {"id": 6000, "class": "HasLongitudinalBorder"}],
-                        "-->HasRadialBorder": [],
-                        "<--JoinsLyph": [],
-                        "<--Coalesces": [],
-                        "-->ContainsNode": [],
-                        "<--IncludesElement": [],
-                        "-->provisional_FlowsTo": [],
-                        "<--provisional_FlowsTo": [],
-                        "-->ConveysProcess": [],
-                        "-->HasMeasurable": [],
-                        "<--PrescribesStyleFor": [],
-                        "<--PresentsModel": [],
-                        "-->HasTreeChildren": [],
-                        "<--HasTreePart": [],
-                        "externals": [],
-                        "cardinalityMultipliers": [],
-                        "types": [],
-                        "children": [ 500, 600 ],
-                        "parents": [],
-                        "materials": [],
-                        "parts": [],
-                        "layers": [],
-                        "patches": [],
-                        "segments": [],
-                        "borders": [ 500, 600 ],
-                        "longitudinalBorders": [ 500, 600 ],
-                        "radialBorders": [],
-                        "coalescences": [],
-                        "nodes": [],
-                        "outgoingProcesses": [],
-                        "incomingProcesses": [],
-                        "processes": [],
-                        "measurables": [],
-                        "themes": [],
-                        "treeChildren": [] }
+                        "longitudinalBorders": [ 500, 600 ]
+                    }
                 ).expect(CREATED).then(async() => {
                     let res = await requestSingleResource(`/lyphs/${dynamic.lyph3.id}`);
                     expect(res).to.have.property('id').that.equals(dynamic.lyph3.id);
@@ -118,7 +64,7 @@ export function runSelectedResourceTest(){
             });
         });
 
-        // //Specific resource
+        //Specific resource
         describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
             //withInvalidPathParams("non-existing", {id: 999999});
@@ -204,7 +150,7 @@ export function runSelectedResourceTest(){
             withValidPathParams(()=>({lyphID: initial.mainLyph1.id, otherLyphID: initial.lyph3.id}), () => {
 
                 PUT("adds layer", r=>r.send({relativePosition: 1})
-                    .expect(NO_CONTENT).then(async() => {
+                    .expect(OK).then(async() => {
                     let res = await requestResources(`/lyphs/${initial.mainLyph1.id}/layers`);
                     expect(res).to.have.length.of(3);
                 }));

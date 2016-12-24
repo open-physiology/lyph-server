@@ -7,6 +7,7 @@ import {zipObject} from 'lodash';
 import isString from 'lodash-bound/isString';
 import isObject from 'lodash-bound/isObject';
 import isUndefined from 'lodash-bound/isUndefined';
+import isArray from 'lodash-bound/isArray';
 
 import {Client as RestClient}                       from 'node-rest-client';
 import {exec}                                       from 'child_process';
@@ -76,7 +77,7 @@ export default class Neo4j {
 		await this[_waitingFor];
 
 		/* normalize main Cypher statements */
-		if (!Array.isArray(statements)) { statements = [statements] }
+		if (!statements::isArray()) { statements = [statements] }
 		statements = statements.map((stmt) => {
 			if (stmt::isObject() && stmt.statement::isString()) { return stmt                }
 			if (stmt::isString())                               { return { statement: stmt } }
@@ -131,43 +132,6 @@ export default class Neo4j {
 			}
 		}
 
-	}
-
-	/**
-	 * Perform Cypher statements that require one or more uniquely generated IDs.
-	 * @param statements {function} a function taking functions to generate IDs and returning statements
-	 * @returns {Promise} the promise representing the database query finishing (and its return value if applicable)
-	 */
-	creationQuery(statements) {
-		let statements2 = statements({
-			withNewId: (newIdName) => `
-				MATCH (UID:UID)
-				SET UID.counter = UID.counter + 1
-				WITH UID.counter as ${newIdName}
-			`,
-			withNewIds: (matchName, newIdName, preserve = []) => `
-				WITH collect(${matchName}) AS matchedNodes ${preserve.map(p => `, ${p}`).join('')}
-				MATCH (UID:UID)
-				SET UID.counter = UID.counter + size(matchedNodes)
-				WITH matchedNodes,
-				     UID.counter - size(matchedNodes) AS oldIdCount
-				     ${preserve.map(p => `, ${p}`).join('')}
-				UNWIND range(0, size(matchedNodes) - 1) AS i
-				WITH matchedNodes[i]     AS ${matchName},
-				     oldIdCount + i + 1  AS ${newIdName}
-				     ${preserve.map(p => `, ${p}`).join('')}
-			`
-		});
-		if (!Array.isArray(statements2)) { statements2 = [statements2] }
-		return this.query([`
-			MATCH (UID:UID)
-			SET UID.__lock = true
-			RETURN UID.__lock
-		`, ...statements2, `
-			MATCH (UID:UID)
-			SET UID.__lock = false
-			RETURN UID.__lock
-		`], statements2.length);
 	}
 
 	createUniqueIdConstraintOn(label) {
