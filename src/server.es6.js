@@ -47,16 +47,24 @@ import {
 // request handlers                                                                                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+let newUID = 0;
+
 
 async function getFields(db, cls, reqFields, id){
+
 	let fields = {};
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-		if (reqFields[fieldName]::isUndefined() || reqFields[fieldName]::isNull()) { continue }
-		if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = [reqFields[fieldName]];}
-		if (reqFields[fieldName].length > 0){
-			let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, reqFields[fieldName]);
-			reqFields[fieldName] = objects.map(o => resources[o.class].new(o));
-			if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0];}
+		let val = reqFields[fieldName];
+		if (val::isUndefined() || val::isNull()) { continue }
+		if (fieldSpec.cardinality.max === 1){ val = [val] }
+		if (val.length > 0){
+			let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, val);
+			reqFields[fieldName] = objects.map(o => {
+				let props = {};
+				for (let key of Object.keys(resources[o.class].properties)){ props[key] = o[key]; }
+				return resources[o.class].new(props);
+			});
+			if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0] }
 		}
 	}
 	if (id::isNumber()){
@@ -65,6 +73,10 @@ async function getFields(db, cls, reqFields, id){
 		fields.id = id;
 	} else {
 		let res = cls.new(reqFields);
+		//assign new ID only if it was not given by user
+		// if (!reqFields.id::isNumber()){
+		// 	res.set('id', ++newUID, { ignoreReadonly: true });
+		// }
 		await res.commit();
 		fields = extractFieldValues(res);
 	}
@@ -79,7 +91,7 @@ async function getRelFields(db, cls, relA, idA, idB, reqFields){
 	let resB = relA.codomain.resourceClass.new(objB); //get
 
 	/*Reconstruct existing model library relationship entity to validate constraints*/
-	//TODO: replace .new() with .load() and remove .id assignment from fields
+	//TODO: replace .new() with .get() and remove .id assignment from fields
 	let fields = extractFieldValues(cls.new({...reqFields, 1: resA, 2: resB}));
 
 	/*Extract fields and reassign proper IDs*/
@@ -113,16 +125,12 @@ const requestHandler = {
 		async post({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
 			await db.updateResource(cls, req.pathParams.id, await getFields(db, cls, req.body, req.pathParams.id));
-			let r = await db.getSpecificResources(cls, [req.pathParams.id]);
-			console.log(r);
-			res.status(OK).jsonp(r);
+			res.status(OK).jsonp( await db.getSpecificResources(cls, [req.pathParams.id]));
 		},
 		async put({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
 			await db.replaceResource(cls, req.pathParams.id, await getFields(db, cls, req.body, req.pathParams.id));
-			let r = await db.getSpecificResources(cls, [req.pathParams.id]);
-			console.log(r);
-			res.status(OK).jsonp(r);
+			res.status(OK).jsonp(await db.getSpecificResources(cls, [req.pathParams.id]));
 		},
 		async delete({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);

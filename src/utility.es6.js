@@ -141,7 +141,7 @@ export function matchLabelsQueryFragment(cls, entityName){
 }
 
 /* to get relationships of a given resource*/
-export function extractRelationshipFields(A, rels){
+export function extractRelationshipFields(A, rels, skipShortcuts){
 	let objA = neo4jToData(resources[A.class], A);
 	let relFields = {};
 	for (let {rel, B, s} of rels){
@@ -158,10 +158,12 @@ export function extractRelationshipFields(A, rels){
 		relFields[fieldName] = relObj;
 
 		let relA = resources[A.class].relationships[fieldName];
-		if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
-			if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
-			relFields[relA.shortcutKey].push(objB);
-		}
+		if (!skipShortcuts){
+            if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
+                if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
+                relFields[relA.shortcutKey].push(objB);
+            }
+        }
 	}
 	return {...objA, ...relFields};
 }

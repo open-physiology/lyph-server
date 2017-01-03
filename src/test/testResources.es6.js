@@ -19,19 +19,30 @@ import {resources} from '../resources.es6.js';
 //Run just one test (helps to check one thing at the development time )
 export function runSelectedResourceTest(){
 
-    // describeResourceClass('Resource', () => {
-    //
-    //     describeEndpoint(`/resources`, ['GET', 'POST'], () => {
-    //         withValidPathParams(()=> {}, () => {
-    //             GET("returns resources", r=>r.expect(OK).expect(isArray).resources((resources) => {
-    //                 for (let res of resources) {
-    //                     expect(res).to.have.property('id');
-    //                     expect(res).to.have.property('class');
-    //                 }
-    //             }));
-    //         });
-    //     });
-    // });
+    describeResourceClass('CanonicalTreeBranch', () => {
+
+        describeEndpoint('/canonicalTreeBranches', ['POST'], () => {
+
+            withValidPathParams(()=> {}, () => {
+
+                POST("creates a new canonical tree branch", r=>r.send({
+                    name: "SLN 2st level branch",
+                    conveyingLyphType: initial.lyphType2.id,
+                    parentTree: initial.canonicalTree1_2.id,
+                    childTree: initial.canonicalTree1_3.id
+                }).expect(CREATED).then(async() => {}));
+
+                // {
+                //     "name": "SLN 2st level branch",
+                //     "conveyingLyphType": 107,
+                //     "parentTree": 114,
+                //     "childTree": 115
+                // }
+
+            });
+        });
+    });
+
 
     describeResourceClass('Lyph', () => {
 
@@ -39,12 +50,12 @@ export function runSelectedResourceTest(){
         describeEndpoint('/lyphs', ['GET', 'POST'], () => {
             withValidPathParams(()=>{}, () => {
 
-                // GET("returns lyphs", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
-                //     for (let res of resources) {
-                //         expect(res).to.have.property('id');
-                //         expect(res).to.have.property('class').that.equals("Lyph");
-                //     }
-                // }));
+                GET("returns lyphs", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
+                    for (let res of resources) {
+                        expect(res).to.have.property('id');
+                        expect(res).to.have.property('class').that.equals("Lyph");
+                    }
+                }));
 
                 POST("creates a new lyph", r=>r.send(
                     {
@@ -733,7 +744,6 @@ export function testResources() {
 
 /* Test abstract resources */
 export function testAbstractResources(){
-
 
     describeResourceClass('Resource', () => {
 

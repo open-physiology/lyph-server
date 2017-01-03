@@ -357,12 +357,13 @@ beforeEach(async () => {
     });
 
 
-    initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
-        name:  "SLN 2st level branch",
-        conveyingLyphType: initial.lyphType2,
-        parentTree: initial.canonicalTree1_2,
-        childTree: initial.canonicalTree1_3
-    });
+    // initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
+    //     name:  "SLN 2st level branch",
+    //     conveyingLyphType: initial.lyphType2,
+    //     parentTree: initial.canonicalTree1_2,
+    //     childTree: initial.canonicalTree1_3
+    // });
+
 
     /* publications */
     initial.publication1 = model.Publication.new({
@@ -435,8 +436,7 @@ beforeEach(async () => {
     await newBorder2.commit();
     await newLyph3.commit();
 
-    //Portable contains object with arrays of values instead of Rel$Field etc.
-
+    //"dynamic" contains objects with arrays of values instead of Rel$Field etc.
     dynamic.border1          = extractFieldValues(await createCLResource(newBorder1));
     dynamic.border2          = extractFieldValues(await createCLResource(newBorder2));
 
@@ -445,86 +445,107 @@ beforeEach(async () => {
     dynamic.lyph2             = extractFieldValues(await createCLResource(newLyph2));
     dynamic.lyph3             = extractFieldValues(newLyph3);
 
+    //Test operations on a resource with fields that contain IDs of related objects
     dynamic.lyph3 = setsToArrayOfIds(dynamic.lyph3);
-    //console.log(dynamic.lyph3);
 
     //HasLayer with ID
     await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
         dynamic.lyph1.id, dynamic.lyph2.id, {id: 200, class: "HasLayer"});
     await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
 
-    // let fields = extractFieldValues(module["HasLayer"]
-    //     .new({...{relativePosition: 1},
-    //         1: resources["Lyph"].new({id: initial.mainLyph1.id}),
-    //         2: resources["Lyph"].new({id: initial.lyph3.id})}));
-    //
-    // await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
-    //     initial.mainLyph1.id, initial.lyph3.id, fields);
+    //await testDBOperationsViaModelLibrary();
+});
+
+async function testDirectDBOperations(){
+
+    /* Add, update, replace, delete, get relationships (layers) */
+    let fields = extractFieldValues(module["HasLayer"]
+        .new({...{relativePosition: 1},
+            1: resources["Lyph"].new({id: initial.mainLyph1.id}),
+            2: resources["Lyph"].new({id: initial.lyph3.id})}));
+
+    await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
+        initial.mainLyph1.id, initial.lyph3.id, fields);
+
+    await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
+       initial.mainLyph1.id, initial.lyph2.id, {relativePosition: 1});
+    await db.assertRelationshipsExist(relationships["HasLayer"], [201]);
+
+    await db.replaceRelationship(resources["Lyph"].relationships["-->HasLayer"],
+        initial.mainLyph1.id, initial.lyph2.id, {id: 202, class: "HasLayer"});
+    await db.assertRelationshipsExist(relationships["HasLayer"], [202]);
+
+    let res = await db.getAllRelationships(relationships["HasLayer"]);
+    res = [...res].map(val => extractFieldValues(val));
+
+    /* Add, update, replace, delete, get resources (various, including abstract) */
+    await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {"name": "Head"});
+    let replacedLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
+    console.log("Replaced lyph", replacedLyph);
+
+    await db.replaceResource(resources["ExternalResource"], 300, dynamic.externalResource1);
+    await db.getSpecificResources(resources["ExternalResource"], [300]);
+
+    await db.createResource(resources["Lyph"], dynamic.lyph3);
+    await db.getSpecificResources(resources["Lyph"], [dynamic.lyph3.id]);
+
+    await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
+    await db.deleteResource(resources["Border"], initial.border1.id);
+
+    let lyphs = await db.getAllResources(resources["Lyph"]);
+    console.log("All lyphs:", lyphs);
+
+    let allRes = await db.getAllResources(resources["Resource"]);
+    console.log("All resources:", allRes);
+
+    let relatedResources = await db.getRelatedResources(resources["Lyph"].relationships['-->HasLayer'], initial.mainLyph1.id);
+    console.log("Related resources",  relatedResources);
+
+    let mainLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
+    console.log("Main lyph", mainLyph);
 
 
-    // await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
-    //    initial.mainLyph1.id, initial.lyph2.id, {relativePosition: 1});
-    // await db.assertRelationshipsExist(relationships["HasLayer"], [201]);
+}
 
-    // await db.replaceRelationship(resources["Lyph"].relationships["-->HasLayer"],
-    //     initial.mainLyph1.id, initial.lyph2.id, {id: 202, class: "HasLayer"});
-    // await db.assertRelationshipsExist(relationships["HasLayer"], [202]);
+async function testDBOperationsViaModelLibrary(){
+    let newUID = 1000;
 
-    // await db.getAllRelationships(relationships["HasLayer"]);
+    /*Copy of the server function that replaces submitted JSON object fields with Model Library object fields*/
+    async function getFields(cls, reqFields, id){
+        let fields = {};
+        for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
+            let val = reqFields[fieldName];
+            if (val::isUndefined() || val::isNull()) { continue }
+            if (fieldSpec.cardinality.max === 1){ val = [val] }
+            if (val.length > 0){
+                let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, val);
+                reqFields[fieldName] = objects.map(o => {
+                    let props = {};
+                    for (let key of Object.keys(resources[o.class].properties)){ props[key] = o[key]; }
+                    return resources[o.class].new(props);
+                });
+                if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0] }
+            }
+        }
+        if (id::isNumber()){
+            let res = cls.new(reqFields);
+            fields = extractFieldValues(res);
+            fields.id = id;
+        } else {
+            let res = cls.new(reqFields);
+            //assign new ID only if it was not given by user
+            if (!reqFields.id::isNumber()){
+                res.set('id', ++newUID, { ignoreReadonly: true });
+            }
+            await res.commit();
+            fields = extractFieldValues(res);
+        }
+        return fields;
+    }
 
-    //await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {"name": "Head"});
-    //let replacedLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
-    //console.log("Replaced lyph", replacedLyph);
+    /* Testing field replacement by model library */
 
-    //await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
-    //await db.deleteResource(resources["Border"], initial.border1.id);
-
-    //let res = await db.getAllRelationships(relationships["HasLayer"]);
-    //res = [...res].map(val => extractFieldValues(val));
-
-    //await db.replaceResource(resources["ExternalResource"], 300, dynamic.externalResource1);
-    //await db.getSpecificResources(resources["ExternalResource"], [300]);
-
-    //await db.createResource(resources["Lyph"], dynamic.lyph3);
-    //await db.getSpecificResources(resources["Lyph"], [dynamic.lyph3.id]);
-
-    //let lyphs = await db.getAllResources(resources["Lyph"]);
-    //console.log("All lyphs:", lyphs);
-
-    //let allRes = await db.getAllResources(resources["Resource"]);
-    //console.log("All resources:", allRes);
-
-    //let relatedResources = await db.getRelatedResources(resources["Lyph"].relationships['-->HasLayer'], initial.mainLyph1.id);
-    //console.log("related resources",  relatedResources);
-
-    //let mainLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
-    //console.log("Main lyph", mainLyph);
-
-
-    // async function getFields(cls, reqFields, id){
-    //     let fields = {};
-    //     for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-    //         if (reqFields[fieldName]::isUndefined() || reqFields[fieldName]::isNull()) { continue }
-    //         if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = [reqFields[fieldName]];}
-    //         if (reqFields[fieldName].length > 0){
-    //             let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, reqFields[fieldName]);
-    //             reqFields[fieldName] = objects.map(o => resources[o.class].new(o));
-    //             if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0];}
-    //         }
-    //     }
-    //     if (id::isNumber()){
-    //         let res = cls.new(reqFields);
-    //         fields = extractFieldValues(res);
-    //         fields.id = id;
-    //     } else {
-    //         let res = cls.new(reqFields);
-    //         await res.commit();
-    //         fields = extractFieldValues(res);
-    //     }
-    //     return fields;
-    // }
-    //
-    // let reqFields = {
+    // let reqFields1 = {
     //     "thickness": { "min": 0, "class": "Range" },
     //     "length": { "min": 0, "class": "Range" },
     //     "cardinalityBase": {"value": 1, "class": "Value"},
@@ -536,11 +557,23 @@ beforeEach(async () => {
     //     "longitudinalBorders": [ 600 ]
     // };
     //
-    // let id = await db.createResource(resources["Lyph"], await getFields(resources["Lyph"], reqFields));
-    // let res = await db.getSpecificResources(resources["Lyph"], [id]);
-    // console.log(res);
+    // let id1 = await db.createResource(resources["Lyph"], await getFields(resources["Lyph"], reqFields1));
+    // let res1 = await db.getSpecificResources(resources["Lyph"], [id1]);
+    // console.log(res2);
 
-});
+    let reqFields2 = {
+        name:  "SLN 2st level branch",
+        conveyingLyphType: initial.lyphType2.id,
+        parentTree: initial.canonicalTree1_2.id,
+        childTree: initial.canonicalTree1_3.id
+    };
+
+    let cls = resources["CanonicalTreeBranch"];
+
+    let id2 = await db.createResource(cls, await getFields(cls, reqFields2));
+    let res2 = await db.getSpecificResources(cls, [id2]);
+    console.log("Created resource", res2);
+}
 
 /* clear database for every tear-down */
 afterEach(() => {db.clear('Yes! Delete all everythings!');});
