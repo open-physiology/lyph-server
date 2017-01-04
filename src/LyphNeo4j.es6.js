@@ -169,8 +169,7 @@ export default class LyphNeo4j extends Neo4j {
 				const resA = rel[1], resB = rel[2];
 
 				if (resA::isUndefined() || resB::isUndefined()
-					|| resA::isNull() || resB::isNull()
-					|| !resA.id::isNumber() || !resB.id::isNumber()) {
+					|| resA::isNull() || resB::isNull()) {
 					throw customError({
 						status:  BAD_REQUEST,
 						class:   rel.class,
@@ -179,18 +178,19 @@ export default class LyphNeo4j extends Neo4j {
 					});
 				}
 
+				if (!resA.id::isNumber() || !resB.id::isNumber()) { continue; } //TODO: what to do in general?
+
 				let cls = relationships[rel.class];
 				let fields = extractFieldValues(rel);
 
-				let q = {
+				await this.query({
 					statement: `
                     MATCH (A:${resA.class} { id: ${resA.id} }), (B:${resB.class} { id: ${resB.id} })
                     CREATE UNIQUE (A) -[rel:${rel.class}]-> (B)
                     SET rel += {dbProperties}
                     SET rel.class = "${rel.class}"
                 `,
-					parameters: {  dbProperties:  dataToNeo4j(cls, fields) } };
-				await this.query(q);
+					parameters: {  dbProperties:  dataToNeo4j(cls, fields) } });
 			}
 		}
 	}

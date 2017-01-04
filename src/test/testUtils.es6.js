@@ -450,7 +450,7 @@ beforeEach(async () => {
         dynamic.lyph1.id, dynamic.lyph2.id, {id: 200, class: "HasLayer"});
     await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
 
-    await testDBOperationsViaModelLibrary();
+    //await testDBOperationsViaModelLibrary();
 });
 
 async function testDirectDBOperations(){
