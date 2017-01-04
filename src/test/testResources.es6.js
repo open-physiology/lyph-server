@@ -19,61 +19,61 @@ import {resources} from '../resources.es6.js';
 //Run just one test (helps to check one thing at the development time )
 export function runSelectedResourceTest(){
 
-    describeResourceClass('CanonicalTreeBranch', () => {
-
-        describeEndpoint('/canonicalTreeBranches', ['POST'], () => {
-
-            withValidPathParams(()=> {}, () => {
-
-                POST("creates a new canonical tree branch", r=>r.send({
-                    name: "SLN 2st level branch",
-                    conveyingLyphType: initial.lyphType2.id,
-                    parentTree: initial.canonicalTree1_2.id,
-                    childTree: initial.canonicalTree1_3.id
-                }).expect(CREATED).then(async() => {}));
-
-                // {
-                //     "name": "SLN 2st level branch",
-                //     "conveyingLyphType": 107,
-                //     "parentTree": 114,
-                //     "childTree": 115
-                // }
-
-            });
-        });
-    });
+    // describeResourceClass('CanonicalTreeBranch', () => {
+    //
+    //     describeEndpoint('/canonicalTreeBranches', ['POST'], () => {
+    //
+    //         withValidPathParams(()=> {}, () => {
+    //
+    //             POST("creates a new canonical tree branch", r=>r.send({
+    //                 name: "SLN 2st level branch",
+    //                 conveyingLyphType: initial.lyphType2.id,
+    //                 parentTree: initial.canonicalTree1_2.id,
+    //                 childTree: initial.canonicalTree1_3.id
+    //             }).expect(CREATED).then(async() => {}));
+    //
+    //             // {
+    //             //     "name": "SLN 2st level branch",
+    //             //     "conveyingLyphType": 107,
+    //             //     "parentTree": 114,
+    //             //     "childTree": 115
+    //             // }
+    //
+    //         });
+    //     });
+    // });
 
 
     describeResourceClass('Lyph', () => {
 
         //Resources
-        describeEndpoint('/lyphs', ['GET', 'POST'], () => {
-            withValidPathParams(()=>{}, () => {
-
-                GET("returns lyphs", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
-                    for (let res of resources) {
-                        expect(res).to.have.property('id');
-                        expect(res).to.have.property('class').that.equals("Lyph");
-                    }
-                }));
-
-                POST("creates a new lyph", r=>r.send(
-                    {
-                        "thickness": { "min": 0, "class": "Range" },
-                        "length": { "min": 0, "class": "Range" },
-                        "cardinalityBase": {"value": 1, "class": "Value"},
-                        "id": dynamic.lyph3.id,
-                        "class": "Lyph",
-                        "name": "Liver",
-                        "axis": 500,
-                        "longitudinalBorders": [ 600 ]
-                    }
-                ).expect(CREATED).then(async() => {
-                    let res = await requestSingleResource(`/lyphs/${dynamic.lyph3.id}`);
-                    expect(res).to.have.property('id').that.equals(dynamic.lyph3.id);
-                }));
-            });
-        });
+        // describeEndpoint('/lyphs', ['GET', 'POST'], () => {
+        //     withValidPathParams(()=>{}, () => {
+        //
+        //         GET("returns lyphs", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
+        //             for (let res of resources) {
+        //                 expect(res).to.have.property('id');
+        //                 expect(res).to.have.property('class').that.equals("Lyph");
+        //             }
+        //         }));
+        //
+        //         POST("creates a new lyph", r=>r.send(
+        //             {
+        //                 "thickness": { "min": 0, "class": "Range" },
+        //                 "length": { "min": 0, "class": "Range" },
+        //                 "cardinalityBase": {"value": 1, "class": "Value"},
+        //                 "id": dynamic.lyph.id,
+        //                 "class": "Lyph",
+        //                 "name": "Liver",
+        //                 "axis": 500,
+        //                 "longitudinalBorders": [ 501 ]
+        //             }
+        //         ).expect(CREATED).then(async() => {
+        //             let res = await requestSingleResource(`/lyphs/${dynamic.lyph.id}`);
+        //             expect(res).to.have.property('id').that.equals(dynamic.lyph.id);
+        //         }));
+        //     });
+        // });
 
         //Specific resource
         describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
@@ -84,34 +84,34 @@ export function runSelectedResourceTest(){
 
             withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
 
-                GET("returns a resource with expected fields", r=>r.resource((res) => {
-                    expect(res).to.have.property('id');
-                    expect(res).to.have.property('href');
-                    expect(res).to.have.property('class');
-                    expect(res).to.have.property('name');
-                    expect(res).to.have.property('species');
-                    expect(res).to.have.property('layers');
-                    expect(res.layers.map(x => x.id)).with.members([initial.lyph1.id, initial.lyph2.id]);
-                    expect(res).to.have.property('externals');
-                    expect(res.externals.map(x => x.id)).with.members([initial.externalResource1.id]);
-                    expect(res).to.have.property('longitudinalBorders');
-                    //w3expect(res.longitudinalBorders.map(x => x.id)).with.members([initial.border1.id, initial.border2.id]);
-                    //expect(res).to.have.property('radialBorders');
-                    expect(res).to.have.property('axis');
-                    expect(res).to.have.property('thickness').that.deep.equals({value: 1});
-                    expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
-                    //expect(res).to.have.property('segments');
-                    //expect(res).to.have.property('patches');
-                    //expect(res).to.have.property('coalecences');
-                    //expect(res).to.have.property('incomingProcesses');
-                    //expect(res).to.have.property('outgoingProcesses');
-                    expect(res).to.have.property('processes');
-                    //expect(res).to.have.property('nodes');
-                    expect(res).to.have.property('materials');
-                    expect(res.materials.map(x => x.id)).with.members([ initial.materialType1.id]);
-                    expect(res).to.have.property('measurables');
-                    expect(res.measurables.map(x => x.id)).with.members([initial.measurable1.id]);
-                }));
+                // GET("returns a resource with expected fields", r=>r.resource((res) => {
+                //     expect(res).to.have.property('id');
+                //     expect(res).to.have.property('href');
+                //     expect(res).to.have.property('class');
+                //     expect(res).to.have.property('name');
+                //     expect(res).to.have.property('species');
+                //     expect(res).to.have.property('layers');
+                //     expect(res.layers.map(x => x.id)).with.members([initial.lyph1.id, initial.lyph2.id]);
+                //     expect(res).to.have.property('externals');
+                //     expect(res.externals.map(x => x.id)).with.members([initial.externalResource1.id]);
+                //     expect(res).to.have.property('longitudinalBorders');
+                //     //w3expect(res.longitudinalBorders.map(x => x.id)).with.members([initial.border1.id, initial.border2.id]);
+                //     //expect(res).to.have.property('radialBorders');
+                //     expect(res).to.have.property('axis');
+                //     expect(res).to.have.property('thickness').that.deep.equals({value: 1});
+                //     expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
+                //     //expect(res).to.have.property('segments');
+                //     //expect(res).to.have.property('patches');
+                //     //expect(res).to.have.property('coalecences');
+                //     //expect(res).to.have.property('incomingProcesses');
+                //     //expect(res).to.have.property('outgoingProcesses');
+                //     expect(res).to.have.property('processes');
+                //     //expect(res).to.have.property('nodes');
+                //     expect(res).to.have.property('materials');
+                //     expect(res.materials.map(x => x.id)).with.members([ initial.materialType1.id]);
+                //     expect(res).to.have.property('measurables');
+                //     expect(res.measurables.map(x => x.id)).with.members([initial.measurable1.id]);
+                // }));
 
                 POST("updates a given resource", r=>r.send({
                     name: "Brain"
@@ -158,7 +158,7 @@ export function runSelectedResourceTest(){
         //Specific related resource
         describeEndpoint('/lyphs/{lyphID}/layers/{otherLyphID}', ['PUT', 'DELETE'], () => {
 
-            withValidPathParams(()=>({lyphID: initial.mainLyph1.id, otherLyphID: initial.lyph3.id}), () => {
+            withValidPathParams(()=>({lyphID: initial.mainLyph1.id, otherLyphID: initial.lyph.id}), () => {
 
                 PUT("adds layer", r=>r.send({relativePosition: 1})
                     .expect(OK).then(async() => {

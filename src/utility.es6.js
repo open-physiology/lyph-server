@@ -135,9 +135,12 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 
 /* to get node or relationship match labels for a given entity class */
 export function matchLabelsQueryFragment(cls, entityName){
-	let parentClasses = (cls.allSubclasses)? [...cls.allSubclasses()].map(x => x.name): [cls.name];
-	if (entityName::isUndefined() || cls.isRelationship){ return parentClasses; }
-	return parentClasses.map((label) => (`${entityName}: ${label}`));
+
+	/* We do not keep abstract resources or relationships in DB, so they can be skipped in queries*/
+	let subClasses = (cls.allSubclasses)? [...cls.allSubclasses()]
+		.filter(x => !x.abstract).map(x => x.name): [cls.name];
+	if (entityName::isUndefined() || cls.isRelationship){ return subClasses; }
+	return subClasses.map((label) => (`${entityName}: ${label}`));
 }
 
 /* to get relationships of a given resource*/

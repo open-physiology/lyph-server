@@ -55,8 +55,6 @@ const createAllResourceRelationships      = Symbol('createAllResourceRelationshi
 const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
 const getResourcesToDelete                = Symbol('getResourcesToDelete');
 const anythingAnchoredFromOutside         = Symbol('anythingAnchoredFromOutside');
-const createRelationshipSet		          = Symbol('createRelationshipSet');
-const removeRelationshipSet		          = Symbol('removeRelationshipSet');
 
 /* The LyphNeo4j class */
 export default class LyphNeo4j extends Neo4j {
@@ -161,7 +159,39 @@ export default class LyphNeo4j extends Neo4j {
 
             let val = fields[fieldName];
 			if (val::isUndefined() || val::isNull()) { continue }
-			await this[createRelationshipSet](fieldName, val);
+
+			let rels = (val::isSet())? [...val]: [val];
+			for (let rel of rels){
+				//Skip more general collections, only create top most relationships
+				//Relationships to create have to correspond to the relationship field, e.g., -->HasLayer vs HasLayer
+				if (fieldName.substring(3) !== rel.class){ continue; }
+
+				const resA = rel[1], resB = rel[2];
+
+				if (resA::isUndefined() || resB::isUndefined()
+					|| resA::isNull() || resB::isNull()
+					|| !resA.id::isNumber() || !resB.id::isNumber()) {
+					throw customError({
+						status:  BAD_REQUEST,
+						class:   rel.class,
+						rel:     rel,
+						message: humanMsg`Invalid resource definition found while creating relationship ${fieldName}.`
+					});
+				}
+
+				let cls = relationships[rel.class];
+				let fields = extractFieldValues(rel);
+
+				let q = {
+					statement: `
+                    MATCH (A:${resA.class} { id: ${resA.id} }), (B:${resB.class} { id: ${resB.id} })
+                    CREATE UNIQUE (A) -[rel:${rel.class}]-> (B)
+                    SET rel += {dbProperties}
+                    SET rel.class = "${rel.class}"
+                `,
+					parameters: {  dbProperties:  dataToNeo4j(cls, fields) } };
+				await this.query(q);
+			}
 		}
 	}
 
@@ -170,22 +200,27 @@ export default class LyphNeo4j extends Neo4j {
 		let relDeletionStatements = [];
 		for (let fieldName of Object.keys(fields).filter((key) => !!cls.relationships[key])){
 			let val = fields[fieldName];
-            if (val::isUndefined() || val::isNull()) { continue }
 
-            val = _(val).mapValues((x) => (x.value)).value();
-			let ids = extractIds(val);
+			if (val::isUndefined()){ continue }
+			let fieldSpec = cls.relationships[fieldName];
+			//We do not create abstract relationships and do need to delete them
+			if (fieldName.substring(3) !== fieldSpec.relationshipClass.name){ continue; }
 
-            let fieldSpec = cls.relationships[fieldName];
+			let ids = [];
+            if (!val::isNull()) {
+				val = _(val).mapValues((x) => (x.value)).value();
+				ids = extractIds(val);
+			}
 
 			let [l, r] = arrowEnds(fieldSpec);
-            await this.query(`
+			relDeletionStatements.push(`
 				MATCH (A { id: ${id} }) 
-			           ${l}[rel: ${matchLabelsQueryFragment(fieldSpec.relationshipClass).join('|')}]${r} 
+					   ${l}[rel: ${matchLabelsQueryFragment(fieldSpec.relationshipClass).join('|')}]${r} 
 					  (B)
-			 	WHERE (${matchLabelsQueryFragment(cls, 'A').join(' OR ')})
+				WHERE NOT B.id IN [${ids.join(', ')}]
+				   AND (${matchLabelsQueryFragment(cls, 'A').join(' OR ')})
 				   AND (${matchLabelsQueryFragment(fieldSpec.codomain.resourceClass, 'B').join(' OR ')}) 			 	  
-			 	   AND NOT B.id IN [${ids.join(', ')}]
-			 	DELETE rel
+				DELETE rel
 			`);
 		}
 		if (relDeletionStatements.length > 0) {
@@ -256,76 +291,6 @@ export default class LyphNeo4j extends Neo4j {
 			RETURN DISTINCT n
 		`).then(pluckData('n'));
 	}
-
-    //////////////////////////////////////////////////////
-    // Operations on relationships                      //
-    //////////////////////////////////////////////////////
-
-
-    async [createRelationshipSet](fieldName, val) {
-        let rels = (val::isSet())? [...val]: [val];
-    	for (let rel of rels){
-			//Skip more general collections, only create top most relationships
-            //Relationships to create have to correspond to the relationship field, e.g., -->HasLayer vs HasLayer
-			if (fieldName.substring(3) !== rel.class){ continue; }
-
-            const resA = rel[1], resB = rel[2];
-			if (resA::isUndefined() || resB::isUndefined() ||
-				resA::isNull() || resB::isNull()) {
-				throw customError({
-					status:  NOT_FOUND,
-					class:   rel.class,
-					rel:     rel,
-					message: humanMsg`Invalid resource definition found while creating relationship ${fieldName}.`
-				});
-			}
-
-			if (!resA.id::isNumber() || !resB.id::isNumber()){ continue } //If IDs are not given, skip such a relationship for now
-
-            let cls = relationships[rel.class];
-
-			let fields = extractFieldValues(rel);
-			await this[assertIdIsGiven](cls, fields);
-
-			let dbProperties = dataToNeo4j(cls, fields);
-
-			await this.query({
-				statement: `
-                    MATCH (A:${resA.class} { id: ${resA.id} }), (B:${resB.class} { id: ${resB.id} })
-                    CREATE UNIQUE (A) -[rel:${rel.class}]-> (B)
-                    SET rel += {dbProperties}
-                    SET rel.class = "${rel.class}"
-                `,
-                parameters: {  dbProperties: dbProperties } }
-            );
-        }
-    }
-
-
-    async [removeRelationshipSet](val) {
-    	let rels = val::isSet()? [...val]: [val];
-        for (let rel of rels){
-            const resA = rel[1], resB = rel[2];
-
-			if (resA::isUndefined() || resB::isUndefined() || resA::isNull() || resB::isNull()) {
-				throw customError({
-					status:  NOT_FOUND,
-					class:   rel.class,
-					rel:     rel,
-					message: humanMsg`Invalid resource definition found while deleting relationship ${fieldName}.`
-				});
-			}
-
-			if (!resA.id::isNumber() || !resB.id::isNumber()){ continue } //If IDs are not given, skip such a relationship for now
-
-			await this.query(`
-                MATCH (A:${resA.class} { id: ${resA.id} }), 
-                       -[rel:${rel.class}]-> 
-                      (B:${resB.class} { id: ${resB.id} })
-                DELETE rel`
-            );
-        }
-    }
 
 
 	//////////////////////////////////////////////////////
@@ -451,7 +416,6 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* create the required relationships */
 		await this[createAllResourceRelationships](cls, id, fields);
-
 	}
 
 

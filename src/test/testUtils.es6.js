@@ -280,7 +280,7 @@ beforeEach(async () => {
     /* lyphs */
     initial.lyph1 = model.Lyph.new({name: "Renal hilum", longitudinalBorders: [initial.border5, initial.border6] });
     initial.lyph2 = model.Lyph.new({name: "Renal parenchyma", longitudinalBorders: [initial.border7, initial.border8] });
-    initial.lyph3 = model.Lyph.new({name: "Renal capsule", longitudinalBorders: [initial.border9, initial.border10] });
+    initial.lyph = model.Lyph.new({name: "Renal capsule", longitudinalBorders: [initial.border9, initial.border10] });
 
     initial.mainLyph1 = model.Lyph.new({
         name      : "Kidney",
@@ -297,7 +297,7 @@ beforeEach(async () => {
 
     initial.mainLyph2 = model.Lyph.new({
         name:  "Stomach",
-        layers: [initial.lyph3, initial.lyph2],
+        layers: [initial.lyph, initial.lyph2],
         measurables: [initial.measurable2],
         longitudinalBorders: [initial.border3, initial.border4]
     });
@@ -312,12 +312,12 @@ beforeEach(async () => {
 
     initial.lyphType3 = model.Type.new({
         name: "Renal capsule type",
-        definition: initial.lyph3});
+        definition: initial.lyph});
 
     /* processes */
     initial.process1 = model.Process.new({
         name : "Blood advective process",
-        transportPhenomenon: "advection",  //TODO test with array
+        transportPhenomenon: "advection",
         //sourceLyph: initial.lyph1,       //TODO - these will be removed from model library for now
         //targetLyph: initial.lyph2,
         conveyingLyph: [initial.mainLyph1]
@@ -421,39 +421,36 @@ beforeEach(async () => {
     });
     await newExternalResource1.commit();
 
-    let newLyph1 = model.Lyph.new({name:  "Heart chamber"});
-    await newLyph1.commit();
+    let borders = [];
+    for (let i = 0; i <6; i++){
+        borders.push(model.Border.new({id: 500 + i, nature: "open" }));
+    }
+    let lyph  = model.Lyph.new({name:  "Liver", longitudinalBorders: [borders[0], borders[1]]});
+    let lyph1 = model.Lyph.new({name:  "Heart chamber", longitudinalBorders: [borders[2], borders[3]]});
+    let lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [borders[4], borders[5]]});
 
-    let newLyph2 = model.Lyph.new({name:  "Heart"});
-    await newLyph2.commit();
+    await Promise.all(borders.map(p => p.commit()));
+    await lyph.commit();
+    await lyph1.commit();
+    await lyph2.commit();
 
-    let newBorder1 = model.Border.new({id: 500, nature: "open" });
-    let newBorder2 = model.Border.new({id: 600, nature: "closed" });
-
-    let newLyph3 = model.Lyph.new({name:  "Liver", longitudinalBorders: [newBorder1, newBorder2]});
-
-    await newBorder1.commit();
-    await newBorder2.commit();
-    await newLyph3.commit();
-
-    //"dynamic" contains objects with arrays of values instead of Rel$Field etc.
-    dynamic.border1          = extractFieldValues(await createCLResource(newBorder1));
-    dynamic.border2          = extractFieldValues(await createCLResource(newBorder2));
-
+    /* "dynamic" contains objects with arrays of values instead of Rel$Field etc. */
     dynamic.externalResource1 = extractFieldValues(await createCLResource(newExternalResource1));
-    dynamic.lyph1             = extractFieldValues(await createCLResource(newLyph1));
-    dynamic.lyph2             = extractFieldValues(await createCLResource(newLyph2));
-    dynamic.lyph3             = extractFieldValues(newLyph3);
-
-    //Test operations on a resource with fields that contain IDs of related objects
-    dynamic.lyph3 = setsToArrayOfIds(dynamic.lyph3);
+    dynamic.borders = [];
+    for (let i = 0; i < 6; i++){
+        dynamic.borders.push(extractFieldValues(await createCLResource(borders[i])));
+    }
+    dynamic.lyph              = setsToArrayOfIds(extractFieldValues(lyph));
+    dynamic.lyph1             = extractFieldValues(await createCLResource(lyph1));
+    dynamic.lyph2             = extractFieldValues(await createCLResource(lyph2));
 
     //HasLayer with ID
-    await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
+    await db.addRelationship(
+        resources["Lyph"].relationships["-->HasLayer"],
         dynamic.lyph1.id, dynamic.lyph2.id, {id: 200, class: "HasLayer"});
     await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
 
-    //await testDBOperationsViaModelLibrary();
+    await testDBOperationsViaModelLibrary();
 });
 
 async function testDirectDBOperations(){
@@ -462,10 +459,10 @@ async function testDirectDBOperations(){
     let fields = extractFieldValues(module["HasLayer"]
         .new({...{relativePosition: 1},
             1: resources["Lyph"].new({id: initial.mainLyph1.id}),
-            2: resources["Lyph"].new({id: initial.lyph3.id})}));
+            2: resources["Lyph"].new({id: initial.lyph.id})}));
 
     await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
-        initial.mainLyph1.id, initial.lyph3.id, fields);
+        initial.mainLyph1.id, initial.lyph.id, fields);
 
     await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
        initial.mainLyph1.id, initial.lyph2.id, {relativePosition: 1});
@@ -486,8 +483,8 @@ async function testDirectDBOperations(){
     await db.replaceResource(resources["ExternalResource"], 300, dynamic.externalResource1);
     await db.getSpecificResources(resources["ExternalResource"], [300]);
 
-    await db.createResource(resources["Lyph"], dynamic.lyph3);
-    await db.getSpecificResources(resources["Lyph"], [dynamic.lyph3.id]);
+    await db.createResource(resources["Lyph"], dynamic.lyph);
+    await db.getSpecificResources(resources["Lyph"], [dynamic.lyph.id]);
 
     await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
     await db.deleteResource(resources["Border"], initial.border1.id);
@@ -554,7 +551,7 @@ async function testDBOperationsViaModelLibrary(){
     //     "class": "Lyph",
     //     "name": "Liver",
     //     "axis": 500,
-    //     "longitudinalBorders": [ 600 ]
+    //     "longitudinalBorders": [ 501 ]
     // };
     //
     // let id1 = await db.createResource(resources["Lyph"], await getFields(resources["Lyph"], reqFields1));
