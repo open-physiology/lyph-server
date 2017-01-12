@@ -38,7 +38,7 @@ let swaggerDataTypes = {};
 //Creates definitions for resources and relationships (assuming that any entry in manifest is one of those)
 for (let [className, cls] of Object.entries(model)) {
 
-    let xTag = (cls.isResource)? 'x-resource-type': 'x-relationship-type';
+    let xTag = (cls.isResource)? 'x-resource-type': (cls.isRelationship)? 'x-relationship-type': 'x-other-type';
 
     let filteredRelationshipShortcuts = {};
     if (cls.relationshipShortcuts){
@@ -81,16 +81,16 @@ for (let [className, cls] of Object.entries(model)) {
             if (properties[fieldName]::isEmpty()) {
                 if (fieldSpec.cardinality.max === 1) {
                     properties[fieldName] = {
-                        "type": "integer"
+                        type: "integer"
                     }
                 }
                 else {
                     properties[fieldName] = {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
+                        type: "array",
+                        items: {
+                            type: "integer"
                         },
-                        "uniqueItems": true
+                        uniqueItems: true
                     }
                 }
             }
@@ -123,6 +123,7 @@ for (let [className, cls] of Object.entries(model)) {
 
 let resourceEndpoints = {};
 let relationshipEndpoints = {};
+let operationEndpoints = {};
 const FORWARD  = Symbol('FORWARD' );
 const BACKWARD = Symbol('BACKWARD');
 
@@ -705,6 +706,70 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
     }
 }
 
+////////////////////////////////////////////////////////////////
+//Advanced operations: batch processing, search
+////////////////////////////////////////////////////////////////
+
+function addOperationEndpoints() {
+    swaggerDataTypes[`batch_Request`] = {
+        type:       'object',
+        properties: {
+            temporaryIDs: {
+                type: 'array',
+                items: { type: 'integer' },
+                uniqueItems: true
+            },
+            operations: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        method: {
+                            type: 'string',
+                            enum: ['POST']
+                        },
+                        path: {type: 'string'},
+                        body: $ref(`partial_Resource`)
+                    }
+                }
+            }
+        }
+    };
+
+    swaggerDataTypes[`batch_Response`] = {
+        type:       'object',
+        properties: {
+            ids: {
+                type: 'array',
+                items: { type: 'integer' }
+            },
+            responses: {
+                type: 'array',
+                items: $ref(`Resource`)
+            }
+        }
+    };
+
+    operationEndpoints['/batch'] = {
+        'x-path-type': 'batch',
+        post: {
+            summary: "Executes a batch of POST requests on resources.",
+            parameters: [{
+                name: 'commands',
+                in: 'body',
+                description: `an array of API calls`,
+                required: true,
+                schema: $ref(`batch_Request`)
+            }],
+            responses: {
+                [OK]: {
+                    description: `an array containing responses for operations in the batch`,
+                    schema: { type: 'array', items: $ref('batch_Response'), minItems: 1, maxItems: 1 }
+                }
+            }
+        }
+    };
+}
 
 ////////////////////////////////////////////////////////////////
 
@@ -733,6 +798,8 @@ for (let rel of Object.values(relationships)) {
     addRelationshipEndpoint(rel);
     addSpecificRelationshipEndpoint(rel);
 }
+
+addOperationEndpoints();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // algorithm endpoints                                                                                                //
@@ -778,7 +845,8 @@ export default {
 		...swaggerDataTypes
 	},
 	paths: {
-		...resourceEndpoints,
+        ...operationEndpoints,
+        ...resourceEndpoints,
 		...relationshipEndpoints,
 		...algorithmEndpoints
 	}

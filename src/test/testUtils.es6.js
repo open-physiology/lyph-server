@@ -237,6 +237,17 @@ beforeEach(async () => {
     ////////////////////////////////////////////////////////////////////////
     /*Create test resources via client library*/
 
+    // let lyph0 = model.Lyph.new({name: "Heart"});
+    // //let lyph0 = model.Lyph.new({name: "Heart", longitudinalBorders: []});
+    // let border1 = model.Border.new({nature: "open"});
+    // let border2 = model.Border.new({nature: "closed"});
+    // lyph0.longitudinalBorders = [border1, border2];
+    // await border1.commit();
+    // await border2.commit();
+    // await lyph0.commit();
+
+
+
     /* external resources */
     initial.externalResource1 = model.ExternalResource.new({
         name:  "Third plantar metatarsal vein",

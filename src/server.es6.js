@@ -46,13 +46,11 @@ import {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // request handlers                                                                                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 let newUID = 0;
 
+// TODO: to avoid race conditions, use a Neo4j REST transactions to get some ACID around these multiple queries
 
-async function getFields(db, cls, reqFields, id){
-
-	let fields = {};
+async function getModelResource(db, cls, reqFields, id){
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
 		let val = reqFields[fieldName];
 		if (val::isUndefined() || val::isNull()) { continue }
@@ -67,23 +65,15 @@ async function getFields(db, cls, reqFields, id){
 			if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0] }
 		}
 	}
-	if (id::isNumber()){
-		let res = cls.new(reqFields);
-		fields = extractFieldValues(res);
-		fields.id = id;
-	} else {
-		let res = cls.new(reqFields);
-		//assign new ID only if it was not given by user
-		// if (!reqFields.id::isNumber()){
-		// 	res.set('id', ++newUID, { ignoreReadonly: true });
-		// }
-		await res.commit();
-		fields = extractFieldValues(res);
+	let resource = cls.new(reqFields);
+	let resID = id::isNumber()? id: ++newUID;
+	if (!resource.id::isNumber()){
+		resource.set('id', resID, { ignoreReadonly: true });
 	}
-	return fields;
+	return resource;
 }
 
-async function getRelFields(db, cls, relA, idA, idB, reqFields){
+async function getModelRelationshipFields(db, cls, relA, idA, idB, reqFields){
 	/*Extract relationship ends*/
 	let [{objA}] = await db.getSpecificResources(relA.resourceClass, [idA]);
 	let resA = relA.resourceClass.new(objA); //get
@@ -105,15 +95,70 @@ async function getRelFields(db, cls, relA, idA, idB, reqFields){
 	return fields;
 }
 
-// TODO: to avoid race conditions, use a Neo4j REST transactions to get some ACID around these multiple queries
-
 const requestHandler = {
+	batch: {
+		async post({db}, req, res){
+			let responses = [], ids = [];
+			let {temporaryIDs, operations} = req.body;
+			let modelObjects = [];
+			let operationTempIDs = {};
+			//Create model resource by given fields, retrieve resources for existing IDs in its properties
+			for (let operation of operations) {
+				let {method, path, body} = operation;
+				let pathObj = swagger.paths[path];
+				let cls = resources[pathObj['x-resource-type']];
+				let objectTempIDs = {};
+				//filter and store separately temporary IDs
+				for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)) {
+					if (body[fieldName]::isUndefined() || body[fieldName]::isNull()) { continue; }
+					if (fieldSpec.cardinality.max === 1) { body[fieldName] = [body[fieldName]] }
+					objectTempIDs[fieldName] = body[fieldName].filter(x => temporaryIDs.includes(x));
+					body[fieldName] = body[fieldName].filter(x => !temporaryIDs.includes(x));
+				}
+				let object = await getModelResource(db, cls, body, body.id);
+				operationTempIDs[object.id]= objectTempIDs;
+				modelObjects.push(object);
+			}
+			//Replace temporary IDs with newly created model resources
+			for (let object of modelObjects) {
+				let cls = resources[object.class];
+				for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)) {
+					if (!operationTempIDs[object.id]::isUndefined() &&
+						!operationTempIDs[object.id][fieldName]::isUndefined()) {
+						object[fieldName] = [
+							...object[fieldName],
+							...operationTempIDs[object.id][fieldName]
+								.map(tempID => modelObjects.find(o => (o.id === tempID)))];
+					}
+					if (object[fieldName] && (object[fieldName].length === 1) && (fieldSpec.cardinality.max === 1)) {
+						object[fieldName] = object[fieldName][0];
+					}
+				}
+			}
+			//Constraints on longitudinal borders fail (-->HasLongitudinalBorder has only one element)?
+			//Validate the constraints on resources in the batch by committing them all
+			//await Promise.all(modelObjects.map(r => r.commit()));
+
+			//Add missing resources to DB
+			for (let i = 0; i < operations.length; i++){
+				let object = modelObjects[i];
+				let cls = resources[object.class];
+				let id = await db.createResource(cls, extractFieldValues(object));
+				let response = await db.getSpecificResources(cls, [id]);
+				ids.push(id);
+				responses.push(response);
+			}
+			res.status(OK).jsonp([{ids: ids, responses: responses}]);
+		}
+	},
 	resources: /*get, post*/ {
 		async get({db, cls}, req, res) {
 			res.status(OK).jsonp( await db.getAllResources(cls));
 		},
 		async post({db, cls}, req, res) {
-			let id = await db.createResource(cls, await getFields(db, cls, req.body));
+			let resource = await getModelResource(db, cls, req.body);
+			await resource.commit(); //validation
+			let id = await db.createResource(cls, extractFieldValues(resource));
 			res.status(CREATED).jsonp(await db.getSpecificResources(cls, [id]));
 		}
 	},
@@ -124,12 +169,14 @@ const requestHandler = {
 		},
 		async post({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			await db.updateResource(cls, req.pathParams.id, await getFields(db, cls, req.body, req.pathParams.id));
+			let resource = await getModelResource(db, cls, req.body, req.pathParams.id);
+			await db.updateResource(cls, req.pathParams.id, extractFieldValues(resource));
 			res.status(OK).jsonp( await db.getSpecificResources(cls, [req.pathParams.id]));
 		},
 		async put({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			await db.replaceResource(cls, req.pathParams.id, await getFields(db, cls, req.body, req.pathParams.id));
+			let resource = await getModelResource(db, cls, req.body, req.pathParams.id);
+			await db.replaceResource(cls, req.pathParams.id, extractFieldValues(resource));
 			res.status(OK).jsonp(await db.getSpecificResources(cls, [req.pathParams.id]));
 		},
 		async delete({db, cls}, req, res) {
@@ -147,7 +194,7 @@ const requestHandler = {
 	specificRelatedResource: /*put, delete*/ {
 		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await db.addRelationship(relA, idA, idB, await getRelFields(db, cls, relA, idA, idB, req.body));
+			await db.addRelationship(relA, idA, idB, await getModelRelationshipFields(db, cls, relA, idA, idB, req.body));
 			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async delete({db, cls, relA}, req, res) {
@@ -205,12 +252,12 @@ const requestHandler = {
 		},
 		async post({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await db.updateRelationship(relA, idA, idB,  await getRelFields(db, cls, relA, idA, idB, req.body));
+			await db.updateRelationship(relA, idA, idB,  await getModelRelationshipFields(db, cls, relA, idA, idB, req.body));
 			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await db.replaceRelationship(relA, idA, idB, await getRelFields(db, cls, relA, idA, idB, req.body));
+			await db.replaceRelationship(relA, idA, idB, await getModelRelationshipFields(db, cls, relA, idA, idB, req.body));
 			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async delete({db, cls, relA}, req, res) {
@@ -323,7 +370,6 @@ function errorTransmitter(err, req, res, next) {
 /* done with error */
 function doneWithError(err, req, res, next) {}
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // the server                                                                                                         //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -378,11 +424,12 @@ export default async (distDir, config) => {
 
 	/* request handling */
 	for (let path of Object.keys(swagger.paths)) {
-		let pathObj = swagger.paths[path];
 		let expressStylePath = path.replace(/{(\w+)}/g, ':$1');
+		let pathObj = swagger.paths[path];
 
 		for (let method of _(pathObj).keys().intersection(['get', 'post', 'put', 'delete'])) {
 			let info = sw(pathObj['x-path-type'])(
+				[['batch'], ()=>({})],
 				[['resources', 'specificResources'], ()=>({
 					cls: resources[pathObj['x-resource-type']]
 				})],
@@ -390,13 +437,13 @@ export default async (distDir, config) => {
 					cls: relationships[pathObj['x-relationship-type']],
 					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
 				})],
-                [['relationships', 'specificRelationships'], ()=>({
-                    cls: relationships[pathObj['x-relationship-type']]
-                })],
-                [['relatedRelationships', 'specificRelationshipByResources'], ()=>({
-                    cls: relationships[pathObj['x-relationship-type']],
+				[['relationships', 'specificRelationships'], ()=>({
+					cls: relationships[pathObj['x-relationship-type']]
+				})],
+				[['relatedRelationships', 'specificRelationshipByResources'], ()=>({
+					cls: relationships[pathObj['x-relationship-type']],
 					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
-                })],
+				})],
 				[['algorithm'], ()=>({
 					algorithmName: pathObj['x-algorithm-name']
 				})]
@@ -410,6 +457,7 @@ export default async (distDir, config) => {
 			});
 		}
 	}
+
 
 	/* handling error messages */
 	server.use(errorNormalizer);
