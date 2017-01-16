@@ -18,6 +18,7 @@ import {resources, relationships} from '../resources.es6.js';
 import {OK, NOT_FOUND, CREATED} from "../http-status-codes.es6";
 import {extractFieldValues, setsToArrayOfIds} from '../utility.es6';
 import modelFactory from "open-physiology-model/src/index.js";
+import {simpleMockHandlers}   from 'open-physiology-model/test/mock-handlers.helper';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -228,7 +229,9 @@ let model;
 /* initial database clearing */
 before(() => {
     db.clear('Yes! Delete all everythings!');
-    model = modelFactory().classes;
+
+    let {frontend} = simpleMockHandlers();
+    model = modelFactory(frontend).classes;
 });
 
 /* before each test, reset the database */
@@ -245,8 +248,6 @@ beforeEach(async () => {
     // await border1.commit();
     // await border2.commit();
     // await lyph0.commit();
-
-
 
     /* external resources */
     initial.externalResource1 = model.ExternalResource.new({
@@ -462,6 +463,8 @@ beforeEach(async () => {
     await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
 
     //await testDBOperationsViaModelLibrary();
+    console.log("Test utils successfully completed!");
+
 });
 
 async function testDirectDBOperations(){

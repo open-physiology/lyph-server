@@ -9,7 +9,7 @@ import cloneDeep from 'lodash/cloneDeep';
 
 /* local stuff */
 import {toCamelCase} from './utility.es6.js';
-import {resources, relationships, model} from './resources.es6.js';
+import {model, resources, relationships} from './resources.es6.js';
 import {
 	OK,
 	CREATED,

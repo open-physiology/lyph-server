@@ -32,7 +32,7 @@
     "node-rest-client": "~1",
     "promisify": "~0.0",
     "swagger-express-middleware": "~0.4",
-    "open-physiology-model": "https://github.com/mhelvens/open-physiology-model.git#has-multiple-parents"
+    "open-physiology-model": "https://github.com/mhelvens/open-physiology-model.git#command-pattern"
   },
   "devDependencies": {
     "babel": "6",

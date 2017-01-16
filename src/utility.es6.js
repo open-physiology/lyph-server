@@ -158,10 +158,8 @@ export function extractRelationshipFields(A, rels, skipShortcuts){
 			1: (s === A.id)? objA: objB,
 			2: (s === A.id)? objB: objA
 		};
-		if (relFields[fieldName]::isUndefined()){
-			relFields[fieldName] = [];
-		}
-		relFields[fieldName] = relObj;
+		if (relFields[fieldName]::isUndefined()){ relFields[fieldName] = []; }
+		relFields[fieldName].push(relObj);
 
 		let relA = resources[A.class].relationships[fieldName];
 		if (!skipShortcuts){

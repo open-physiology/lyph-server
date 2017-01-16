@@ -1,6 +1,8 @@
 import modelFactory from "open-physiology-model/src/index.js";
 
 export const modelRef = modelFactory();
+export const model = modelRef.classes;
+
 export const resources = {};
 export const relationships = {};
 
@@ -9,4 +11,3 @@ for (let [key, value] of Object.entries(modelRef.classes)){
 	if (value.isRelationship) {relationships[key] = value;}
 }
 
-export const model = modelRef.classes;

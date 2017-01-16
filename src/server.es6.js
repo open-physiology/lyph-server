@@ -26,10 +26,6 @@ import {
 	extractFieldValues,
 } from './utility.es6.js';
 import {
-	relationships,
-	resources
-} from './resources.es6.js';
-import {
 	OK,
 	CREATED,
 	NO_CONTENT,
@@ -40,31 +36,39 @@ import {
 	PRECONDITION_FAILED,
 	INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
+import modelFactory from "open-physiology-model/src/index.js";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // request handlers                                                                                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 let newUID = 0;
+let model;
+const resources = {};
+const relationships = {};
+
 
 // TODO: to avoid race conditions, use a Neo4j REST transactions to get some ACID around these multiple queries
 
-async function getModelResource(db, cls, reqFields, id){
+async function createModelResource(db, cls, fields, id){
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-		let val = reqFields[fieldName];
+		let val = fields[fieldName];
 		if (val::isUndefined() || val::isNull()) { continue }
 		if (fieldSpec.cardinality.max === 1){ val = [val] }
 		if (val.length > 0){
-			let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, val);
-			reqFields[fieldName] = objects.map(o => {
-				let props = {};
-				for (let key of Object.keys(resources[o.class].properties)){ props[key] = o[key]; }
-				return resources[o.class].new(props);
-			});
-			if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0] }
+			// let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, val);
+			// fields[fieldName] = objects.map(o => {
+			// 	let props = {};
+			// 	for (let key of Object.keys(model[o.class].properties)){ props[key] = o[key]; }
+			// 	return model[o.class].new(props);
+			// });
+			fields[fieldName] = model[o.class].getAll(val);
+			//fields[fieldName] = model[o.class].readAll(val);
+
+			if (fieldSpec.cardinality.max === 1){ fields[fieldName] = fields[fieldName][0] }
 		}
 	}
-	let resource = cls.new(reqFields);
+	let resource = cls.new(fields);
 	let resID = id::isNumber()? id: ++newUID;
 	if (!resource.id::isNumber()){
 		resource.set('id', resID, { ignoreReadonly: true });
@@ -75,11 +79,9 @@ async function getModelResource(db, cls, reqFields, id){
 async function getModelRelationshipFields(db, cls, relA, idA, idB, reqFields){
 	/*Extract relationship ends*/
 	let [{objA}] = await db.getSpecificResources(relA.resourceClass, [idA]);
-	let clsA = resources[objA.class];
-	let resA = clsA.new(objA);
+	let resA = relA.resourceClass.new(objA); //get
 	let [{objB}] = await db.getSpecificResources(relA.codomain.resourceClass, [idB]);
-	let clsB = resources[objA.class];
-	let resB = clsB.new(objB); //get
+	let resB = relA.codomain.resourceClass.new(objB); //get
 
 	/*Reconstruct existing model library relationship entity to validate constraints*/
 	//TODO: replace .new() with .get() and remove .id assignment from fields
@@ -92,8 +94,10 @@ async function getModelRelationshipFields(db, cls, relA, idA, idB, reqFields){
 	fields[1].id = idA;
 	fields[2].id = idB;
 
+	//resA.delete(); resB.delete();
 	return fields;
 }
+
 
 const requestHandler = {
 	batch: {
@@ -106,7 +110,7 @@ const requestHandler = {
 			for (let operation of operations) {
 				let {method, path, body} = operation;
 				let pathObj = swagger.paths[path];
-				let cls = resources[pathObj['x-resource-type']];
+				let cls = model[pathObj['x-resource-type']];
 				let objectTempIDs = {};
 				//filter and store separately temporary IDs
 				for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)) {
@@ -115,13 +119,13 @@ const requestHandler = {
 					objectTempIDs[fieldName] = body[fieldName].filter(x => temporaryIDs.includes(x));
 					body[fieldName] = body[fieldName].filter(x => !temporaryIDs.includes(x));
 				}
-				let object = await getModelResource(db, cls, body, body.id);
+				let object = await createModelResource(db, cls, body, body.id);
 				operationTempIDs[object.id]= objectTempIDs;
 				modelObjects.push(object);
 			}
 			//Replace temporary IDs with newly created model resources
 			for (let object of modelObjects) {
-				let cls = resources[object.class];
+				let cls = model[object.class];
 				for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)) {
 					if (!operationTempIDs[object.id]::isUndefined() &&
 						!operationTempIDs[object.id][fieldName]::isUndefined()) {
@@ -142,7 +146,7 @@ const requestHandler = {
 			//Add missing resources to DB
 			for (let i = 0; i < operations.length; i++){
 				let object = modelObjects[i];
-				let cls = resources[object.class];
+				let cls = model[object.class];
 				let id = await db.createResource(cls, extractFieldValues(object));
 				let response = await db.getSpecificResources(cls, [id]);
 				ids.push(id);
@@ -153,13 +157,21 @@ const requestHandler = {
 	},
 	resources: /*get, post*/ {
 		async get({db, cls}, req, res) {
-			res.status(OK).jsonp( await db.getAllResources(cls));
+			console.log("GET resources");
+			let results = await cls.getAll();
+			console.log("Model library returned", results);
+			let response = results.map(resource => extractFieldValues(resource));
+			res.status(OK).jsonp(results);
 		},
 		async post({db, cls}, req, res) {
-			let resource = await getModelResource(db, cls, req.body);
-			await resource.commit(); //validation
-			let id = await db.createResource(cls, extractFieldValues(resource));
-			res.status(CREATED).jsonp(await db.getSpecificResources(cls, [id]));
+			console.log("POST resources");
+			//let resource = cls.new(req.body);
+			let resource = await createModelResource(db, cls, req.body);
+			await resource.commit();
+			// let id = await db.createResource(cls, extractFieldValues(resource));
+			// res.status(CREATED).jsonp(await db.getSpecificResources(cls, [id]));
+			console.log(resource);
+			res.status(CREATED).jsonp(resource);
 		}
 	},
 	specificResources: /*get, post, put, delete*/ {
@@ -169,13 +181,13 @@ const requestHandler = {
 		},
 		async post({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			let resource = await getModelResource(db, cls, req.body, req.pathParams.id);
+			let resource = await createModelResource(db, cls, req.body, req.pathParams.id);
 			await db.updateResource(cls, req.pathParams.id, extractFieldValues(resource));
 			res.status(OK).jsonp( await db.getSpecificResources(cls, [req.pathParams.id]));
 		},
 		async put({db, cls}, req, res) {
 			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			let resource = await getModelResource(db, cls, req.body, req.pathParams.id);
+			let resource = await createModelResource(db, cls, req.body, req.pathParams.id);
 			await db.replaceResource(cls, req.pathParams.id, extractFieldValues(resource));
 			res.status(OK).jsonp(await db.getSpecificResources(cls, [req.pathParams.id]));
 		},
@@ -211,7 +223,7 @@ const requestHandler = {
         async get({db, cls}, req, res) {
             res.status(OK).jsonp( await db.getAllRelationships(cls));
         },
-        async delete({db, cls}, req, res) {
+		async delete({db, cls}, req, res) {
             await db.deleteAllRelationships(cls);
             res.status(NO_CONTENT).jsonp();
         }
@@ -285,6 +297,7 @@ function parameterNormalizer(req, res, next) {
 	}
 	return next();
 }
+
 
 /* error normalizer */
 function errorNormalizer(err, req, res, next) {
@@ -397,7 +410,7 @@ export default async (distDir, config) => {
 	});
 
 	/* create uniqueness constraints for all resource types (only if database is new) */
-	await Promise.all(_(resources).keys().map(r => db.createUniqueIdConstraintOn(r)));
+	await Promise.all(Object.keys(resources).map(r => db.createUniqueIdConstraintOn(r)));
 
 	/* normalize parameter names */
 	server.use(parameterNormalizer);
@@ -406,6 +419,56 @@ export default async (distDir, config) => {
 		req.url = decodeURI(req.url);
 		return next();
 	}
+
+	//Implement model library methods
+	const frontend = {
+		async commit_new(values) {
+			let cls = model[values.class];
+			if (cls.isResource){
+				await db.createResource(cls, values);
+			} else {
+				console.log("Need to commit relationship :(");
+			}
+		},
+
+		async commit_edit(href, newValues) {
+			console.log("Commit_edit called", href, newValues);
+		},
+
+		async commit_delete(href) {
+			console.log("Commit_delete called", href);
+		},
+
+		async load(idOrHref, options = {}) {
+			console.log("Load called", idOrHref, options);
+		},
+
+		async loadAll(cls, options = {}) {
+			//TODO process options;
+			console.log("LoadAll ", cls.name);
+			if (cls.isResource){
+				let results = await db.getAllResources(cls);
+				console.log("Loaded resources:");
+				for (let res of results){
+					console.log("{");
+					for (let key of Object.keys(res)){
+						console.log(key, JSON.stringify(res[key]));
+					}
+					console.log("}");
+				}
+				return results;
+			} else {
+				console.log("Have to load relationships");
+			}
+		}
+	};
+
+	model = modelFactory(frontend).classes;
+	for (let [key, value] of Object.entries(model)){
+		if (value.isResource) {resources[key] = value;}
+		if (value.isRelationship) {relationships[key] = value;}
+	}
+	console.log("Server side model library instance successfully created!");
 
 	/* request handling */
 	for (let path of Object.keys(swagger.paths)) {
@@ -416,21 +479,18 @@ export default async (distDir, config) => {
 			let info = sw(pathObj['x-path-type'])(
 				[['batch'], ()=>({})],
 				[['resources', 'specificResources'], ()=>({
-					cls: resources[pathObj['x-resource-type']]
+					cls: model[pathObj['x-resource-type']]
 				})],
 				[['relatedResources', 'specificRelatedResource'], ()=> ({
-					cls: relationships[pathObj['x-relationship-type']],
-					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
+					cls: model[pathObj['x-relationship-type']],
+					relA: model[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
 				})],
 				[['relationships', 'specificRelationships'], ()=>({
-					cls: relationships[pathObj['x-relationship-type']]
+					cls: model[pathObj['x-relationship-type']]
 				})],
 				[['relatedRelationships', 'specificRelationshipByResources'], ()=>({
-					cls: relationships[pathObj['x-relationship-type']],
-					relA: relationships[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
-				})],
-				[['algorithm'], ()=>({
-					algorithmName: pathObj['x-algorithm-name']
+					cls: model[pathObj['x-relationship-type']],
+					relA: model[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
 				})]
 			);
 			Object.assign(info, { db });
