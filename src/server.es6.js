@@ -27,8 +27,7 @@ import {
 } from './utility.es6.js';
 import {
 	relationships,
-	resources,
-	algorithms
+	resources
 } from './resources.es6.js';
 import {
 	OK,
@@ -268,21 +267,6 @@ const requestHandler = {
 			]);
 			await db.deleteRelationship(relA, idA, idB);
 			res.status(NO_CONTENT).jsonp();
-		}
-	},
-	algorithm: {
-		async get({db, algorithmName}, req, res) {
-			let result = await algorithms[algorithmName].run({
-				resources,
-				relationships,
-				algorithms,
-				db,
-				...pick(req, [
-					'pathParams',
-					'body'
-				])
-			});
-			res.status(result ? OK : NO_CONTENT).jsonp(result);
 		}
 	}
 };
