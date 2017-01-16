@@ -45,12 +45,8 @@ import {
 
 /* Symbols for private methods */
 
-//TODO delete when all calls are routed via client library
-const assertRelatedResourcesExists        = Symbol('assertRelatedResourcesExists');
-const assertRequiredFieldsAreGiven        = Symbol('assertRequiredFieldsAreGiven');
-const assertReferencedResourcesExist      = Symbol('assertReferencedResourcesExist');
-
 const assertIdIsGiven                     = Symbol('assertIdIsGiven');
+
 const createAllResourceRelationships      = Symbol('createAllResourceRelationships');
 const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
 const getResourcesToDelete                = Symbol('getResourcesToDelete');
@@ -63,62 +59,15 @@ export default class LyphNeo4j extends Neo4j {
 	// Common functionality for other methods //
 	////////////////////////////////////////////
 
-
-	async [assertRelatedResourcesExists](ids, fieldSpec) {
-		let cls = fieldSpec.codomain.resourceClass;
-
-		let [{existing}] = await this.query(`
-			MATCH (n)
-			WHERE (${matchLabelsQueryFragment(cls, 'n').join(' OR ')})
-			AND n.id IN [${ids.join(',')}]
-			RETURN collect(n.id) as existing
-		`);
-		let nonexisting = difference(ids, existing);
-		if (nonexisting.length > 0) {
-			let c = (fieldSpec.cardinality.max === 1) ? 'singular' : 'plural';
-			throw customError({
-				status:  NOT_FOUND,
-				class:   cls.name,
-				ids:     nonexisting,
-				...((c === 'singular') ? { id: nonexisting[0] } : {}),
-				message: humanMsg`
-					The specified ${cls[c]}
-					${nonexisting.join(',')}
-					${(c === 'singular') ? 'does' : 'do'} not exist.
-				`
-			});
-		}
-	}
-
-
-	async [assertRequiredFieldsAreGiven](cls, fields) {
-		let allFields = Object.entries(cls.properties);
-		for (let [fieldName, fieldSpec] of allFields) {
-			if (fieldSpec.required && fields[fieldName]::isUndefined()) {
-				throw customError({
-					status: BAD_REQUEST,
-					class:  cls.name,
-					field:  fieldName,
-					message: humanMsg`
-						You tried to create a new ${cls.singular},
-						but the required field '${fieldName}' was not given.
-					`
-				});
-			}
-		}
-	}
-
-
 	async [assertIdIsGiven](cls, fields) {
 		if (!fields.id::isNumber()) {
-			//TODO remove when server side model library assigns IDs to relationships
 			/*Assign ID to relationship given ids of its pairs*/
 			if (cls.isRelationship){
+				//TODO remove when server side model library assigns IDs to relationships
 				/* Cantor pairing function */
 				let a = fields[1].id;
 				let b = fields[2].id;
 				fields.id = 0.5 * (a + b) * (a + b + 1) + b;
-				//console.log("Relationship ", cls.name, " gets ID ", fields.id, " given ", a, b);
 			} else {
 				throw customError({
 					status: BAD_REQUEST,
@@ -132,28 +81,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	
 
-	async [assertReferencedResourcesExist](cls, fields) {
-		let allRelationFields = Object.entries(cls.relationships);
-		for (let [fieldName, fieldSpec] of allRelationFields) {
-			let val = fields[fieldName];
-
-			if (val::isUndefined() || val::isNull()) { continue }
-			let ids = extractIds(val);
-
-			try { this[assertRelatedResourcesExists](ids, fieldSpec) }
-			catch (err) {
-				Object.assign(err, {
-					class: cls,
-					field: fieldName
-				});
-				throw err;
-			}
-		}
-	}
-
-	
 	async [createAllResourceRelationships](cls, id, fields) {
         for (let fieldName of Object.keys(fields).filter(key => !!cls.relationships[key])){
 
@@ -228,6 +156,7 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
+
 	async [getResourcesToDelete](cls, id) {
 		/* collect nodes to delete */
 		let markedNodes = new Map();
@@ -263,6 +192,7 @@ export default class LyphNeo4j extends Neo4j {
 		return [...markedNodes.values()];
 	}
 
+
 	async [anythingAnchoredFromOutside](cls, ids) {
 
 		let anchoringRelationships = [];
@@ -294,8 +224,53 @@ export default class LyphNeo4j extends Neo4j {
 
 
 	//////////////////////////////////////////////////////
-	// Main methods used directly for lyph-server calls //
+	// Main methods to handle data in the DB            //
 	//////////////////////////////////////////////////////
+	async assertRelatedResourcesExist(ids, fieldSpec) {
+		let cls = fieldSpec.codomain.resourceClass;
+
+		let [{existing}] = await this.query(`
+			MATCH (n)
+			WHERE (${matchLabelsQueryFragment(cls, 'n').join(' OR ')})
+			AND n.id IN [${ids.join(',')}]
+			RETURN collect(n.id) as existing
+		`);
+		let nonexisting = difference(ids, existing);
+		if (nonexisting.length > 0) {
+			let c = (fieldSpec.cardinality.max === 1) ? 'singular' : 'plural';
+			throw customError({
+				status:  NOT_FOUND,
+				class:   cls.name,
+				ids:     nonexisting,
+				...((c === 'singular') ? { id: nonexisting[0] } : {}),
+				message: humanMsg`
+					The specified ${cls[c]}
+					${nonexisting.join(',')}
+					${(c === 'singular') ? 'does' : 'do'} not exist.
+				`
+			});
+		}
+	}
+
+
+	async assertReferencedResourcesExist(cls, fields) {
+		for (let [fieldName, fieldSpec] of Object.entries(cls.relationships)) {
+			let val = fields[fieldName];
+
+			if (val::isUndefined() || val::isNull()) { continue }
+			let ids = extractIds(val);
+
+			try { this.assertRelatedResourcesExist(ids, fieldSpec) }
+			catch (err) {
+				Object.assign(err, {
+					class: cls,
+					field: fieldName
+				});
+				throw err;
+			}
+		}
+	}
+
 
 	async assertResourcesExist(cls, ids) {
 
@@ -322,11 +297,7 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	
-	async getSpecificResources(cls, ids, options) {
-
-		options = options || {};
-		/* throw a 404 if any of the resources don't exist */
-		await this.assertResourcesExist(cls, ids);
+	async getSpecificResources(cls, ids, options = {}) {
 
 		let queryEnd = (options.withoutRelationships)? ` RETURN A, [] as rels` : `
 			OPTIONAL MATCH (A)-[rel]-(B) 
@@ -348,9 +319,7 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	
-	async getAllResources(cls, options) {
-		options = options || {};
-
+	async getAllResources(cls, options = {}) {
 		let queryEnd = (options.withoutRelationships)? ` RETURN A, [] as rels` : `
 			OPTIONAL MATCH (A)-[rel]-(B) 
 			RETURN A, collect({rel: rel, B: B, s: startNode(rel).id}) as rels`;
@@ -366,12 +335,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	async createResource(cls, fields) {
 
-		/* assert that all required fields are given */
-		await this[assertRequiredFieldsAreGiven](cls, fields);
 		await this[assertIdIsGiven](cls, fields);
-
-		/* for all relationships specified in the request, assert that those resources exist */
-		await this[assertReferencedResourcesExist](cls, fields);
 
         //Create resources with given ids
 		let [{id}] = await this.query({
@@ -395,9 +359,6 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* get the current fields of the resource */
 		let [oldResource] = await this.getSpecificResources(cls, [id]);
-
-		/* for all relationships specified in the request, assert that those resources exist */
-		await this[assertReferencedResourcesExist](cls, fields);
 
 		/* the main query for creating the resource */
 		await this.query({
@@ -423,12 +384,6 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* get the current fields of the resource */
 		let [oldResource] = await this.getSpecificResources(cls, [id]);
-
-		/* assert that all required fields are given */
-		await this[assertRequiredFieldsAreGiven](cls, fields);
-
-		/* for all relationships specified in the request, assert that those resources exist */
-		await this[assertReferencedResourcesExist](cls, fields);
 
 		/* the main query for creating the resource */
 		await this.query({
@@ -481,8 +436,8 @@ export default class LyphNeo4j extends Neo4j {
 
 	}
 
-	async getRelatedResources(relA, idA, options) {
-		options = options || {};
+
+	async getRelatedResources(relA, idA, options = {}) {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
@@ -582,8 +537,6 @@ export default class LyphNeo4j extends Neo4j {
 		}
 	}
 
-	//Assertions were removed from these functions to improve performance
-	//It is job of server requestHandler to check that entities in request params exist
 
 	async getSpecificRelationships(cls, ids){
 		/* formulating and sending the query */
@@ -694,6 +647,7 @@ export default class LyphNeo4j extends Neo4j {
 		);
 	}
 
+
 	async updateRelationship(relA, idA, idB, fields){
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
@@ -711,6 +665,7 @@ export default class LyphNeo4j extends Neo4j {
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
 	}
+
 
 	async replaceRelationship(relA, idA, idB, fields){
 		let cls = relA.relationshipClass;

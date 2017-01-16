@@ -3,23 +3,17 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* external libs */
-import _ from 'lodash';
 import isUndefined from 'lodash-bound/isUndefined';
 import isEmpty from 'lodash-bound/isEmpty';
-
 import cloneDeep from 'lodash/cloneDeep';
-import pick from 'lodash/pick';
 
 /* local stuff */
 import {toCamelCase} from './utility.es6.js';
-import {resources, relationships, algorithms, model} from './resources.es6.js';
+import {model, resources, relationships} from './resources.es6.js';
 import {
 	OK,
 	CREATED,
-	NO_CONTENT,
-	NOT_FOUND,
-	PRECONDITION_FAILED,
-	INTERNAL_SERVER_ERROR
+	NO_CONTENT
 } from './http-status-codes.es6.js';
 
 
@@ -802,30 +796,6 @@ for (let rel of Object.values(relationships)) {
 addOperationEndpoints();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// algorithm endpoints                                                                                                //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-let algorithmEndpoints = {};
-
-function addAlgorithmEndpoint(algorithm) {
-	let pathParamNames = algorithm.parameters.filter(p => p.in === 'path').map(p => p.name);
-	algorithmEndpoints[`/${algorithm.name}${pathParamNames.map(p => `/{${p}}`)}`] = {
-		'x-path-type': 'algorithm',
-		'x-algorithm-name': algorithm.name,
-		get: pick(algorithm, [
-			'summary',
-			'parameters',
-			'responses'
-		])
-	};
-}
-
-for (let algorithm of _(algorithms).values()) {
-	addAlgorithmEndpoint(algorithm);
-}
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // final Swagger spec                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -847,7 +817,6 @@ export default {
 	paths: {
         ...operationEndpoints,
         ...resourceEndpoints,
-		...relationshipEndpoints,
-		...algorithmEndpoints
+		...relationshipEndpoints
 	}
 };
