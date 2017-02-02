@@ -8,6 +8,7 @@ import isArray from 'lodash-bound/isArray';
 import isNumber from 'lodash-bound/isNumber';
 import isNull from 'lodash-bound/isNull';
 import isUndefined from 'lodash-bound/isUndefined';
+import cloneDeep   from 'lodash-bound/cloneDeep';
 
 import express                from 'express';
 import promisify              from 'es6-promisify';
@@ -24,29 +25,26 @@ import {
 	cleanCustomError,
 	sw,
 	extractFieldValues,
+    id2Href,
+	href2Id,
+	humanMsg
 } from './utility.es6.js';
 import {
 	OK,
 	CREATED,
 	NO_CONTENT,
-	BAD_REQUEST,
 	NOT_FOUND,
-	CONFLICT,
-	GONE,
-	PRECONDITION_FAILED,
 	INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
-import modelFactory from "open-physiology-model/src/index.js";
+import modelFactory from "../node_modules/open-physiology-model/src/index.js";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // request handlers                                                                                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-let newUID = 0;
 let model;
 const resources = {};
 const relationships = {};
-
 
 // TODO: to avoid race conditions, use a Neo4j REST transactions to get some ACID around these multiple queries
 
@@ -56,51 +54,30 @@ async function createModelResource(db, cls, fields, id){
 		if (val::isUndefined() || val::isNull()) { continue }
 		if (fieldSpec.cardinality.max === 1){ val = [val] }
 		if (val.length > 0){
-			// let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, val);
-			// fields[fieldName] = objects.map(o => {
-			// 	let props = {};
-			// 	for (let key of Object.keys(model[o.class].properties)){ props[key] = o[key]; }
-			// 	return model[o.class].new(props);
-			// });
-			fields[fieldName] = model[o.class].getAll(val);
-			//fields[fieldName] = model[o.class].readAll(val);
-
+			let fieldCls = fieldSpec.codomain.resourceClass;
+			let hrefs = val.map(v => id2Href(db.config.host, fieldCls, v));
+			fields[fieldName] = [...await fieldCls.get(hrefs)];
 			if (fieldSpec.cardinality.max === 1){ fields[fieldName] = fields[fieldName][0] }
 		}
 	}
-	let resource = cls.new(fields);
-	let resID = id::isNumber()? id: ++newUID;
-	if (!resource.id::isNumber()){
-		resource.set('id', resID, { ignoreReadonly: true });
-	}
-	return resource;
+	if (id::isNumber()){ fields.id = id; }
+	return cls.new(fields);
 }
 
-async function getModelRelationshipFields(db, cls, relA, idA, idB, reqFields){
+async function createModelRelationship(db, cls, relA, idA, idB, requestedFields){
 	/*Extract relationship ends*/
-	let [{objA}] = await db.getSpecificResources(relA.resourceClass, [idA]);
-	let resA = relA.resourceClass.new(objA); //get
-	let [{objB}] = await db.getSpecificResources(relA.codomain.resourceClass, [idB]);
-	let resB = relA.codomain.resourceClass.new(objB); //get
-
-	/*Reconstruct existing model library relationship entity to validate constraints*/
-	//TODO: replace .new() with .get() and remove .id assignment from fields
-	let fields = extractFieldValues(cls.new({...reqFields, 1: resA, 2: resB}));
-
-	/*Extract fields and reassign proper IDs*/
-	//TODO: remove after transition to .load() which will assign ids internally
-	fields[1] = extractFieldValues(resA);
-	fields[2] = extractFieldValues(resB);
-	fields[1].id = idA;
-	fields[2].id = idB;
-
-	//resA.delete(); resB.delete();
-	return fields;
+	let hrefA = id2Href(db.config.host, relA.resourceClass, idA);
+	let resA = await relA.resourceClass.get(hrefA);
+	let hrefB = id2Href(db.config.host, relA.codomain.resourceClass, idB);
+	let resB = relA.codomain.resourceClass.get(hrefB);
+	/*Create new relationship*/
+	return cls.new({...requestedFields, 1: resA, 2: resB});
 }
 
 
 const requestHandler = {
-	batch: {
+
+	batch: { //TODO rewrite batch
 		async post({db}, req, res){
 			let responses = [], ids = [];
 			let {temporaryIDs, operations} = req.body;
@@ -139,9 +116,6 @@ const requestHandler = {
 					}
 				}
 			}
-			//Constraints on longitudinal borders fail (-->HasLongitudinalBorder has only one element)?
-			//Validate the constraints on resources in the batch by committing them all
-			//await Promise.all(modelObjects.map(r => r.commit()));
 
 			//Add missing resources to DB
 			for (let i = 0; i < operations.length; i++){
@@ -157,57 +131,82 @@ const requestHandler = {
 	},
 	resources: /*get, post*/ {
 		async get({db, cls}, req, res) {
-			console.log("GET resources");
-			let results = await cls.getAll();
-			console.log("Model library returned", results);
-			let response = results.map(resource => extractFieldValues(resource));
+			let results;
+            try{
+			    results = [...await cls.getAll()].map(resource => resource.toJSON());
+            } catch(e){
+                console.log("Error", e);
+                throw(e);
+            }
 			res.status(OK).jsonp(results);
 		},
 		async post({db, cls}, req, res) {
-			console.log("POST resources");
-			//let resource = cls.new(req.body);
 			let resource = await createModelResource(db, cls, req.body);
 			await resource.commit();
-			// let id = await db.createResource(cls, extractFieldValues(resource));
-			// res.status(CREATED).jsonp(await db.getSpecificResources(cls, [id]));
-			console.log(resource);
-			res.status(CREATED).jsonp(resource);
+			res.status(CREATED).jsonp(resource.toJSON());
 		}
 	},
 	specificResources: /*get, post, put, delete*/ {
 		async get({db, cls}, req, res) {
-			await db.assertResourcesExist(cls, req.pathParams.ids);
-			res.status(OK).jsonp(await db.getSpecificResources(cls, req.pathParams.ids));
+			let ids = req.pathParams.ids;
+			let hrefs = ids.map(id => id2Href(db.config.host, cls, id));
+			let response = await cls.get(hrefs);
+			response = response.map(x => x.toJSON());
+			res.status(OK).jsonp(response);
 		},
 		async post({db, cls}, req, res) {
-			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			let resource = await createModelResource(db, cls, req.body, req.pathParams.id);
-			await db.updateResource(cls, req.pathParams.id, extractFieldValues(resource));
-			res.status(OK).jsonp( await db.getSpecificResources(cls, [req.pathParams.id]));
+			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			console.log("POST", href);
+			let resource = await cls.get(href);
+			console.log("current resource", resource);
+			for (let fieldName of Object.keys(req.body)){
+				resource[fieldName] = req.body[fieldName];
+			}
+			await resource.commit();
+			res.status(OK).jsonp(resource.toJSON());
 		},
 		async put({db, cls}, req, res) {
-			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			let resource = await createModelResource(db, cls, req.body, req.pathParams.id);
-			await db.replaceResource(cls, req.pathParams.id, extractFieldValues(resource));
-			res.status(OK).jsonp(await db.getSpecificResources(cls, [req.pathParams.id]));
+			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			console.log("PUT", href);
+			let resource = await cls.get(href);
+			console.log("current resource", resource);
+			//Empty out old fields
+			for (let fieldName of Object.keys(resource.fields)){
+				if (!["id", "href", "class"].includes(fieldName)){
+					delete resource[fieldName];
+				}
+			}
+			for (let fieldName of Object.keys(req.body)){
+				resource[fieldName] = req.body[fieldName];
+			}
+			await resource.commit();
+			res.status(OK).jsonp(resource.toJSON());
 		},
 		async delete({db, cls}, req, res) {
-			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			await db.deleteResource(cls, req.pathParams.id);
+			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			console.log("DELETE", href);
+			let resource = await cls.get(href);
+			await resource.delete();
 			res.status(NO_CONTENT).jsonp();
 		}
 	},
 	relatedResources: /*get*/ {
 		async get({db, relA}, req, res) {
-			await db.assertResourcesExist(relA.resourceClass, [req.pathParams.idA]);
-			res.status(OK).jsonp( await db.getRelatedResources(relA, req.pathParams.idA) );
+			let href = id2Href(db.config.host, relA.resourceClass, req.pathParams.idA);
+			let resource = await relA.resourceClass.get(href);
+			console.log("Getting now related resources for resource", resource);
+			let related = resource[relA.name].map(rel => rel[2]);
+			console.log("Related resources", related);
+			res.status(OK).jsonp( related.map(r => r.toJSON()));
+			//res.status(OK).jsonp( await db.getRelatedResources(relA, req.pathParams.idA) );
 		}
 	},
 	specificRelatedResource: /*put, delete*/ {
 		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await db.addRelationship(relA, idA, idB, await getModelRelationshipFields(db, cls, relA, idA, idB, req.body));
-			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
+			let rel = await createModelRelationship(db, cls, relA, idA, idB, req.body);
+			await rel.commit();
+			res.status(OK).jsonp(rel.toJSON());
 		},
 		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
@@ -221,8 +220,10 @@ const requestHandler = {
 	},
 	relationships: /*get, delete*/  {
         async get({db, cls}, req, res) {
-            res.status(OK).jsonp( await db.getAllRelationships(cls));
+			let results = [...await cls.getAll()].map(resource => resource.toJSON());
+			res.status(OK).jsonp(results);
         },
+		//TODO rewrite
 		async delete({db, cls}, req, res) {
             await db.deleteAllRelationships(cls);
             res.status(NO_CONTENT).jsonp();
@@ -230,8 +231,11 @@ const requestHandler = {
     },
     specificRelationships: /*get, post, put, delete*/ {
 		async get({db, cls}, req, res) {
-			await db.assertRelationshipsExist(cls, req.pathParams.ids);
-			res.status(OK).jsonp( await db.getSpecificRelationships(cls, req.pathParams.ids));
+			let ids = req.pathParams.ids;
+			let hrefs = ids.map(id => id2Href(db.config.host, cls, id));
+			let response = await cls.get(hrefs);
+			response = response.map(x => x.toJSON());
+			res.status(OK).jsonp(response);
 		},
 		async post({db, cls}, req, res) {
 			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
@@ -264,12 +268,12 @@ const requestHandler = {
 		},
 		async post({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await db.updateRelationship(relA, idA, idB,  await getModelRelationshipFields(db, cls, relA, idA, idB, req.body));
+			await db.updateRelationship(relA, idA, idB,  await createModelRelationship(db, cls, relA, idA, idB, req.body));
 			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await db.replaceRelationship(relA, idA, idB, await getModelRelationshipFields(db, cls, relA, idA, idB, req.body));
+			await db.replaceRelationship(relA, idA, idB, await createModelRelationship(db, cls, relA, idA, idB, req.body));
 			res.status(OK).jsonp(await db.getRelationships(relA, idA, idB));
 		},
 		async delete({db, cls, relA}, req, res) {
@@ -422,44 +426,109 @@ export default async (distDir, config) => {
 
 	//Implement model library methods
 	const frontend = {
-		async commit_new(values) {
+		/* Commit a newly created entity to DB */
+		async commit_new({commandType, values}) {
 			let cls = model[values.class];
+			let fields = values::cloneDeep();
+			fields.href = id2Href(db.config.host, cls, fields.id);
+			let res;
 			if (cls.isResource){
-				await db.createResource(cls, values);
+				let id = await db.createResource(cls, fields);
+				res = await db.getSpecificResources(cls, [id]);
 			} else {
-				console.log("Need to commit relationship :(");
-			}
-		},
-
-		async commit_edit(href, newValues) {
-			console.log("Commit_edit called", href, newValues);
-		},
-
-		async commit_delete(href) {
-			console.log("Commit_delete called", href);
-		},
-
-		async load(idOrHref, options = {}) {
-			console.log("Load called", idOrHref, options);
-		},
-
-		async loadAll(cls, options = {}) {
-			//TODO process options;
-			console.log("LoadAll ", cls.name);
-			if (cls.isResource){
-				let results = await db.getAllResources(cls);
-				console.log("Loaded resources:");
-				for (let res of results){
-					console.log("{");
-					for (let key of Object.keys(res)){
-						console.log(key, JSON.stringify(res[key]));
-					}
-					console.log("}");
+				if (cls.isRelationship){
+					//TODO: test
+					let relA = model[fields[0].class].relationships[cls.name];
+					let idA = fields[0].id;
+					let idB = fields[1].id;
+					let id = await db.createRelationship(relA, idA, idB, fields);
+					res = await db.getSpecificRelationships(cls, [id]);
 				}
-				return results;
-			} else {
-				console.log("Have to load relationships");
 			}
+			console.log("commit_new returns", res[0]);
+			return res[0];
+		},
+
+		/* Commit an edited entity to DB */
+		async commit_edit({entity, newValues}) {
+			console.log("commit_edit", entity, newValues);
+			let cls = model[entity.class];
+			let res;
+            console.log("Class". cls);
+			let id = href2Id(entity.href);
+			if (cls.isResource){
+                id = await db.updateResource(cls, id, newValues);
+				res = await db.getSpecificResources(cls, [id]);
+            } else {
+            	if (cls.isRelationship){
+					id = await db.updateRelationshipByID(cls, id, newValues);
+					res = await db.getSpecificRelationships(cls, [id]);
+				}
+			}
+			console.log("commit_edit returns", res[0]);
+			return res[0];
+		},
+
+		/* Commit changes after deleting entity to DB */
+		async commit_delete({entity}) {
+			console.log("commit_delete", entity);
+			let cls = entity.constructor;
+			if (cls.isResource){
+				await db.deleteResource(cls, entity.id);
+			} else {
+				if (cls.isRelationship){
+					await db.deleteRelationshipByID(cls, entity.id);
+				}
+			}
+		},
+
+		/* Load from DB all entities with given IDs */
+		async load(addresses, options = {}) {
+			let clsMaps = {};
+			for (let address of Object.values(addresses)){
+				let cls = model[address.class];
+				let id = href2Id(address.href);
+				if (clsMaps[cls.name]::isUndefined()){
+					clsMaps[cls.name] = {cls: cls, ids: [id]}
+				} else {
+					clsMaps[cls.name].ids.push(id);
+				}
+			}
+			let results = [];
+			for (let {cls, ids} of Object.values(clsMaps)){
+				let clsResults = (cls.isResource)?
+					await db.getSpecificResources(cls, ids, {withoutShortcuts: true}):
+					await db.getSpecificRelationships(cls, ids);
+				clsResults = clsResults.filter(x => !x::isNull() && !x::isUndefined());
+				if (clsResults.length < ids.length){
+					throw customError({
+						status:  NOT_FOUND,
+						class:   cls.name,
+						ids:     ids,
+						message: humanMsg`Not all specified ${cls.name} entities with IDs '${ids.join(',')}' exist.`
+					});
+				}
+				if (clsResults.length > 0){
+					results.push(...clsResults);
+				}
+			}
+			console.log("load returns", JSON.stringify(results, null, 4));
+			return results;
+		},
+
+		/* Load from DB all entities of a given class */
+		async loadAll(cls, options = {}) {
+			let results = [];
+			if (cls.isResource){
+				//TODO make it work with relationships
+				results = await db.getAllResources(cls, {withoutShortcuts: true});
+			} else {
+				if (cls.isRelationship){
+					results = await db.getAllRelationships(cls);
+				}
+			}
+			console.log("loadAll returns", JSON.stringify(results, null, 4));
+			return results;
 		}
 	};
 
@@ -468,7 +537,6 @@ export default async (distDir, config) => {
 		if (value.isResource) {resources[key] = value;}
 		if (value.isRelationship) {relationships[key] = value;}
 	}
-	console.log("Server side model library instance successfully created!");
 
 	/* request handling */
 	for (let path of Object.keys(swagger.paths)) {
@@ -511,6 +579,6 @@ export default async (distDir, config) => {
 	server.use(doneWithError);
 
 	/* return the server app and possibly database */
-	return config.exposeDB ? { database: db, server } : server;
+		return config.exposeDB ? { database: db, server } : server;
 
-};
+	};

@@ -13,12 +13,12 @@ import isUndefined from 'lodash-bound/isUndefined';
 import chai, {expect} from 'chai';
 
 import supertest   from './custom-supertest.es6.js';
-import getServer   from '../server.es6.js';
-import {resources, relationships} from '../resources.es6.js';
-import {OK, NOT_FOUND, CREATED} from "../http-status-codes.es6";
-import {extractFieldValues, setsToArrayOfIds} from '../utility.es6';
-import modelFactory from "open-physiology-model/src/index.js";
-import {simpleMockHandlers}   from 'open-physiology-model/test/mock-handlers.helper';
+import getServer   from '../src/server.es6.js';
+import {resources, relationships} from '../src/resources.es6.js';
+import {OK, NOT_FOUND, CREATED} from "../src/http-status-codes.es6";
+import {extractFieldValues, setsToArrayOfIds} from '../src/utility.es6';
+import modelFactory from "../node_modules/open-physiology-model/src/index.js";
+import {simpleMockHandlers}   from '../node_modules/open-physiology-model/test/mock-handlers.helper';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -69,7 +69,8 @@ chai.use((_chai, utils) => {
 /* before testing: start server, wait for it, get the supertest library rolling */
 export let api, db;
 
-before(() => getServer(`${__dirname}/../`, {
+//escaping out of .tmp/mocha-webpack/dist
+before(() => getServer(`${__dirname}/../../../dist/`, {
     exposeDB: true,
     dbDocker: 'neo4j',
     dbUser: 'neo4j',
@@ -229,25 +230,12 @@ let model;
 /* initial database clearing */
 before(() => {
     db.clear('Yes! Delete all everythings!');
-
     let {frontend} = simpleMockHandlers();
     model = modelFactory(frontend).classes;
 });
 
 /* before each test, reset the database */
 beforeEach(async () => {
-
-    ////////////////////////////////////////////////////////////////////////
-    /*Create test resources via client library*/
-
-    // let lyph0 = model.Lyph.new({name: "Heart"});
-    // //let lyph0 = model.Lyph.new({name: "Heart", longitudinalBorders: []});
-    // let border1 = model.Border.new({nature: "open"});
-    // let border2 = model.Border.new({nature: "closed"});
-    // lyph0.longitudinalBorders = [border1, border2];
-    // await border1.commit();
-    // await border2.commit();
-    // await lyph0.commit();
 
     /* external resources */
     initial.externalResource1 = model.ExternalResource.new({
@@ -368,7 +356,6 @@ beforeEach(async () => {
         childTree: initial.canonicalTree1_2
     });
 
-
     // initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
     //     name:  "SLN 2st level branch",
     //     conveyingLyphType: initial.lyphType2,
@@ -410,8 +397,11 @@ beforeEach(async () => {
         lyphs: [initial.mainLyph1, initial.mainLyph2]
     });
 
-    //Commit all to get IDs assigned
-    await Promise.all(Object.values(initial).map(p => p.commit()));
+
+    //Assign IDs
+    let UID = 0;
+    Object.values(initial).map(p => p.id = ++UID);
+
 
     /*Create DB nodes for test resources*/
     for (let [resName, resSpec] of Object.entries(initial)){
@@ -428,10 +418,10 @@ beforeEach(async () => {
     //Testing DB creation of resources
     let newExternalResource1 = model.ExternalResource.new({
         name: "Right fourth dorsal metatarsal vein",
+        id: ++UID,
         uri: "http://purl.obolibrary.org/obo/FMA_44515",
         type: "fma"
     });
-    await newExternalResource1.commit();
 
     let borders = [];
     for (let i = 0; i <6; i++){
@@ -441,10 +431,10 @@ beforeEach(async () => {
     let lyph1 = model.Lyph.new({name:  "Heart chamber", longitudinalBorders: [borders[2], borders[3]]});
     let lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [borders[4], borders[5]]});
 
-    await Promise.all(borders.map(p => p.commit()));
-    await lyph.commit();
-    await lyph1.commit();
-    await lyph2.commit();
+    borders.map(p => p.id = ++UID);
+    lyph.id = ++UID;
+    lyph1.id = ++UID;
+    lyph2.id = ++UID;
 
     /* "dynamic" contains objects with arrays of values instead of Rel$Field etc. */
     dynamic.externalResource1 = extractFieldValues(await createCLResource(newExternalResource1));
@@ -457,7 +447,7 @@ beforeEach(async () => {
     dynamic.lyph2             = extractFieldValues(await createCLResource(lyph2));
 
     //HasLayer with ID
-    await db.addRelationship(
+    await db.createRelationship(
         resources["Lyph"].relationships["-->HasLayer"],
         dynamic.lyph1.id, dynamic.lyph2.id, {id: 200, class: "HasLayer"});
     await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
@@ -475,7 +465,7 @@ async function testDirectDBOperations(){
             1: resources["Lyph"].new({id: initial.mainLyph1.id}),
             2: resources["Lyph"].new({id: initial.lyph.id})}));
 
-    await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
+    await db.createRelationship(resources["Lyph"].relationships["-->HasLayer"],
         initial.mainLyph1.id, initial.lyph.id, fields);
 
     await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
