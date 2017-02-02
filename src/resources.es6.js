@@ -1,4 +1,4 @@
-import modelFactory from "open-physiology-model/src/index.js";
+import modelFactory from "../node_modules/open-physiology-model/src/index.js"
 
 export const modelRef = modelFactory();
 export const model = modelRef.classes;

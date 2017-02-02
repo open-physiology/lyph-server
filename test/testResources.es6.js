@@ -11,8 +11,8 @@ import {initial, dynamic, describeResourceClass, describeEndpoint,
     GET, POST, PUT, DELETE,
     withInvalidPathParams, withValidPathParams,
     requestSingleResource, requestResources} from './testUtils.es6.js';
-import {OK, NO_CONTENT, CREATED} from "../http-status-codes.es6";
-import {resources} from '../resources.es6.js';
+import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
+import {resources} from '../src/resources.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -65,8 +65,8 @@ export function runSelectedResourceTest(){
                         "id": dynamic.lyph.id,
                         "class": "Lyph",
                         "name": "Liver",
-                        "axis": 500,
-                        "longitudinalBorders": [ 501 ]
+                        "axis": dynamic.borders[0].id,
+                        "longitudinalBorders": [ dynamic.borders[1].id ]
                     }
                 ).expect(CREATED).then(async() => {
                     let res = await requestSingleResource(`/lyphs/${dynamic.lyph.id}`);
@@ -76,71 +76,71 @@ export function runSelectedResourceTest(){
         });
 
         //Specific resource
-        // describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
-        //
-        //     withInvalidPathParams("non-existing", {id: 999999});
-        //
-        //     withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
-        //
-        //     withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
-        //
-        //         GET("returns a resource with expected fields", r=>r.resource((res) => {
-        //             expect(res).to.have.property('id');
-        //             expect(res).to.have.property('href');
-        //             expect(res).to.have.property('class');
-        //             expect(res).to.have.property('name');
-        //             expect(res).to.have.property('species');
-        //             expect(res).to.have.property('layers');
-        //             expect(res.layers.map(x => x.id)).with.members([initial.lyph1.id, initial.lyph2.id]);
-        //             expect(res).to.have.property('externals');
-        //             expect(res.externals.map(x => x.id)).with.members([initial.externalResource1.id]);
-        //             expect(res).to.have.property('longitudinalBorders');
-        //             //w3expect(res.longitudinalBorders.map(x => x.id)).with.members([initial.border1.id, initial.border2.id]);
-        //             //expect(res).to.have.property('radialBorders');
-        //             expect(res).to.have.property('axis');
-        //             expect(res).to.have.property('thickness').that.deep.equals({value: 1});
-        //             expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
-        //             //expect(res).to.have.property('segments');
-        //             //expect(res).to.have.property('patches');
-        //             //expect(res).to.have.property('coalecences');
-        //             //expect(res).to.have.property('incomingProcesses');
-        //             //expect(res).to.have.property('outgoingProcesses');
-        //             expect(res).to.have.property('processes');
-        //             //expect(res).to.have.property('nodes');
-        //             expect(res).to.have.property('materials');
-        //             expect(res.materials.map(x => x.id)).with.members([ initial.materialType1.id]);
-        //             expect(res).to.have.property('measurables');
-        //             expect(res.measurables.map(x => x.id)).with.members([initial.measurable1.id]);
-        //         }));
-        //
-        //         POST("updates a given resource", r=>r.send({
-        //             name: "Brain"
-        //         }).expect(OK).expect(isArray)
-        //             .resources((resources) => {
-        //             expect(resources).to.have.length.of.at.least(1);
-        //             for (let res of resources) {
-        //                 expect(res).to.have.property('name').that.equals("Brain");
-        //             }
-        //         }));
-        //
-        //         PUT("replaces properties of a given resource", r=>r.send({
-        //             "name": "Head"
-        //         }).expect(OK).expect(isArray)
-        //             .resources((resources) => {
-        //                 expect(resources).to.have.length.of.at.least(1);
-        //                 for (let res of resources) {
-        //                     expect(res).to.have.property('name').that.equals("Head");
-        //                 }
-        //             }));
-        //
-        //         DELETE("delete a given external resource", r=>r.expect(NO_CONTENT).then(async() => {
-        //             let res = await requestSingleResource(`/lyphs/${initial.mainLyph1.id}`);
-        //             let res2 = await requestSingleResource(`/lyphs/${initial.mainLyph2.id}`);
-        //             expect(res).to.be.undefined;
-        //             expect(res2).to.have.property("id").that.equals(initial.mainLyph2.id);
-        //         }));
-        //     });
-        // });
+        describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+
+            // withInvalidPathParams("non-existing", {id: 999999});
+            //
+            // withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
+
+            withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id');
+                    expect(res).to.have.property('href');
+                    expect(res).to.have.property('class');
+                    expect(res).to.have.property('name');
+                    expect(res).to.have.property('species');
+                    expect(res).to.have.property('layers');
+                    expect(res.layers.map(x => x.id)).with.members([initial.lyph1.id, initial.lyph2.id]);
+                    expect(res).to.have.property('externals');
+                    expect(res.externals.map(x => x.id)).with.members([initial.externalResource1.id]);
+                    expect(res).to.have.property('longitudinalBorders');
+                    //w3expect(res.longitudinalBorders.map(x => x.id)).with.members([initial.border1.id, initial.border2.id]);
+                    //expect(res).to.have.property('radialBorders');
+                    expect(res).to.have.property('axis');
+                    expect(res).to.have.property('thickness').that.deep.equals({value: 1});
+                    expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
+                    //expect(res).to.have.property('segments');
+                    //expect(res).to.have.property('patches');
+                    //expect(res).to.have.property('coalecences');
+                    //expect(res).to.have.property('incomingProcesses');
+                    //expect(res).to.have.property('outgoingProcesses');
+                    expect(res).to.have.property('processes');
+                    //expect(res).to.have.property('nodes');
+                    expect(res).to.have.property('materials');
+                    expect(res.materials.map(x => x.id)).with.members([ initial.materialType1.id]);
+                    expect(res).to.have.property('measurables');
+                    expect(res.measurables.map(x => x.id)).with.members([initial.measurable1.id]);
+                }));
+
+                POST("updates a given resource", r=>r.send({
+                    name: "Brain"
+                }).expect(OK).expect(isArray)
+                    .resources((resources) => {
+                    expect(resources).to.have.length.of.at.least(1);
+                    for (let res of resources) {
+                        expect(res).to.have.property('name').that.equals("Brain");
+                    }
+                }));
+
+                PUT("replaces properties of a given resource", r=>r.send({
+                    "name": "Head"
+                }).expect(OK).expect(isArray)
+                    .resources((resources) => {
+                        expect(resources).to.have.length.of.at.least(1);
+                        for (let res of resources) {
+                            expect(res).to.have.property('name').that.equals("Head");
+                        }
+                    }));
+
+                DELETE("delete a given external resource", r=>r.expect(NO_CONTENT).then(async() => {
+                    let res = await requestSingleResource(`/lyphs/${initial.mainLyph1.id}`);
+                    let res2 = await requestSingleResource(`/lyphs/${initial.mainLyph2.id}`);
+                    expect(res).to.be.undefined;
+                    expect(res2).to.have.property("id").that.equals(initial.mainLyph2.id);
+                }));
+            });
+        });
 
         //Related resources
         // describeEndpoint('/lyphs/{id}/layers', ['GET'], () => {

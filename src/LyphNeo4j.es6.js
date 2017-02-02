@@ -23,7 +23,8 @@ import {
 	humanMsg,
 	arrowMatch,
     extractFieldValues,
-	extractIds
+	extractIds,
+	id2Href
 } from './utility.es6.js';
 import {relationships, resources} from './resources.es6.js';
 import {
@@ -45,7 +46,7 @@ import {
 
 /* Symbols for private methods */
 
-const assertIdIsGiven                     = Symbol('assertIdIsGiven');
+const assignHref  		                  = Symbol('assignHref');
 
 const createAllResourceRelationships      = Symbol('createAllResourceRelationships');
 const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
@@ -56,31 +57,18 @@ const anythingAnchoredFromOutside         = Symbol('anythingAnchoredFromOutside'
 export default class LyphNeo4j extends Neo4j {
 
 	////////////////////////////////////////////
-	// Common functionality for other methods //
+	// Common funcarctionality for other methods //
 	////////////////////////////////////////////
-
-	async [assertIdIsGiven](cls, fields) {
+    async [assignHref](cls, fields) {
 		if (!fields.id::isNumber()) {
-			/*Assign ID to relationship given ids of its pairs*/
-			if (cls.isRelationship){
-				//TODO remove when server side model library assigns IDs to relationships
-				/* Cantor pairing function */
-				let a = fields[1].id;
-				let b = fields[2].id;
-				fields.id = 0.5 * (a + b) * (a + b + 1) + b;
-			} else {
-				throw customError({
-					status: BAD_REQUEST,
-					class:  cls.name,
-					field:  "id",
-					message: humanMsg`
-						You tried to create a new ${cls.singular} without valid ID.
-						`
-				});
+			fields.id = ++this.newUID;
+			fields.href = id2Href(this.config.host, cls, fields.id);
+		} else {
+			if (!fields.href){
+				fields.href = id2Href(this.config.host, cls, fields.id);
 			}
 		}
-	}
-
+    }
 
 	async [createAllResourceRelationships](cls, id, fields) {
         for (let fieldName of Object.keys(fields).filter(key => !!cls.relationships[key])){
@@ -97,7 +85,8 @@ export default class LyphNeo4j extends Neo4j {
 				const resA = rel[1], resB = rel[2];
 
 				if (resA::isUndefined() || resB::isUndefined()
-					|| resA::isNull() || resB::isNull()) {
+					|| resA::isNull() || resB::isNull()
+                    || !resA.id::isNumber() || !resB.id::isNumber()) {
 					throw customError({
 						status:  BAD_REQUEST,
 						class:   rel.class,
@@ -106,12 +95,12 @@ export default class LyphNeo4j extends Neo4j {
 					});
 				}
 
-				if (!resA.id::isNumber() || !resB.id::isNumber()) { continue; } //TODO: what to do in general?
+                let fields = extractFieldValues(rel);
+                let cls = relationships[rel.class];
 
-				let cls = relationships[rel.class];
-				let fields = extractFieldValues(rel);
+                await this[assignHref](cls, fields);
 
-				await this.query({
+                await this.query({
 					statement: `
                     MATCH (A:${resA.class} { id: ${resA.id} }), (B:${resB.class} { id: ${resB.id} })
                     CREATE UNIQUE (A) -[rel:${rel.class}]-> (B)
@@ -335,7 +324,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	async createResource(cls, fields) {
 
-		await this[assertIdIsGiven](cls, fields);
+		await this[assignHref](cls, fields);
 
         //Create resources with given ids
 		let [{id}] = await this.query({
@@ -627,11 +616,11 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 
-	async addRelationship(relA, idA, idB, fields) {
+	async createRelationship(relA, idA, idB, fields) {
 		let cls = relA.relationshipClass;
 		let relB = relA.codomain;
 
-		await this[assertIdIsGiven](cls, fields);
+		await this[assignHref](cls, fields);
 
 		/* the main query for adding the new relationship */
 		let [l, r] = arrowEnds(relA);

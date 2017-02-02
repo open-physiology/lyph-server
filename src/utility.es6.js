@@ -112,6 +112,9 @@ export const arrowEnds = (relA) =>
 
 export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 
+export const href2Id = (href) => Number.parseInt(href.substring(href.lastIndexOf("/") + 1));
+
+export const id2Href = (host, cls, id) => (host + "://" + cls.name + "/" + id);
 
 export const setsToArrayOfIds = (obj) => {
 	for (let [key, value] of Object.entries(obj)){
@@ -153,19 +156,27 @@ export function extractRelationshipFields(A, rels, skipShortcuts){
 		let objB = neo4jToData(resources[B.class], B);
 
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
-		let relObj = {
-			...neo4jToData(relationships[rel.class], rel),
-			1: (s === A.id)? objA: objB,
-			2: (s === A.id)? objB: objA
-		};
+		// let relObj = {
+		// 	...neo4jToData(relationships[rel.class], rel),
+		// 	1: (s === A.id)? objA: objB,
+		// 	2: (s === A.id)? objB: objA
+		// };
+		let props = neo4jToData(relationships[rel.class], rel);
+		let relObj = { href: props.href, class: props.class };
+
 		if (relFields[fieldName]::isUndefined()){ relFields[fieldName] = []; }
 		relFields[fieldName].push(relObj);
 
 		let relA = resources[A.class].relationships[fieldName];
+		if (relA.cardinality.max === 1) {
+			relFields[fieldName] = relFields[fieldName][0];
+		}
 		if (!skipShortcuts){
             if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
                 if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
-                relFields[relA.shortcutKey].push(objB);
+                //relFields[relA.shortcutKey].push(objB);
+				relFields[relA.shortcutKey].push({href: objB.href, class: objB.class});
+				//TODO replace array with object for cardinality.max === 1
             }
         }
 	}
