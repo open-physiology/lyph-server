@@ -51,7 +51,7 @@ export function runSelectedRelationshipTest(){
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
                         for (let res of resources) {
-                            expect(res).to.have.property('id').that.equals(200);
+                            expect(res).to.have.property('href');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                         }
                 }));
@@ -96,7 +96,7 @@ export function runSelectedRelationshipTest(){
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('id').that.equals(initial.mainLyph1.id);
+                            expect(res[1]).to.have.property('href');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
                         }
                 }));
@@ -116,9 +116,9 @@ export function runSelectedRelationshipTest(){
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('id').that.equals(initial.mainLyph1.id);
+                            expect(res[1]).to.have.property('href');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
-                            expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);
+                            expect(res[2]).to.have.property('href');
                         }
                     }));
 
@@ -132,9 +132,9 @@ export function runSelectedRelationshipTest(){
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('id').that.equals(initial.mainLyph1.id);
+                            expect(res[1]).to.have.property('href');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
-                            expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);                        }
+                            expect(res[2]).to.have.property('href');                        }
                     }));
 
                 PUT("replaces HasLayer relationship", r=>r.send({
@@ -146,14 +146,14 @@ export function runSelectedRelationshipTest(){
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
                         for (let res of resources) {
-                            expect(res).to.have.property('id').that.equals(201);
+                            expect(res).to.have.property('href');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('id').that.equals(initial.mainLyph1.id);
+                            expect(res[1]).to.have.property('href');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
-                            expect(res[2]).to.have.property('id').that.equals(initial.lyph2.id);                        }
+                            expect(res[2]).to.have.property('href');                        }
                     }));
 
                 DELETE("removes HasLayer relationship", r=>r.expect(NO_CONTENT).then(async() => {
@@ -243,7 +243,6 @@ export function testRelationships() {
                 GET("returns HasLayer relationships", r=>r.expect(OK).expect(isArray)
                     .resources((resources) => {
                         for (let res of resources) {
-                            expect(res).to.have.property('id');
                             expect(res).to.have.property('href');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                             expect(res).to.have.property('1');
@@ -271,7 +270,7 @@ export function testRelationships() {
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
                         for (let res of resources) {
-                            expect(res).to.have.property('id').that.equals(200);
+                            expect(res).to.have.property('href');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                         }
                 }));
@@ -312,8 +311,7 @@ export function testRelationships() {
             withValidPathParams(()=>({id: [...initial.mainLyph1["-->HasBorder"]][0].id}), () => {
 
                 GET("returns a relationship with expected fields", r=>r.resource((res) => {
-                    expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
+                    expect(res).to.have.property('href');
                     expect(res).to.have.property('class'); 
                     expect(res).to.have.property('name');  
                 }));
@@ -341,7 +339,7 @@ export function testRelationships() {
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('id').that.equals(initial.mainLyph1.id);
+                            expect(res[1]).to.have.property('href');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
                         }
                     }));

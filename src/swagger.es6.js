@@ -720,7 +720,7 @@ function addOperationEndpoints() {
                     properties: {
                         method: {
                             type: 'string',
-                            enum: ['POST']
+                            enum: ['GET', 'POST', 'PUT', 'DELETE']
                         },
                         path: {type: 'string'},
                         body: $ref(`partial_Resource`)

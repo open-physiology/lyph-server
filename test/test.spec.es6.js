@@ -8,6 +8,7 @@ import {runSelectedResourceTest, testResourcesGeneral, testResources, testAbstra
 import {runSelectedRelationshipTest, testRelationshipsGeneral, testRelationships} from './testRelationships.es6.js';
 import {api} from './testUtils.es6.js';
 import {OK} from '../src/http-status-codes.es6.js'
+import isArray from 'lodash-bound/isArray';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // tests                                                                                                              //
@@ -39,12 +40,12 @@ describe("docs", () => {
 
 });
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+runSelectedRelationshipTest();
 
-//runSelectedRelationshipTest();
-
-runSelectedResourceTest();
+//runSelectedResourceTest();
 
 //testResources();
 

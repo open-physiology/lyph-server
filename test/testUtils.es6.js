@@ -218,6 +218,48 @@ export const describeResourceClass = (className, runResourceClassTests) => {
     });
 };
 
+export const describeBatch = (runBatchTests) => {
+    describe("/batch", () => {
+        /* DESCRIBE BLOCK: given endpoint */
+        describeEndpoint = (givenPath, supportedVerbs, runEndpointTests) => {
+            describe(givenPath, () => {
+
+                /* for setting the path parameters */
+                let compiledPath = givenPath;
+                let compilePath  = template(compiledPath, { interpolate: /{(\w+?)}/g });
+
+                /* the verb testers */
+                const verbTester = (verb) => (claim, expectations) => {
+                    it(`${verb.toUpperCase()} ${claim}`, () => expectations(api[verb](compiledPath)));
+                };
+                GET    = verbTester('get');
+                POST   = verbTester('post');
+                PUT    = verbTester('put');
+                DELETE = verbTester('delete');
+                let VERB = {GET, POST, PUT, DELETE};
+
+                /* DESCRIBE BLOCK: given valid path parameters */
+                withValidPathParams = (desc, params, runParamTests) => {
+                    if (!desc::isString()) { [desc, params, runParamTests] = ["valid", desc, params] }
+                    describe(`(${desc} path parameters)`, () => {
+                        beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
+                        /* run given tests */
+                        if (runParamTests) { runParamTests() }
+                    });
+                };
+
+                /* run given tests */
+                if (runEndpointTests) { runEndpointTests() }
+            });
+        };
+
+        /* run given tests */
+        if (runBatchTests) { runBatchTests() }
+
+    });
+};
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // before each test, reset the database                                                                               //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -280,7 +322,7 @@ beforeEach(async () => {
     /* lyphs */
     initial.lyph1 = model.Lyph.new({name: "Renal hilum", longitudinalBorders: [initial.border5, initial.border6] });
     initial.lyph2 = model.Lyph.new({name: "Renal parenchyma", longitudinalBorders: [initial.border7, initial.border8] });
-    initial.lyph = model.Lyph.new({name: "Renal capsule", longitudinalBorders: [initial.border9, initial.border10] });
+    initial.lyph3 = model.Lyph.new({name: "Renal capsule", longitudinalBorders: [initial.border9, initial.border10] });
 
     initial.mainLyph1 = model.Lyph.new({
         name      : "Kidney",
@@ -297,7 +339,7 @@ beforeEach(async () => {
 
     initial.mainLyph2 = model.Lyph.new({
         name:  "Stomach",
-        layers: [initial.lyph, initial.lyph2],
+        layers: [initial.lyph3, initial.lyph2],
         measurables: [initial.measurable2],
         longitudinalBorders: [initial.border3, initial.border4]
     });
@@ -312,7 +354,7 @@ beforeEach(async () => {
 
     initial.lyphType3 = model.Type.new({
         name: "Renal capsule type",
-        definition: initial.lyph});
+        definition: initial.lyph3});
 
     /* processes */
     initial.process1 = model.Process.new({
@@ -442,13 +484,12 @@ beforeEach(async () => {
     for (let i = 0; i < 6; i++){
         dynamic.borders.push(extractFieldValues(await createCLResource(borders[i])));
     }
-    dynamic.lyph              = setsToArrayOfIds(extractFieldValues(lyph));
+    dynamic.lyph3              = setsToArrayOfIds(extractFieldValues(lyph));
     dynamic.lyph1             = extractFieldValues(await createCLResource(lyph1));
     dynamic.lyph2             = extractFieldValues(await createCLResource(lyph2));
 
     //HasLayer with ID
-    await db.createRelationship(
-        resources["Lyph"].relationships["-->HasLayer"],
+    await db.createRelationship(model.HasLayer, model.Lyph, model.Lyph,
         dynamic.lyph1.id, dynamic.lyph2.id, {id: 200, class: "HasLayer"});
     await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
 
@@ -463,16 +504,16 @@ async function testDirectDBOperations(){
     let fields = extractFieldValues(module["HasLayer"]
         .new({...{relativePosition: 1},
             1: resources["Lyph"].new({id: initial.mainLyph1.id}),
-            2: resources["Lyph"].new({id: initial.lyph.id})}));
+            2: resources["Lyph"].new({id: initial.lyph3.id})}));
 
-    await db.createRelationship(resources["Lyph"].relationships["-->HasLayer"],
-        initial.mainLyph1.id, initial.lyph.id, fields);
+    await db.createRelationship(model.HasLayer, model.Lyph, model.Lyph,
+        initial.mainLyph1.id, initial.lyph3.id, fields);
 
-    await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
+    await db.updateRelationship(model.HasLayer, model.Lyph, model.Lyph,
        initial.mainLyph1.id, initial.lyph2.id, {relativePosition: 1});
     await db.assertRelationshipsExist(relationships["HasLayer"], [201]);
 
-    await db.replaceRelationship(resources["Lyph"].relationships["-->HasLayer"],
+    await db.replaceRelationship(model.HasLayer, model.Lyph, model.Lyph,
         initial.mainLyph1.id, initial.lyph2.id, {id: 202, class: "HasLayer"});
     await db.assertRelationshipsExist(relationships["HasLayer"], [202]);
 
@@ -487,8 +528,8 @@ async function testDirectDBOperations(){
     await db.replaceResource(resources["ExternalResource"], 300, dynamic.externalResource1);
     await db.getSpecificResources(resources["ExternalResource"], [300]);
 
-    await db.createResource(resources["Lyph"], dynamic.lyph);
-    await db.getSpecificResources(resources["Lyph"], [dynamic.lyph.id]);
+    await db.createResource(resources["Lyph"], dynamic.lyph3);
+    await db.getSpecificResources(resources["Lyph"], [dynamic.lyph3.id]);
 
     await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
     await db.deleteResource(resources["Border"], initial.border1.id);
