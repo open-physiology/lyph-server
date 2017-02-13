@@ -176,7 +176,9 @@ export function extractRelationshipFields(A, rels, skipShortcuts){
                 if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
                 //relFields[relA.shortcutKey].push(objB);
 				relFields[relA.shortcutKey].push({href: objB.href, class: objB.class});
-				//TODO replace array with object for cardinality.max === 1
+				if (relA.cardinality.max === 1) {
+					relFields[relA.shortcutKey] = relFields[relA.shortcutKey][0];
+				}
             }
         }
 	}
