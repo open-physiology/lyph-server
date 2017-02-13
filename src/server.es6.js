@@ -190,10 +190,14 @@ const requestHandler = {
 		async put({db, cls, doCommit}, req, res) {
 			let href = id2Href(db.config.host, cls, req.pathParams.id);
 			let entity = await cls.get(href);
-			for (let fieldName of Object.keys(entity.fields)){
-				if (!["id", "href", "class"].includes(fieldName)){ delete entity[fieldName]; }
+			for (let fieldName of Object.keys(entity.fields)) {
+				let fieldSpec = entity.constructor.properties[fieldName];
+				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
 			}
-			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
+			for (let fieldName of Object.keys(req.body)) {
+				let fieldSpec = entity.constructor.properties[fieldName];
+				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
+			}
 			if (doCommit) {
 				await entity.commit();
 				res.status(OK).jsonp([entity.toJSON()]);
@@ -292,10 +296,14 @@ const requestHandler = {
 		async put({db, cls, doCommit}, req, res) {
 			let href = id2Href(db.config.host, cls, req.pathParams.id);
 			let entity = await cls.get(href);
-			for (let fieldName of Object.keys(entity.fields)){
-				if (!["id", "href", "class"].includes(fieldName)){ delete entity[fieldName]; }
+			for (let fieldName of Object.keys(entity.fields)) {
+				let fieldSpec = entity.constructor.properties[fieldName];
+				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
 			}
-			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
+			for (let fieldName of Object.keys(req.body)) {
+				let fieldSpec = entity.constructor.properties[fieldName];
+				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
+			}
 			if (doCommit) {
 				await entity.commit();
 				res.status(OK).jsonp([entity.toJSON()]);
@@ -357,18 +365,21 @@ const requestHandler = {
 				return {statusCode: OK, entity: entity}
 			}
 		},
-		//TODO: test fails, fix
 		async put({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let hrefA = id2Href(db.config.host, relA.resourceClass, idA);
 			let hrefB = id2Href(db.config.host, relA.codomain.resourceClass, idB);
 			let resA = await relA.resourceClass.get(hrefA);
 			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
-			if (!entity){ res.status(NOT_FOUND).jsonp(); }
-			for (let fieldName of Object.keys(entity.fields)){
-				if (!["id", "href", "class"].includes(fieldName)){ delete entity[fieldName]; }
+			if (!entity) { res.status(NOT_FOUND).jsonp(); }
+			for (let fieldName of Object.keys(entity.fields)) {
+				let fieldSpec = entity.constructor.properties[fieldName];
+				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
 			}
-			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
+			for (let fieldName of Object.keys(req.body)) {
+				let fieldSpec = entity.constructor.properties[fieldName];
+				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
+			}
 			if (doCommit) {
 				await entity.commit();
 				res.status(OK).jsonp([entity.toJSON()]);
