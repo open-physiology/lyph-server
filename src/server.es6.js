@@ -52,7 +52,7 @@ async function createModelResource(db, cls, fields, options = {}){
 		if (fieldSpec.cardinality.max === 1){ val = [val] }
 		if (val.length > 0){
 			let fieldCls = fieldSpec.codomain.resourceClass;
-			let hrefs = val.map(v => id2Href(db.config.host, fieldCls, v));
+			let hrefs = val.map(v => id2Href(db.config.host, v));
 			fields[fieldName] = [...await fieldCls.get(hrefs)];
 			if (fieldSpec.cardinality.max === 1){ fields[fieldName] = fields[fieldName][0] }
 		}
@@ -62,11 +62,12 @@ async function createModelResource(db, cls, fields, options = {}){
 
 async function createModelRelationship(db, cls, relA, idA, idB, requestedFields){
 	/*Extract relationship ends*/
-	let hrefA = id2Href(db.config.host, relA.resourceClass, idA);
+	let hrefA = id2Href(db.config.host, idA);
 	let resA = await relA.resourceClass.get(hrefA);
-	let hrefB = id2Href(db.config.host, relA.codomain.resourceClass, idB);
+	let hrefB = id2Href(db.config.host, idB);
 	let resB = await relA.codomain.resourceClass.get(hrefB);
-	/*Create new relationship*/
+    /*Create new relationship*/
+    //if (relA.keyInRelationship === 2){ return cls.new({...requestedFields, 1: resB, 2: resA}); }
 	return cls.new({...requestedFields, 1: resA, 2: resB});
 }
 
@@ -103,7 +104,7 @@ const requestHandler = {
 				let tmpID = body.id;
 				if (temporaryIDs.includes(body.id)){
 					delete body.id;
-					db.assignHref(info.cls, body);
+					db.assignHref(body);
 					ids.push(body.id);
 				}
 				try{
@@ -150,7 +151,7 @@ const requestHandler = {
 	resources: /*get, post*/ {
 		async get({db, cls, doCommit}, req, res) {
 			let response = [...await cls.getAll()].map(resource => resource.toJSON());
-			if (doCommit){
+			if (doCommit) {
 				res.status(OK).jsonp(response);
 			} else {
 				return {statusCode: OK, response: response}
@@ -168,7 +169,7 @@ const requestHandler = {
 	},
 	specificResources: /*get, post, put, delete*/ {
 		async get({db, cls, doCommit}, req, res) {
-			let hrefs = req.pathParams.ids.map(id => id2Href(db.config.host, cls, id));
+			let hrefs = req.pathParams.ids.map(id => id2Href(db.config.host, id));
 			let response = [...await cls.get(hrefs)].map(resource => resource.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
@@ -177,7 +178,7 @@ const requestHandler = {
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			let href = id2Href(db.config.host, req.pathParams.id);
 			let entity = await cls.get(href);
 			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
 			if (doCommit) {
@@ -188,7 +189,7 @@ const requestHandler = {
 			}
 		},
 		async put({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			let href = id2Href(db.config.host, req.pathParams.id);
 			let entity = await cls.get(href);
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
@@ -206,7 +207,7 @@ const requestHandler = {
 			}
 		},
 		async delete({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			let href = id2Href(db.config.host, req.pathParams.id);
 			let entity = await cls.get(href);
 			entity.delete();
 			if (doCommit){
@@ -219,7 +220,7 @@ const requestHandler = {
 	},
 	relatedResources: /*get*/ {
 		async get({db, cls, relA, doCommit}, req, res) {
-			let href = id2Href(db.config.host, relA.resourceClass, req.pathParams.idA);
+			let href = id2Href(db.config.host, req.pathParams.idA);
 			let resource = await relA.resourceClass.get(href);
 			let related = [...resource[relA.keyInResource]].map(rel => rel[2]);
 			let response = related.map(resource => resource.toJSON());
@@ -243,8 +244,8 @@ const requestHandler = {
 		},
 		async delete({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, relA.resourceClass, idA);
-			let hrefB = id2Href(db.config.host, relA.codomain.resourceClass, idB);
+			let hrefA = id2Href(db.config.host, idA);
+			let hrefB = id2Href(db.config.host, idB);
 			let resA = await relA.resourceClass.get(hrefA);
 			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
 			if (!entity){ res.status(NOT_FOUND).jsonp(); }
@@ -259,22 +260,18 @@ const requestHandler = {
 	},
 	relationships: /*get */  {
         async get({db, cls, doCommit}, req, res) {
-        	try {
-				let response = [...await cls.getAll()].map(rel => rel.toJSON());
-				if (doCommit) {
-					res.status(OK).jsonp(response);
-				} else {
-					return {statusCode: OK, response: response}
-				}
-			} catch(e){
-				console.log(e);
+			let response = [...await cls.getAll()].map(rel => rel.toJSON());
+			if (doCommit) {
+				res.status(OK).jsonp(response);
+			} else {
+				return {statusCode: OK, response: response}
 			}
         }
     },
     specificRelationships: /*get, post, put, delete*/ {
 		async get({db, cls, doCommit}, req, res) {
 			let ids = req.pathParams.ids;
-			let hrefs = ids.map(id => id2Href(db.config.host, cls, id));
+			let hrefs = ids.map(id => id2Href(db.config.host, id));
 			let response = [...await cls.get(hrefs)].map(resource => resource.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
@@ -283,7 +280,7 @@ const requestHandler = {
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			let href = id2Href(db.config.host, req.pathParams.id);
 			let entity = await cls.get(href);
 			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
 			if (doCommit) {
@@ -294,7 +291,7 @@ const requestHandler = {
 			}
 		},
 		async put({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			let href = id2Href(db.config.host, req.pathParams.id);
 			let entity = await cls.get(href);
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
@@ -312,7 +309,7 @@ const requestHandler = {
 			}
 		},
 		async delete({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, cls, req.pathParams.id);
+			let href = id2Href(db.config.host, req.pathParams.id);
 			let entity = await cls.get(href);
 			entity.delete();
 			if (doCommit){
@@ -325,7 +322,7 @@ const requestHandler = {
 	},
     relatedRelationships: /* get */{
 		async get({db, cls, relA, doCommit}, req, res) {
-			let href = id2Href(db.config.host, relA.resourceClass, req.pathParams.idA);
+			let href = id2Href(db.config.host, req.pathParams.idA);
 			let resource = await relA.resourceClass.get(href);
 			let related = [...resource[relA.keyInResource]];
 			let response = related.map(rel => rel.toJSON());
@@ -339,8 +336,8 @@ const requestHandler = {
 	specificRelationshipByResources: /*get, post, put, delete*/ {
 		async get({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, relA.resourceClass, idA);
-			let hrefB = id2Href(db.config.host, relA.codomain.resourceClass, idB);
+			let hrefA = id2Href(db.config.host, idA);
+			let hrefB = id2Href(db.config.host, idB);
 			let resA = await relA.resourceClass.get(hrefA);
 			let related = [...resA[relA.keyInResource]].filter(rel => (rel[2].href === hrefB));
 			let response = related.map(rel => rel.toJSON());
@@ -352,8 +349,9 @@ const requestHandler = {
 		},
 		async post({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, relA.resourceClass, idA);
-			let hrefB = id2Href(db.config.host, relA.codomain.resourceClass, idB);
+            //TODO: fix, this will cause an error for relationships with abstract ends
+			let hrefA = id2Href(db.config.host, idA);
+			let hrefB = id2Href(db.config.host, idB);
 			let resA = await relA.resourceClass.get(hrefA);
 			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
 			if (!entity){ res.status(NOT_FOUND).jsonp(); }
@@ -367,8 +365,8 @@ const requestHandler = {
 		},
 		async put({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, relA.resourceClass, idA);
-			let hrefB = id2Href(db.config.host, relA.codomain.resourceClass, idB);
+			let hrefA = id2Href(db.config.host, idA);
+			let hrefB = id2Href(db.config.host, idB);
 			let resA = await relA.resourceClass.get(hrefA);
 			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
 			if (!entity) { res.status(NOT_FOUND).jsonp(); }
@@ -389,8 +387,8 @@ const requestHandler = {
 		},
 		async delete({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, relA.resourceClass, idA);
-			let hrefB = id2Href(db.config.host, relA.codomain.resourceClass, idB);
+			let hrefA = id2Href(db.config.host, idA);
+			let hrefB = id2Href(db.config.host, idB);
 			let resA = await relA.resourceClass.get(hrefA);
 			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
 			if (!entity){ res.status(NOT_FOUND).jsonp(); }
@@ -545,11 +543,12 @@ export default async (distDir, config) => {
 	const frontend = {
 		/* Commit a newly created entity to DB */
 		async commit_new({commandType, values}) {
+			//console.log("commit_new", values);
 			let cls = model[values.class];
 			let res;
 			if (cls.isResource){
 				let id = await db.createResource(cls, values);
-				res = await db.getSpecificResources(cls, [id]);
+				res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
 			} else {
 				if (cls.isRelationship){
 					let id = await db.createRelationship(cls,
@@ -559,32 +558,32 @@ export default async (distDir, config) => {
 					res = await db.getSpecificRelationships(cls, [id]);
 				}
 			}
-			console.log("commit_new returns", res[0]);
+			//console.log("commit_new returns", res[0]);
 			return res[0];
 		},
 
 		/* Commit an edited entity to DB */
 		async commit_edit({entity, newValues}) {
-			console.log("commit_edit", entity, newValues);
+			//console.log("commit_edit", entity, newValues);
 			let cls = model[entity.class];
 			let id = href2Id(entity.href);
 			let res;
 			if (cls.isResource){
                 await db.updateResource(cls, id, newValues);
-				res = await db.getSpecificResources(cls, [id]);
+				res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
             } else {
             	if (cls.isRelationship){
 					await db.updateRelationshipByID(cls, id, newValues);
 					res = await db.getSpecificRelationships(cls, [id]);
 				}
 			}
-			console.log("commit_edit returns", res[0]);
+			//console.log("commit_edit returns", res[0]);
 			return res[0];
 		},
 
 		/* Commit changes after deleting entity to DB */
 		async commit_delete({entity}) {
-			console.log("commit_delete", entity);
+			//console.log("commit_delete", entity);
 			let cls = model[entity.class];
 			let id = href2Id(entity.href);
 			if (cls.isResource){
@@ -626,7 +625,7 @@ export default async (distDir, config) => {
 					results.push(...clsResults);
 				}
 			}
-			console.log("load returns", JSON.stringify(results, null, 4));
+			//console.log("load returns", JSON.stringify(results, null, 4));
 			return results;
 		},
 
@@ -640,7 +639,7 @@ export default async (distDir, config) => {
 					results = await db.getAllRelationships(cls);
 				}
 			}
-			console.log("loadAll returns", JSON.stringify(results, null, 4));
+			//console.log("loadAll returns", JSON.stringify(results, null, 4));
 			return results;
 		}
 	};

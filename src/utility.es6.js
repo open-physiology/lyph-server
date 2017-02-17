@@ -114,7 +114,7 @@ export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) =
 
 export const href2Id = (href) => Number.parseInt(href.substring(href.lastIndexOf("/") + 1));
 
-export const id2Href = (host, cls, id) => (host + "://" + cls.name + "/" + id);
+export const id2Href = (host, id) => (host + "://" + id);
 
 export const setsToArrayOfIds = (obj) => {
 	for (let [key, value] of Object.entries(obj)){

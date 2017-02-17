@@ -5,7 +5,6 @@
 import _, {template} from 'lodash';
 import isString from 'lodash-bound/isString';
 import isFunction from 'lodash-bound/isFunction';
-import isNumber from 'lodash-bound/isNumber';
 import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
 import isUndefined from 'lodash-bound/isUndefined';
@@ -16,9 +15,8 @@ import supertest   from './custom-supertest.es6.js';
 import getServer   from '../src/server.es6.js';
 import {resources, relationships} from '../src/resources.es6.js';
 import {OK, NOT_FOUND, CREATED} from "../src/http-status-codes.es6";
-import {extractFieldValues, setsToArrayOfIds} from '../src/utility.es6';
+import {href2Id} from "../src/utility.es6";
 import modelFactory from "../node_modules/open-physiology-model/src/index.js";
-import {simpleMockHandlers}   from '../node_modules/open-physiology-model/test/mock-handlers.helper';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -70,7 +68,7 @@ chai.use((_chai, utils) => {
 export let api, db;
 
 //escaping out of .tmp/mocha-webpack/dist
-before(() => getServer(`${__dirname}/../../../dist/`, {
+before(() => getServer(`${__dirname}/../../dist/`, {
     exposeDB: true,
     dbDocker: 'neo4j',
     dbUser: 'neo4j',
@@ -98,16 +96,12 @@ const createResource    = async (className, fields) => await getSingleResource(c
                                                        await db.createResource(resources[className], fields));
 
 /* database operations that work with manifest resources (bypassing REST server) */
-const createCLResource = async (resource) => {
-    let fields = extractFieldValues(resource);
-    return await getSingleResource(resource.constructor.name, await db.createResource(resource.constructor, fields));
-};
 
 /* server request api (through our REST server) */
 export const requestResources      = async (path) => (await api.get(path)).body;
 export const requestSingleResource = async (path) => (await requestResources(path))[0];
 
-/* dynamically created, specialized functions and variables used in describing our tests */
+/* dynamically created, specialized functions and variables used in describing our test */
 export let GET, POST, PUT, DELETE;
 export let setInvalidPathParams, setValidPathParams, withInvalidPathParams, withValidPathParams;
 export let describeEndpoint;
@@ -147,7 +141,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                     describe(`(${desc} path parameters)`, () => {
                         beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
 
-                        /* run tests common to all endpoints with valid path params */
+                        /* run test common to all endpoints with valid path params */
                         if (/^\/\w+\/{\w+}$/.test(givenPath)) {
                             GET("returns an array with at least one resource of the expected class", r=>r
                                 .expect(OK)
@@ -163,7 +157,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                             );
                         }
 
-                        /* run given tests */
+                        /* run given test */
                         if (runParamTests) { runParamTests() }
                     });
                 };
@@ -175,7 +169,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                         /* set the compiled path before each test */
                         beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
 
-                        /* run tests common to all endpoints with invalid path params  */
+                        /* run test common to all endpoints with invalid path params  */
                         if (/^\/\w+\/{\w+}$/.test(givenPath)) {
                             for (let verb of supportedVerbs) {
                                 // TODO: to test this on POST and PUT, supply 'example' body from swagger
@@ -185,12 +179,12 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                             }
                         }
 
-                        /* run given tests */
+                        /* run given test */
                         if (runParamTests) { runParamTests() }
                     });
                 };
 
-                /* run tests common to all endpoints */
+                /* run test common to all endpoints */
                 if (/^\/\w+$/.test(givenPath)) {
                     GET("returns an array with resources of the expected class", r=>r
                         .expect(OK)
@@ -206,13 +200,13 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                     );
                 }
 
-                /* run given tests */
+                /* run given test */
                 if (runEndpointTests) { runEndpointTests() }
 
             });
         };
 
-        /* run given tests */
+        /* run given test */
         if (runResourceClassTests) { runResourceClassTests() }
 
     });
@@ -243,17 +237,17 @@ export const describeBatch = (runBatchTests) => {
                     if (!desc::isString()) { [desc, params, runParamTests] = ["valid", desc, params] }
                     describe(`(${desc} path parameters)`, () => {
                         beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
-                        /* run given tests */
+                        /* run given test */
                         if (runParamTests) { runParamTests() }
                     });
                 };
 
-                /* run given tests */
+                /* run given test */
                 if (runEndpointTests) { runEndpointTests() }
             });
         };
 
-        /* run given tests */
+        /* run given test */
         if (runBatchTests) { runBatchTests() }
 
     });
@@ -272,8 +266,102 @@ let model;
 /* initial database clearing */
 before(() => {
     db.clear('Yes! Delete all everythings!');
-    let {frontend} = simpleMockHandlers();
-    model = modelFactory(frontend).classes;
+    model = modelFactory({
+            /* Commit a newly created entity to DB */
+            async commit_new({commandType, values}) {
+                let cls = model[values.class];
+                let res;
+                if (cls.isResource){
+                    let id = await db.createResource(cls, values);
+                    res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
+                } else {
+                    if (cls.isRelationship){
+                        let id = await db.createRelationship(cls,
+                            model[values[1].class], model[values[2].class],
+                            href2Id(values[1].href), href2Id(values[2].href),
+                            values);
+                        res = await db.getSpecificRelationships(cls, [id]);
+                    }
+                }
+                return res[0];
+            },
+
+            /* Commit an edited entity to DB */
+            async commit_edit({entity, newValues}) {
+                let cls = model[entity.class];
+                let id = href2Id(entity.href);
+                let res;
+                if (cls.isResource){
+                    await db.updateResource(cls, id, newValues);
+                    res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
+                } else {
+                    if (cls.isRelationship){
+                        await db.updateRelationshipByID(cls, id, newValues);
+                        res = await db.getSpecificRelationships(cls, [id]);
+                    }
+                }
+                return res[0];
+            },
+
+            /* Commit changes after deleting entity to DB */
+            async commit_delete({entity}) {
+                let cls = model[entity.class];
+                let id = href2Id(entity.href);
+                if (cls.isResource){
+                    await db.deleteResource(cls, id);
+                } else {
+                    if (cls.isRelationship){
+                        await db.deleteRelationshipByID(cls, id);
+                    }
+                }
+            },
+
+            /* Load from DB all entities with given IDs */
+            async load(addresses, options = {}) {
+                let clsMaps = {};
+                for (let address of Object.values(addresses)){
+                    let cls = model[address.class];
+                    let id = href2Id(address.href);
+                    if (clsMaps[cls.name]::isUndefined()){
+                        clsMaps[cls.name] = {cls: cls, ids: [id]}
+                    } else {
+                        clsMaps[cls.name].ids.push(id);
+                    }
+                }
+                let results = [];
+                for (let {cls, ids} of Object.values(clsMaps)){
+                    let clsResults = (cls.isResource)?
+                        await db.getSpecificResources(cls, ids, {withoutShortcuts: true}):
+                        await db.getSpecificRelationships(cls, ids);
+                    clsResults = clsResults.filter(x => !x::isNull() && !x::isUndefined());
+                    if (clsResults.length < ids.length){
+                        throw customError({
+                            status:  NOT_FOUND,
+                            class:   cls.name,
+                            ids:     ids,
+                            message: humanMsg`Not all specified ${cls.name} entities with IDs '${ids.join(',')}' exist.`
+                        });
+                    }
+                    if (clsResults.length > 0){
+                        results.push(...clsResults);
+                    }
+                }
+                return results;
+            },
+
+            /* Load from DB all entities of a given class */
+            async loadAll(cls, options = {}) {
+                let results = [];
+                if (cls.isResource){
+                    results = await db.getAllResources(cls, {withoutShortcuts: true});
+                } else {
+                    if (cls.isRelationship){
+                        results = await db.getAllRelationships(cls);
+                    }
+                }
+                return results;
+            }
+    }).classes;
 });
 
 /* before each test, reset the database */
@@ -284,40 +372,38 @@ beforeEach(async () => {
         name:  "Third plantar metatarsal vein",
         uri :  "http://purl.obolibrary.org/obo/FMA_44539",
         type:  "fma"});
-
     /* borders */
     //for mainLyph1, mainLyph2
-    initial.border1 = model.Border.new({ nature: "open" });
-    initial.border2 = model.Border.new({ nature: "closed" });
-    initial.border3 = model.Border.new({ nature: "open" });
-    initial.border4 = model.Border.new({ nature: "closed" });
+    initial.border1 = model.Border.new({ nature: "open"});
+    initial.border2 = model.Border.new({ nature: "closed"});
+    initial.border3 = model.Border.new({ nature: "open"});
+    initial.border4 = model.Border.new({ nature: "closed"});
     //for lyph1, lyph2, lyph3
-    initial.border5  = model.Border.new({ nature: "open" });
-    initial.border6  = model.Border.new({ nature: "closed" });
-    initial.border7  = model.Border.new({ nature: "open" });
-    initial.border8  = model.Border.new({ nature: "closed" });
-    initial.border9  = model.Border.new({ nature: "open" });
-    initial.border10 = model.Border.new({ nature: "closed" });
+    initial.border5  = model.Border.new({ nature: "open"});
+    initial.border6  = model.Border.new({ nature: "closed"});
+    initial.border7  = model.Border.new({ nature: "open"});
+    initial.border8  = model.Border.new({ nature: "closed"});
+    initial.border9  = model.Border.new({ nature: "open"});
+    initial.border10 = model.Border.new({ nature: "closed"});
 
     /* materials */
-    initial.material1 = model.Material.new({ name: "Blood" });
-    initial.material2 = model.Material.new({ name: "Urine" });
+    initial.material1 = model.Material.new({ name: "Blood"});
+    initial.material2 = model.Material.new({ name: "Urine"});
+
+    /* measurables */
+    initial.measurable1 =  model.Measurable.new({ name:  "Concentration of water"});
+    initial.measurable2 =  model.Measurable.new({ name:  "Concentration of ion"});
 
     /* types */
     initial.materialType1 = model.Type.new({
-    name: "Blood",
-    definition: initial.material1});
-
-    /* measurables */
-    initial.measurable1 =  model.Measurable.new({ name:  "Concentration of water" });
-    initial.measurable2 =  model.Measurable.new({ name:  "Concentration of ion" });
+        name: "Blood", definition: initial.material1});
 
     /* causalities */
     initial.causality1 = model.Causality.new({
         name:   "Functional dependency",
         cause:  initial.measurable1,
-        effect: initial.measurable2
-    });
+        effect: initial.measurable2});
+
 
     /* lyphs */
     initial.lyph1 = model.Lyph.new({name: "Renal hilum", longitudinalBorders: [initial.border5, initial.border6] });
@@ -360,17 +446,14 @@ beforeEach(async () => {
     initial.process1 = model.Process.new({
         name : "Blood advective process",
         transportPhenomenon: "advection",
-        //sourceLyph: initial.lyph1,       //TODO - these will be removed from model library for now
-        //targetLyph: initial.lyph2,
-        conveyingLyph: [initial.mainLyph1]
-    });
+        conveyingLyph: [initial.mainLyph1]});
 
     /* nodes */
     initial.node1 = model.Node.new({
-        //measurables: [initial.measurable1], //Note: if we uncomment this, test DELETE lyphs/{id} will fail as node anchors the lyph's measurable
+        // Note: if we uncomment this, test DELETE lyphs/{id} will fail as node anchors the lyph's measurable
+        //measurables: [initial.measurable1],
         incomingProcesses:  [initial.process1],
-        locations: [initial.mainLyph1]
-    });
+        locations: [initial.mainLyph1]});
 
     /* groups */
     initial.group1 = model.Group.new({
@@ -380,16 +463,13 @@ beforeEach(async () => {
 
     /* canonical trees */
     initial.canonicalTree1 = model.CanonicalTree.new({
-        name:  "SLN"
-    });
+        name:  "SLN"});
 
     initial.canonicalTree1_2 = model.CanonicalTree.new({
-        name:  "SLN tail 1"
-    });
+        name:  "SLN tail 1"});
 
     initial.canonicalTree1_3 = model.CanonicalTree.new({
-        name:  "SLN tail 2"
-    });
+        name:  "SLN tail 2"});
 
     initial.canonicalTreeBranch1_2 = model.CanonicalTreeBranch.new({
         name:  "SLN 1st level branch",
@@ -398,13 +478,12 @@ beforeEach(async () => {
         childTree: initial.canonicalTree1_2
     });
 
-    // initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
-    //     name:  "SLN 2st level branch",
-    //     conveyingLyphType: initial.lyphType2,
-    //     parentTree: initial.canonicalTree1_2,
-    //     childTree: initial.canonicalTree1_3
-    // });
-
+    initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
+        name:  "SLN 2st level branch",
+        conveyingLyphType: initial.lyphType2,
+        parentTree: initial.canonicalTree1_2,
+        childTree: initial.canonicalTree1_3
+    });
 
     /* publications */
     initial.publication1 = model.Publication.new({
@@ -413,17 +492,15 @@ beforeEach(async () => {
 
     /* clinical indices */
     initial.clinicalIndex1 = model.ClinicalIndex.new({
-        name:  "NP3FRZGT MDS - Unified Parkinson's Disease Rating Scale (3.11 Freezing of Gait)"
+        name:  "NP3FRZGT MDS - Unified Parkinson's Disease Rating Scale (3.11 Freezing of Gait)",
     });
 
     initial.clinicalIndex2 = model.ClinicalIndex.new({
         name:  "NP1HALL MDS - Unified Parkinson's Disease Rating Scale (1.2 Hallucinations and Psychosis)",
-        parent: initial.clinicalIndex1
-    });
+        parent: initial.clinicalIndex1});
 
     /* correlations */
     initial.correlation1 = model.Correlation.new({
-        class: "Correlation",
         publication: initial.publication1,
         clinicalIndices: [initial.clinicalIndex1, initial.clinicalIndex2],
         measurables: [initial.measurable1, initial.measurable2]
@@ -436,186 +513,48 @@ beforeEach(async () => {
 
     /* coalescence scenarios */
     initial.coalescenceScenario1 = model.CoalescenceScenario.new({
-        lyphs: [initial.mainLyph1, initial.mainLyph2]
-    });
+        lyphs: [initial.mainLyph1, initial.mainLyph2]});
 
+    console.log("OK so far");
 
-    //Assign IDs
-    let UID = 0;
-    Object.values(initial).map(p => p.id = ++UID);
-
-
-    /*Create DB nodes for test resources*/
-    for (let [resName, resSpec] of Object.entries(initial)){
-        initial[resName] = await createCLResource(resSpec);
+    for (let key of Object.keys(initial)){
+        await initial[key].commit();
     }
-
-    /* refresh all resource objects */
-    await Promise.all(Object.values(initial).map(refreshResource));
 
     ///////////////////////////////////////////////////
     //Test various direct DB operations here         //
     ///////////////////////////////////////////////////
 
     //Testing DB creation of resources
-    let newExternalResource1 = model.ExternalResource.new({
+    dynamic.externalResource1 = model.ExternalResource.new({
         name: "Right fourth dorsal metatarsal vein",
-        id: ++UID,
         uri: "http://purl.obolibrary.org/obo/FMA_44515",
         type: "fma"
     });
 
-    let borders = [];
-    for (let i = 0; i <6; i++){
-        borders.push(model.Border.new({id: 500 + i, nature: "open" }));
-    }
-    let lyph  = model.Lyph.new({name:  "Liver", longitudinalBorders: [borders[0], borders[1]]});
-    let lyph1 = model.Lyph.new({name:  "Heart chamber", longitudinalBorders: [borders[2], borders[3]]});
-    let lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [borders[4], borders[5]]});
-
-    borders.map(p => p.id = ++UID);
-    lyph.id = ++UID;
-    lyph1.id = ++UID;
-    lyph2.id = ++UID;
-
-    /* "dynamic" contains objects with arrays of values instead of Rel$Field etc. */
-    dynamic.externalResource1 = extractFieldValues(await createCLResource(newExternalResource1));
     dynamic.borders = [];
     for (let i = 0; i < 6; i++){
-        dynamic.borders.push(extractFieldValues(await createCLResource(borders[i])));
+        dynamic.borders.push(model.Border.new({nature: "open" }));
     }
-    dynamic.lyph3              = setsToArrayOfIds(extractFieldValues(lyph));
-    dynamic.lyph1             = extractFieldValues(await createCLResource(lyph1));
-    dynamic.lyph2             = extractFieldValues(await createCLResource(lyph2));
 
-    //HasLayer with ID
-    await db.createRelationship(model.HasLayer, model.Lyph, model.Lyph,
-        dynamic.lyph1.id, dynamic.lyph2.id, {id: 200, class: "HasLayer"});
-    await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
+    dynamic.lyph  = model.Lyph.new({name:  "Liver", longitudinalBorders: [dynamic.borders[0], dynamic.borders[1]]});
+    dynamic.lyph1 = model.Lyph.new({name:  "Aorta", longitudinalBorders: [dynamic.borders[2], dynamic.borders[3]]});
+    dynamic.lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [dynamic.borders[4], dynamic.borders[5]]});
 
-    //await testDBOperationsViaModelLibrary();
+    await dynamic.externalResource1.commit();
+    for (let i = 0; i <6; i++){
+        await dynamic.borders[i].commit();
+    }
+
+    await dynamic.lyph.commit();
+    await dynamic.lyph1.commit();
+    await dynamic.lyph2.commit();
+
+    dynamic.lyph = dynamic.lyph.toJSON();
+
     console.log("Test utils successfully completed!");
-
 });
 
-async function testDirectDBOperations(){
-
-    /* Add, update, replace, delete, get relationships (layers) */
-    let fields = extractFieldValues(module["HasLayer"]
-        .new({...{relativePosition: 1},
-            1: resources["Lyph"].new({id: initial.mainLyph1.id}),
-            2: resources["Lyph"].new({id: initial.lyph3.id})}));
-
-    await db.createRelationship(model.HasLayer, model.Lyph, model.Lyph,
-        initial.mainLyph1.id, initial.lyph3.id, fields);
-
-    await db.updateRelationship(model.HasLayer, model.Lyph, model.Lyph,
-       initial.mainLyph1.id, initial.lyph2.id, {relativePosition: 1});
-    await db.assertRelationshipsExist(relationships["HasLayer"], [201]);
-
-    await db.replaceRelationship(model.HasLayer, model.Lyph, model.Lyph,
-        initial.mainLyph1.id, initial.lyph2.id, {id: 202, class: "HasLayer"});
-    await db.assertRelationshipsExist(relationships["HasLayer"], [202]);
-
-    let res = await db.getAllRelationships(relationships["HasLayer"]);
-    res = [...res].map(val => extractFieldValues(val));
-
-    /* Add, update, replace, delete, get resources (various, including abstract) */
-    await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {"name": "Head"});
-    let replacedLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
-    console.log("Replaced lyph", replacedLyph);
-
-    await db.replaceResource(resources["ExternalResource"], 300, dynamic.externalResource1);
-    await db.getSpecificResources(resources["ExternalResource"], [300]);
-
-    await db.createResource(resources["Lyph"], dynamic.lyph3);
-    await db.getSpecificResources(resources["Lyph"], [dynamic.lyph3.id]);
-
-    await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
-    await db.deleteResource(resources["Border"], initial.border1.id);
-
-    let lyphs = await db.getAllResources(resources["Lyph"]);
-    console.log("All lyphs:", lyphs);
-
-    let allRes = await db.getAllResources(resources["Resource"]);
-    console.log("All resources:", allRes);
-
-    let relatedResources = await db.getRelatedResources(resources["Lyph"].relationships['-->HasLayer'], initial.mainLyph1.id);
-    console.log("Related resources",  relatedResources);
-
-    let mainLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
-    console.log("Main lyph", mainLyph);
-
-
-}
-
-async function testDBOperationsViaModelLibrary(){
-    let newUID = 1000;
-
-    /*Copy of the server function that replaces submitted JSON object fields with Model Library object fields*/
-    async function getFields(cls, reqFields, id){
-        let fields = {};
-        for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-            let val = reqFields[fieldName];
-            if (val::isUndefined() || val::isNull()) { continue }
-            if (fieldSpec.cardinality.max === 1){ val = [val] }
-            if (val.length > 0){
-                let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, val);
-                reqFields[fieldName] = objects.map(o => {
-                    let props = {};
-                    for (let key of Object.keys(resources[o.class].properties)){ props[key] = o[key]; }
-                    return resources[o.class].new(props);
-                });
-                if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0] }
-            }
-        }
-        if (id::isNumber()){
-            let res = cls.new(reqFields);
-            fields = extractFieldValues(res);
-            fields.id = id;
-        } else {
-            let res = cls.new(reqFields);
-            //assign new ID only if it was not given by user
-            if (!reqFields.id::isNumber()){
-                res.set('id', ++newUID, { ignoreReadonly: true });
-            }
-            await res.commit();
-            fields = extractFieldValues(res);
-        }
-        return fields;
-    }
-
-    /* Testing field replacement by model library */
-
-    // let reqFields1 = {
-    //     "thickness": { "min": 0, "class": "Range" },
-    //     "length": { "min": 0, "class": "Range" },
-    //     "cardinalityBase": {"value": 1, "class": "Value"},
-    //     "id": dynamic.lyph3.id,
-    //     "href": dynamic.lyph3.href,
-    //     "class": "Lyph",
-    //     "name": "Liver",
-    //     "axis": 500,
-    //     "longitudinalBorders": [ 501 ]
-    // };
-    //
-    // let id1 = await db.createResource(resources["Lyph"], await getFields(resources["Lyph"], reqFields1));
-    // let res1 = await db.getSpecificResources(resources["Lyph"], [id1]);
-    // console.log(res2);
-
-    let reqFields2 = {
-        name:  "SLN 2st level branch",
-        conveyingLyphType: initial.lyphType2.id,
-        parentTree: initial.canonicalTree1_2.id,
-        childTree: initial.canonicalTree1_3.id
-    };
-
-    let cls = resources["CanonicalTreeBranch"];
-
-    let id2 = await db.createResource(cls, await getFields(cls, reqFields2));
-    let res2 = await db.getSpecificResources(cls, [id2]);
-    console.log("Created resource", res2);
-}
 
 /* clear database for every tear-down */
 afterEach(() => {db.clear('Yes! Delete all everythings!');});

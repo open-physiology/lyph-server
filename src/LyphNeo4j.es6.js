@@ -22,7 +22,6 @@ import {
 	extractRelationshipFields,
 	humanMsg,
 	arrowMatch,
-    extractFieldValues,
 	extractIds,
 	id2Href
 } from './utility.es6.js';
@@ -57,13 +56,13 @@ export default class LyphNeo4j extends Neo4j {
 	////////////////////////////////////////////
 	// Common funcarctionality for other methods //
 	////////////////////////////////////////////
-    assignHref(cls, fields) {
+    assignHref(fields = {}) {
 		if (!fields.id::isNumber()) {
 			fields.id = ++this.newUID;
-			fields.href = id2Href(this.config.host, cls, fields.id);
+			fields.href = id2Href(this.config.host, fields.id);
 		} else {
 			if (!fields.href){
-				fields.href = id2Href(this.config.host, cls, fields.id);
+				fields.href = id2Href(this.config.host, fields.id);
 			}
 		}
     }
@@ -74,18 +73,27 @@ export default class LyphNeo4j extends Neo4j {
             let val = fields[fieldName];
 			if (val::isUndefined() || val::isNull()) { continue }
 
-			let rels = (val::isSet())? [...val]: [val];
+            //console.log("Processing relations", fieldName, val);
+
+            let rels = (val::isSet())? [...val]: [val];
 			for (let rel of rels){
+			    if (rel::isNull() || rel::isUndefined()) { continue; }
 				//Skip more general collections, only create top most relationships
 				//Relationships to create have to correspond to the relationship field, e.g., -->HasLayer vs HasLayer
 				if (fieldName.substring(3) !== rel.class){ continue; }
 
-				const resA = rel[1], resB = rel[2];
+				let resA = rel[1], resB = rel[2];
 
-				if (resA::isUndefined() || resB::isUndefined()
-					|| resA::isNull() || resB::isNull()
-                    || !resA.id::isNumber() || !resB.id::isNumber()) {
-					throw customError({
+                let error = resA::isUndefined() || resB::isUndefined()
+                    || resA::isNull() || resB::isNull()
+                    || !resA.class || !resB.class;
+
+                if (!error && !resA.id::isNumber() && !resB.id::isNumber()) {
+                    //assign a newly created id to one of relationship ends
+                }
+
+				if (error){
+						throw customError({
 						status:  BAD_REQUEST,
 						class:   rel.class,
 						rel:     rel,
@@ -93,20 +101,13 @@ export default class LyphNeo4j extends Neo4j {
 					});
 				}
 
-                let fields = extractFieldValues(rel);
-				//TODO replace with toJSON();
-                let cls = relationships[rel.class];
+				//If only one resource ID is missing, this entity has not been added to DB yet
+                if (!resA.id::isNumber() || !resB.id::isNumber()){ continue; }
 
-                this.assignHref(cls, fields);
+                let fields = rel.toJSON();
+	            let relCls = relationships[rel.class];
 
-                await this.query({
-					statement: `
-                    MATCH (A:${resA.class} { id: ${resA.id} }), (B:${resB.class} { id: ${resB.id} })
-                    CREATE UNIQUE (A) -[rel:${rel.class}]-> (B)
-                    SET rel += {dbProperties}
-                    SET rel.class = "${rel.class}"
-                `,
-					parameters: {  dbProperties:  dataToNeo4j(cls, fields) } });
+                await this.createRelationship(relCls, model[resA.class], model[resB.class], resA.id, resB.id, fields);
 			}
 		}
 	}
@@ -321,25 +322,24 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 
-	async createResource(cls, fields) {
+	async createResource(cls, fields = {}) {
 
-		this.assignHref(cls, fields);
+		this.assignHref(fields);
 
         //Create resources with given ids
-		let [{id}] = await this.query({
+		await this.query({
 			statement: `
 				CREATE (n:${cls.name})
 				SET n += {dbProperties}
 				SET n.class = "${cls.name}"
-				RETURN n.id as id
 			`,
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
 		});
 
 		/* create the required relationships */
-		await this[createAllResourceRelationships](cls, id, fields);
+		//await this[createAllResourceRelationships](cls, id, fields);
 
-		return id;
+		return fields.id;
 	}
 
 
@@ -602,23 +602,23 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 
-	async createRelationship(cls, clsA, clsB, idA, idB, fields) {
+	async createRelationship(cls, clsA, clsB, idA, idB, fields = {}) {
+		//console.log(cls.name, clsA.name, clsB.name, idA, idB, fields);
 
-		this.assignHref(cls, fields);
+		this.assignHref(fields);
 
-		let [{id}] = await this.query({
+		await this.query({
 			statement: `
 				MATCH (A:${clsA.name} { id: ${idA} }),
 					  (B:${clsB.name} { id: ${idB} })
 				CREATE UNIQUE (A) -[rel:${cls.name}]-> (B)
 				SET rel += {dbProperties}
 				SET rel.class = "${cls.name}"
-				return rel.id as id
             `,
 			parameters: {  dbProperties:  dataToNeo4j(cls, fields) } }
 		);
 
-		return id;
+		return fields.id;
 	}
 
 
