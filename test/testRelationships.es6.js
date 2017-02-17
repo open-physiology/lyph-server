@@ -352,7 +352,7 @@ export function testRelationships() {
     // Specific related relationships                  //
     /////////////////////////////////////////////////////
 
-    //copy tests for HasLayer from selected tests
+    //copy test for HasLayer from selected test
 
 
 }

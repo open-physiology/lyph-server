@@ -8,10 +8,9 @@ import {runSelectedResourceTest, testResourcesGeneral, testResources, testAbstra
 import {runSelectedRelationshipTest, testRelationshipsGeneral, testRelationships} from './testRelationships.es6.js';
 import {api} from './testUtils.es6.js';
 import {OK} from '../src/http-status-codes.es6.js'
-import isArray from 'lodash-bound/isArray';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// tests                                                                                                              //
+// test                                                                                                              //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // describe("swagger.json", () => {
 // 	it("is a JSON file available through the server", () => api
@@ -30,22 +29,22 @@ import isArray from 'lodash-bound/isArray';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-describe("docs", () => {
-
-    it("is an html page available through the server", () => api
-        .get('/docs')
-        .redirects(5)
-        .expect(OK)
-        .expect('Content-Type', /text\/html/));
-
-});
+// describe("docs", () => {
+//
+//     it("is an html page available through the server", () => api
+//         .get('/docs')
+//         .redirects(5)
+//         .expect(OK)
+//         .expect('Content-Type', /text\/html/));
+//
+// });
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-runSelectedRelationshipTest();
+//runSelectedRelationshipTest();
 
-//runSelectedResourceTest();
+runSelectedResourceTest();
 
 //testResources();
 
