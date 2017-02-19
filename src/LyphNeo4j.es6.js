@@ -73,8 +73,6 @@ export default class LyphNeo4j extends Neo4j {
             let val = fields[fieldName];
 			if (val::isUndefined() || val::isNull()) { continue }
 
-            //console.log("Processing relations", fieldName, val);
-
             let rels = (val::isSet())? [...val]: [val];
 			for (let rel of rels){
 			    if (rel::isNull() || rel::isUndefined()) { continue; }
@@ -603,8 +601,6 @@ export default class LyphNeo4j extends Neo4j {
 
 
 	async createRelationship(cls, clsA, clsB, idA, idB, fields = {}) {
-		//console.log(cls.name, clsA.name, clsB.name, idA, idB, fields);
-
 		this.assignHref(fields);
 
 		await this.query({

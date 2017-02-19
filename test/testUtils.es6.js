@@ -283,6 +283,9 @@ before(() => {
                         res = await db.getSpecificRelationships(cls, [id]);
                     }
                 }
+                if (!res[0]){
+                    console.log("ERROR", values);
+                }
                 return res[0];
             },
 
@@ -514,8 +517,6 @@ beforeEach(async () => {
     /* coalescence scenarios */
     initial.coalescenceScenario1 = model.CoalescenceScenario.new({
         lyphs: [initial.mainLyph1, initial.mainLyph2]});
-
-    console.log("OK so far");
 
     for (let key of Object.keys(initial)){
         await initial[key].commit();
