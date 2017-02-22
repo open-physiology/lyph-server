@@ -75,9 +75,11 @@ async function getModelResource(db, cls, reqFields, id){
 async function getModelRelationshipFields(db, cls, relA, idA, idB, reqFields){
 	/*Extract relationship ends*/
 	let [{objA}] = await db.getSpecificResources(relA.resourceClass, [idA]);
-	let resA = relA.resourceClass.new(objA); //get
+	let clsA = resources[objA.class];
+	let resA = clsA.new(objA);
 	let [{objB}] = await db.getSpecificResources(relA.codomain.resourceClass, [idB]);
-	let resB = relA.codomain.resourceClass.new(objB); //get
+	let clsB = resources[objA.class];
+	let resB = clsB.new(objB); //get
 
 	/*Reconstruct existing model library relationship entity to validate constraints*/
 	//TODO: replace .new() with .get() and remove .id assignment from fields
@@ -90,7 +92,6 @@ async function getModelRelationshipFields(db, cls, relA, idA, idB, reqFields){
 	fields[1].id = idA;
 	fields[2].id = idB;
 
-	//resA.delete(); resB.delete();
 	return fields;
 }
 
