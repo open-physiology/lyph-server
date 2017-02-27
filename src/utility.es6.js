@@ -6,7 +6,7 @@
 import _, {trim, matches} from 'lodash';
 import isUndefined from 'lodash-bound/isUndefined';
 import isNumber from 'lodash-bound/isNumber';
-import isSet from 'lodash-bound/isSet';
+import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
 import {relationships, resources } from './resources.es6.js';
 
@@ -25,21 +25,6 @@ export function toCamelCase(str) {
 			.replace(/\s/g,    ''                  )
 			.replace(/^(.)/,   l => l.toLowerCase());
 }
-
-export function def(object, field, defaultValue) {
-	if (typeof object[field] === 'undefined') {
-		object[field] = defaultValue;
-	}
-	return object[field];
-}
-
-export const or = (v, ...rest) => {
-	if (typeof v !== undefined) { return v }
-	return or(rest);
-};
-
-export const a = (object, field) => def(object, field, []);
-export const o = (object, field) => def(object, field, {});
 
 export const simpleSpaced = (str) => str.replace(/\s+/mg, ' ');
 
@@ -110,22 +95,13 @@ export const arrowEnds = (relA) =>
 	: (relA.keyInRelationship === 2) ? ['<-','- ']
 	: 								   [' -','- '];
 
-export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
-
 export const href2Id = (href) => Number.parseInt(href.substring(href.lastIndexOf("/") + 1));
 
 export const id2Href = (host, id) => (host + "://" + id);
 
-export const setsToArrayOfIds = (obj) => {
-	for (let [key, value] of Object.entries(obj)){
-		if (value::isSet()) {
-			obj[key] = [...value].map(val => extractFieldValues(val)).filter(val => val.id).map(val => val.id);
-		}
-	}
-	return obj;
-};
+export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 
-/* extracts IDs frome resource or relationship fields */
+/* extracts IDs from resource or relationship fields */
 export const extractIds = (obj) => {
 	let values = _(obj).map(val => extractFieldValues(val));
 	return values.filter(x => x::isNumber() || x.id ).map(x => x::isNumber() ? x : x.id);
@@ -156,19 +132,19 @@ export function extractRelationshipFields(A, rels, skipShortcuts){
 		let objB = neo4jToData(resources[B.class], B);
 
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
-		// let relObj = {
-		// 	...neo4jToData(relationships[rel.class], rel),
-		// 	1: (s === A.id)? objA: objB,
-		// 	2: (s === A.id)? objB: objA
-		// };
 		let props = neo4jToData(relationships[rel.class], rel);
+		// let relObj = {...props, 1: (s === A.id)? objA: objB, 2: (s === A.id)? objB: objA};
 		let relObj = { href: props.href, class: props.class };
 
 		if (relFields[fieldName]::isUndefined()){ relFields[fieldName] = []; }
-		relFields[fieldName].push(relObj);
+		if (relFields[fieldName]::isArray()){
+			relFields[fieldName].push(relObj);
+		} else {
+			relFields[fieldName] = relObj;
+		}
 
 		let relA = resources[A.class].relationships[fieldName];
-		if (relA.cardinality.max === 1) {
+		if ((relA.cardinality.max === 1) && relFields[fieldName]::isArray()) {
 			relFields[fieldName] = relFields[fieldName][0];
 		}
 		if (!skipShortcuts){
