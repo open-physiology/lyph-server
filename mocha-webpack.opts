@@ -1,5 +1,5 @@
 --colors
---timeout 30000
+--timeout 40000
 --webpack-config webpack.config-test.js
 --require source-map-support/register
 --require babel-polyfill

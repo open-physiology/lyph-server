@@ -1,6 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+'use strict';
 
 /* external libs */
 import _ from 'lodash';
@@ -17,14 +18,10 @@ const swaggerMiddleware = promisify(require('swagger-express-middleware'));
 import LyphNeo4j from './LyphNeo4j.es6.js';
 import swagger   from './swagger.es6';
 import {
-	inspect,
-	customError,
 	isCustomError,
 	cleanCustomError,
 	sw,
-    id2Href,
-	href2Id,
-	humanMsg
+    id2Href
 } from './utility.es6.js';
 import {
 	OK,
@@ -33,8 +30,7 @@ import {
 	NOT_FOUND,
 	INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
-import modelFactory from "../node_modules/open-physiology-model/src/index.js";
-
+import { createModelWithFrontend } from './commandHandlers.es6';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // request handlers                                                                                                   //
@@ -116,19 +112,22 @@ const requestHandler = {
 					}
 				}
 				response.operation = operation;
-
 				responses.push(response);
+
 				if ((method === "POST") && (response.statusCode === CREATED)) {
 					//assign permanent ID and replace temporary IDs in the subsequent operations
 					if (temporaryIDs.includes(tmpID)) {
-						for (let o of operations) {
-							for (let key of Object.keys(o.body)) {
-								if (o.body[key] === tmpID) {
-									o.body[key] = response.entity.id;
-								} else {
-									let index = [...o.body[key]].indexOf(tmpID);
-									if (index > -1) {
-										o.body[key][index] = response.entity.id;
+						for (let o of operations.filter(o => !!o.body)) {
+							let {cls} = getInfo(swagger.paths[o.path]);
+							if (cls.isResource){
+								for (let key of Object.keys(cls.relationshipShortcuts).filter(key => !!o.body[key])) {
+									if (o.body[key] === tmpID) {
+										o.body[key] = response.entity.id;
+									} else {
+										let index = [...o.body[key]].indexOf(tmpID);
+										if (index > -1) {
+											o.body[key][index] = response.entity.id;
+										}
 									}
 								}
 							}
@@ -138,6 +137,7 @@ const requestHandler = {
 			}
 			for (let response of responses){
 				if (response.entity){
+					console.log("Committing", response.toJSON());
 					await response.entity.commit();
 					if (response.statusCode === OK || response.statusCode === CREATED){
 						response.response = [response.entity.toJSON()];
@@ -150,11 +150,15 @@ const requestHandler = {
 	},
 	resources: /*get, post*/ {
 		async get({db, cls, doCommit}, req, res) {
-			let response = [...await cls.getAll()].map(resource => resource.toJSON());
-			if (doCommit) {
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
+			try {
+				let response = [...await cls.getAll()].map(resource => resource.toJSON());
+				if (doCommit) {
+					res.status(OK).jsonp(response);
+				} else {
+					return {statusCode: OK, response: response}
+				}
+			} catch (e){
+				console.log(e);
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
@@ -539,112 +543,9 @@ export default async (distDir, config) => {
 		return next();
 	}
 
-	//Implement model library methods
-	const frontend = {
-		/* Commit a newly created entity to DB */
-		async commit_new({commandType, values}) {
-			//console.log("commit_new", values);
-			let cls = model[values.class];
-			let res;
-			if (cls.isResource){
-				let id = await db.createResource(cls, values);
-				res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
-			} else {
-				if (cls.isRelationship){
-					let id = await db.createRelationship(cls,
-						model[values[1].class], model[values[2].class],
-						href2Id(values[1].href), href2Id(values[2].href),
-						values);
-					res = await db.getSpecificRelationships(cls, [id]);
-				}
-			}
-			//console.log("commit_new returns", res[0]);
-			return res[0];
-		},
+	//Assign model library methods
+	model = createModelWithFrontend(db);
 
-		/* Commit an edited entity to DB */
-		async commit_edit({entity, newValues}) {
-			//console.log("commit_edit", entity, newValues);
-			let cls = model[entity.class];
-			let id = href2Id(entity.href);
-			let res;
-			if (cls.isResource){
-                await db.updateResource(cls, id, newValues);
-				res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
-            } else {
-            	if (cls.isRelationship){
-					await db.updateRelationshipByID(cls, id, newValues);
-					res = await db.getSpecificRelationships(cls, [id]);
-				}
-			}
-			//console.log("commit_edit returns", res[0]);
-			return res[0];
-		},
-
-		/* Commit changes after deleting entity to DB */
-		async commit_delete({entity}) {
-			//console.log("commit_delete", entity);
-			let cls = model[entity.class];
-			let id = href2Id(entity.href);
-			if (cls.isResource){
-				await db.deleteResource(cls, id);
-			} else {
-				if (cls.isRelationship){
-					await db.deleteRelationshipByID(cls, id);
-				}
-			}
-		},
-
-		/* Load from DB all entities with given IDs */
-		async load(addresses, options = {}) {
-			let clsMaps = {};
-			for (let address of Object.values(addresses)){
-				let cls = model[address.class];
-				let id = href2Id(address.href);
-				if (clsMaps[cls.name]::isUndefined()){
-					clsMaps[cls.name] = {cls: cls, ids: [id]}
-				} else {
-					clsMaps[cls.name].ids.push(id);
-				}
-			}
-			let results = [];
-			for (let {cls, ids} of Object.values(clsMaps)){
-				let clsResults = (cls.isResource)?
-					await db.getSpecificResources(cls, ids, {withoutShortcuts: true}):
-					await db.getSpecificRelationships(cls, ids);
-				clsResults = clsResults.filter(x => !x::isNull() && !x::isUndefined());
-				if (clsResults.length < ids.length){
-					throw customError({
-						status:  NOT_FOUND,
-						class:   cls.name,
-						ids:     ids,
-						message: humanMsg`Not all specified ${cls.name} entities with IDs '${ids.join(',')}' exist.`
-					});
-				}
-				if (clsResults.length > 0){
-					results.push(...clsResults);
-				}
-			}
-			//console.log("load returns", JSON.stringify(results, null, 4));
-			return results;
-		},
-
-		/* Load from DB all entities of a given class */
-		async loadAll(cls, options = {}) {
-			let results = [];
-			if (cls.isResource){
-				results = await db.getAllResources(cls, {withoutShortcuts: true});
-			} else {
-				if (cls.isRelationship){
-					results = await db.getAllRelationships(cls);
-				}
-			}
-			//console.log("loadAll returns", JSON.stringify(results, null, 4));
-			return results;
-		}
-	};
-
-	model = modelFactory(frontend).classes;
 	for (let [key, value] of Object.entries(model)){
 		if (value.isResource) {resources[key] = value;}
 		if (value.isRelationship) {relationships[key] = value;}

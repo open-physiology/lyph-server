@@ -1,6 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+'use strict';
 
 /* libraries */
 import _, {difference, find, property} from 'lodash';
@@ -12,7 +13,6 @@ import isNumber from 'lodash-bound/isNumber';
 /* local stuff */
 import Neo4j from './Neo4j.es6.js';
 import {
-	or,
 	customError,
 	pluckData,
 	dataToNeo4j,

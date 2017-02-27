@@ -1,22 +1,19 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+'use strict';
 
 import _, {template} from 'lodash';
 import isString from 'lodash-bound/isString';
 import isFunction from 'lodash-bound/isFunction';
 import isArray from 'lodash-bound/isArray';
-import isNull from 'lodash-bound/isNull';
-import isUndefined from 'lodash-bound/isUndefined';
 
 import chai, {expect} from 'chai';
 
 import supertest   from './custom-supertest.es6.js';
 import getServer   from '../src/server.es6.js';
-import {resources, relationships} from '../src/resources.es6.js';
-import {OK, NOT_FOUND, CREATED} from "../src/http-status-codes.es6";
-import {href2Id} from "../src/utility.es6";
-import modelFactory from "../node_modules/open-physiology-model/src/index.js";
+import {OK, NOT_FOUND} from '../src/http-status-codes.es6.js';
+import { createModelWithFrontend } from '../src/commandHandlers.es6';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -82,20 +79,9 @@ before(() => getServer(`${__dirname}/../../dist/`, {
     api = supertest(Promise)(server);
 }));
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // utility                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/* database operations (bypassing REST server) */
-const getAllResources   = async (className)         => await db.getAllResources(resources[className]);
-const getResources      = async (className, ids)    => await db.getSpecificResources(resources[className], ids);
-const getSingleResource = async (className, id)     => (await getResources(className, [id]))[0];
-const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.class, res.id));
-const createResource    = async (className, fields) => await getSingleResource(className,
-                                                       await db.createResource(resources[className], fields));
-
-/* database operations that work with manifest resources (bypassing REST server) */
 
 /* server request api (through our REST server) */
 export const requestResources      = async (path) => (await api.get(path)).body;
@@ -264,111 +250,13 @@ export let dynamic = {};
 let model;
 
 /* initial database clearing */
-before(() => {
+before(async () => {
     db.clear('Yes! Delete all everythings!');
-    model = modelFactory({
-            /* Commit a newly created entity to DB */
-            async commit_new({commandType, values}) {
-                let cls = model[values.class];
-                let res;
-                if (cls.isResource){
-                    let id = await db.createResource(cls, values);
-                    res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
-                } else {
-                    if (cls.isRelationship){
-                        let id = await db.createRelationship(cls,
-                            model[values[1].class], model[values[2].class],
-                            href2Id(values[1].href), href2Id(values[2].href),
-                            values);
-                        res = await db.getSpecificRelationships(cls, [id]);
-                    }
-                }
-                if (!res[0]){
-                    console.log("ERROR", values);
-                }
-                return res[0];
-            },
-
-            /* Commit an edited entity to DB */
-            async commit_edit({entity, newValues}) {
-                let cls = model[entity.class];
-                let id = href2Id(entity.href);
-                let res;
-                if (cls.isResource){
-                    await db.updateResource(cls, id, newValues);
-                    res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
-                } else {
-                    if (cls.isRelationship){
-                        await db.updateRelationshipByID(cls, id, newValues);
-                        res = await db.getSpecificRelationships(cls, [id]);
-                    }
-                }
-                return res[0];
-            },
-
-            /* Commit changes after deleting entity to DB */
-            async commit_delete({entity}) {
-                let cls = model[entity.class];
-                let id = href2Id(entity.href);
-                if (cls.isResource){
-                    await db.deleteResource(cls, id);
-                } else {
-                    if (cls.isRelationship){
-                        await db.deleteRelationshipByID(cls, id);
-                    }
-                }
-            },
-
-            /* Load from DB all entities with given IDs */
-            async load(addresses, options = {}) {
-                let clsMaps = {};
-                for (let address of Object.values(addresses)){
-                    let cls = model[address.class];
-                    let id = href2Id(address.href);
-                    if (clsMaps[cls.name]::isUndefined()){
-                        clsMaps[cls.name] = {cls: cls, ids: [id]}
-                    } else {
-                        clsMaps[cls.name].ids.push(id);
-                    }
-                }
-                let results = [];
-                for (let {cls, ids} of Object.values(clsMaps)){
-                    let clsResults = (cls.isResource)?
-                        await db.getSpecificResources(cls, ids, {withoutShortcuts: true}):
-                        await db.getSpecificRelationships(cls, ids);
-                    clsResults = clsResults.filter(x => !x::isNull() && !x::isUndefined());
-                    if (clsResults.length < ids.length){
-                        throw customError({
-                            status:  NOT_FOUND,
-                            class:   cls.name,
-                            ids:     ids,
-                            message: humanMsg`Not all specified ${cls.name} entities with IDs '${ids.join(',')}' exist.`
-                        });
-                    }
-                    if (clsResults.length > 0){
-                        results.push(...clsResults);
-                    }
-                }
-                return results;
-            },
-
-            /* Load from DB all entities of a given class */
-            async loadAll(cls, options = {}) {
-                let results = [];
-                if (cls.isResource){
-                    results = await db.getAllResources(cls, {withoutShortcuts: true});
-                } else {
-                    if (cls.isRelationship){
-                        results = await db.getAllRelationships(cls);
-                    }
-                }
-                return results;
-            }
-    }).classes;
-});
-
-/* before each test, reset the database */
-beforeEach(async () => {
+    model = createModelWithFrontend(db);
+// });
+//
+// /* before each test, reset the database */
+// beforeEach(async () => {
 
     /* external resources */
     initial.externalResource1 = model.ExternalResource.new({
@@ -421,7 +309,7 @@ beforeEach(async () => {
         externals: [initial.externalResource1],
         materials: [initial.materialType1],
         longitudinalBorders: [initial.border1, initial.border2],
-        axis: initial.border1,
+        //axis: initial.border1,
         layers:    [initial.lyph1, initial.lyph2],
         measurables: [initial.measurable1]
     });
@@ -522,42 +410,27 @@ beforeEach(async () => {
         await initial[key].commit();
     }
 
-    ///////////////////////////////////////////////////
-    //Test various direct DB operations here         //
-    ///////////////////////////////////////////////////
+    //Uncommitted resources for testing
 
-    //Testing DB creation of resources
     dynamic.externalResource1 = model.ExternalResource.new({
         name: "Right fourth dorsal metatarsal vein",
         uri: "http://purl.obolibrary.org/obo/FMA_44515",
         type: "fma"
     });
 
-    dynamic.borders = [];
-    for (let i = 0; i < 6; i++){
-        dynamic.borders.push(model.Border.new({nature: "open" }));
-    }
+    for (let i = 1; i <= 6; i++){ dynamic["borders" + i] = model.Border.new({nature: "open" })}
 
-    dynamic.lyph  = model.Lyph.new({name:  "Liver", longitudinalBorders: [dynamic.borders[0], dynamic.borders[1]]});
-    dynamic.lyph1 = model.Lyph.new({name:  "Aorta", longitudinalBorders: [dynamic.borders[2], dynamic.borders[3]]});
-    dynamic.lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [dynamic.borders[4], dynamic.borders[5]]});
+    dynamic.lyph1 = model.Lyph.new({name:  "Aorta", longitudinalBorders: [dynamic.borders3, dynamic.borders4]});
+    dynamic.lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [dynamic.borders5, dynamic.borders6]});
 
-    await dynamic.externalResource1.commit();
-    for (let i = 0; i <6; i++){
-        await dynamic.borders[i].commit();
-    }
-
-    await dynamic.lyph.commit();
-    await dynamic.lyph1.commit();
-    await dynamic.lyph2.commit();
-
-    dynamic.lyph = dynamic.lyph.toJSON();
+    for (let key of Object.keys(dynamic)){ await dynamic[key].commit(); }
 
     console.log("Test utils successfully completed!");
 });
 
 
 /* clear database for every tear-down */
-afterEach(() => {db.clear('Yes! Delete all everythings!');});
+//afterEach(() => {db.clear('Yes! Delete all everythings!');});
+//after(() => {db.clear('Yes! Delete all everythings!');});
 
 

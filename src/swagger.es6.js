@@ -34,14 +34,8 @@ for (let [className, cls] of Object.entries(model)) {
 
     let xTag = (cls.isResource)? 'x-resource-type': (cls.isRelationship)? 'x-relationship-type': 'x-other-type';
 
-    let filteredRelationshipShortcuts = {};
-    if (cls.relationshipShortcuts){
-        for (let [key, value] of Object.entries(cls.relationshipShortcuts)){
-            if (!value.resourceClass.abstract) { filteredRelationshipShortcuts[key] = value }
-        }
-    }
-
-    let allExposedFields = {...cls.properties, ...filteredRelationshipShortcuts};
+    let exposedRelationshipShortcuts = cls.relationshipShortcuts? Object.values(cls.relationshipShortcuts): {};
+    let allExposedFields = {...cls.properties, ...exposedRelationshipShortcuts};
 
     function replaceProperties(properties){
         for (let prop of Object.values(properties)) {
@@ -71,7 +65,7 @@ for (let [className, cls] of Object.entries(model)) {
                 }
             }
         }
-        for (let [fieldName, fieldSpec] of Object.entries(filteredRelationshipShortcuts)) {
+        for (let [fieldName, fieldSpec] of Object.entries(exposedRelationshipShortcuts)) {
             if (properties[fieldName]::isEmpty()) {
                 if (fieldSpec.cardinality.max === 1) {
                     properties[fieldName] = {

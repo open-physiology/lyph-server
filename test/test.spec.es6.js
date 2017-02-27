@@ -29,15 +29,15 @@ import {OK} from '../src/http-status-codes.es6.js'
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// describe("docs", () => {
-//
-//     it("is an html page available through the server", () => api
-//         .get('/docs')
-//         .redirects(5)
-//         .expect(OK)
-//         .expect('Content-Type', /text\/html/));
-//
-// });
+describe("docs", () => {
+
+    it("is an html page available through the server", () => api
+        .get('/docs')
+        .redirects(5)
+        .expect(OK)
+        .expect('Content-Type', /text\/html/));
+
+});
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

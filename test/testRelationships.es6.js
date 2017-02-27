@@ -1,10 +1,7 @@
 /**
  * Created by Natallia on 12/4/2016.
  */
-/**
- * Created by Natallia on 12/1/2016.
- */
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -13,7 +10,7 @@ import {expect} from 'chai';
 import {initial, describeResourceClass, describeEndpoint,
     GET, POST, PUT, DELETE,
     withInvalidPathParams, withValidPathParams, requestResources, db} from './testUtils.es6.js';
-import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
+import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
 import {resources} from '../src/resources.es6.js';
 
 export function runSelectedRelationshipTest(){
