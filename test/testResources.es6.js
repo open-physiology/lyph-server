@@ -42,11 +42,18 @@ export function runSelectedResourceTest(){
                             "path": "/lyphs",
                             "body": {
                                 "id": -3,
-                                "name": "Heart",
+                                "name": "Ovary",
                                 "longitudinalBorders": [-1, -2]
                             }
                         }
-                    ]}).expect(OK).then(async() => {}));
+                    ]}).expect(OK).expect(isArray)
+                    .resources((response) => {
+                        let {ids, responses} = response;
+                        for (let response of responses){
+                            expect(response).has.property("statusCode");
+                            expect(response.statusCode === CREATED).to.be.equal(true);
+                        }
+                    }));
             });
         });
     });
@@ -73,21 +80,28 @@ export function runSelectedResourceTest(){
         });
     });
 
-    // describeResourceClass('CanonicalTreeBranch', () => {
-    //
-    //     describeEndpoint('/canonicalTreeBranches', ['POST'], () => {
-    //
-    //         withValidPathParams(()=> {}, () => {
-    //
-    //             POST("creates a new canonical tree branch", r=>r.send({
-    //                 name: "SLN 2st level branch",
-    //                 conveyingLyphType: initial.lyphType2.id,
-    //                 parentTree: initial.canonicalTree1_2.id,
-    //                 childTree: initial.canonicalTree1_3.id
-    //             }).expect(CREATED).then(async() => {}));
-    //         });
-    //     });
-    // });
+    describeResourceClass('CanonicalTreeBranch', () => {
+
+        describeEndpoint('/canonicalTreeBranches', ['POST'], () => {
+
+            withValidPathParams(()=> {}, () => {
+
+                POST("creates a new canonical tree branch", r=>r.send({
+                    name: "SLN 2st level branch",
+                    conveyingLyphType: initial.lyphType2.id,
+                    parentTree: initial.canonicalTree1_2.id,
+                    childTree: initial.canonicalTree1_3.id
+                }).expect(CREATED).then(async() => {
+
+                    let nodes = await requestResources(`/canonicalTrees`);
+                    expect(nodes).to.have.length.of(3);
+                    let branches = await requestResources(`/canonicalTreeBranches`);
+                    expect(branches).to.have.length.of(2);
+
+                }));
+            });
+        });
+    });
 
     describeResourceClass('Lyph', () => {
 
@@ -125,13 +139,16 @@ export function runSelectedResourceTest(){
 
             withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
 
-                GET("returns a resource with expected fields", r=>r.resource(async (res) => {
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
 
-                    expect(res).to.have.property('id');
+                    expect(res).to.have.property('id').that.equals(initial.mainLyph1.id);
                     expect(res).to.have.property('href');
                     expect(res).to.have.property('class').that.equals("Lyph");
 
-                    let lyph = await model.Lyph.get(res.href);
+                }).then(async (res) => {
+                    let lyph = await requestSingleResource(`/lyphs/${initial.mainLyph1.id}`);
+
+                    //TODO: How to retrieve lyph with all properties!
 
                     expect(lyph).to.have.property('name');
                     expect(lyph).to.have.property('species');

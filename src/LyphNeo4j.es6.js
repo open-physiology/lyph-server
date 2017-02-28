@@ -400,7 +400,6 @@ export default class LyphNeo4j extends Neo4j {
 		/* then test whether of those are still anchored, and we have to abort the delete operation */
 		let anchors = await this[anythingAnchoredFromOutside](cls, dResources.map(property('id')));
 		if (anchors.length > 0) {
-
 			throw customError({
 				status: CONFLICT,
 				anchors,
@@ -411,15 +410,17 @@ export default class LyphNeo4j extends Neo4j {
 				`
 			});
 		}
+		let ids = dResources.map(property('id')).join(',');
 
 		/* the main query for deleting the node */
 		await this.query(`
 			MATCH (n)
-			WHERE n.id IN [${dResources.map(property('id')).join(',')}]
+			WHERE n.id IN [${ids}]
 			OPTIONAL MATCH (n)-[r]-()
 			DELETE n, r
 		`);
 
+		return [ids];
 	}
 
 
