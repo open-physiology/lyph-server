@@ -133,7 +133,7 @@ export function extractRelationshipFields(A, rels, skipShortcuts){
 
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
 		let props = neo4jToData(relationships[rel.class], rel);
-		// let relObj = {...props, 1: (s === A.id)? objA: objB, 2: (s === A.id)? objB: objA};
+		//let relObj = {...props, 1: (s === A.id)? objA: objB, 2: (s === A.id)? objB: objA};
 		let relObj = { href: props.href, class: props.class };
 
 		if (relFields[fieldName]::isUndefined()){ relFields[fieldName] = []; }

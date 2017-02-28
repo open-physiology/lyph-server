@@ -263,19 +263,11 @@ before(async () => {
         name:  "Third plantar metatarsal vein",
         uri :  "http://purl.obolibrary.org/obo/FMA_44539",
         type:  "fma"});
+
     /* borders */
-    //for mainLyph1, mainLyph2
-    initial.border1 = model.Border.new({ nature: "open"});
-    initial.border2 = model.Border.new({ nature: "closed"});
-    initial.border3 = model.Border.new({ nature: "open"});
-    initial.border4 = model.Border.new({ nature: "closed"});
-    //for lyph1, lyph2, lyph3
-    initial.border5  = model.Border.new({ nature: "open"});
-    initial.border6  = model.Border.new({ nature: "closed"});
-    initial.border7  = model.Border.new({ nature: "open"});
-    initial.border8  = model.Border.new({ nature: "closed"});
-    initial.border9  = model.Border.new({ nature: "open"});
-    initial.border10 = model.Border.new({ nature: "closed"});
+    for (let i = 1; i <= 10; i++){
+        initial["border" + i] = model.Border.new({ nature: "open", name: "Initial border #" + i});
+    }
 
     /* materials */
     initial.material1 = model.Material.new({ name: "Blood"});
@@ -309,7 +301,7 @@ before(async () => {
         externals: [initial.externalResource1],
         materials: [initial.materialType1],
         longitudinalBorders: [initial.border1, initial.border2],
-        //axis: initial.border1,
+        axis: initial.border1,
         layers:    [initial.lyph1, initial.lyph2],
         measurables: [initial.measurable1]
     });
@@ -369,12 +361,12 @@ before(async () => {
         childTree: initial.canonicalTree1_2
     });
 
-    initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
-        name:  "SLN 2st level branch",
-        conveyingLyphType: initial.lyphType2,
-        parentTree: initial.canonicalTree1_2,
-        childTree: initial.canonicalTree1_3
-    });
+    // initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
+    //     name:  "SLN 2st level branch",
+    //     conveyingLyphType: initial.lyphType2,
+    //     parentTree: initial.canonicalTree1_2,
+    //     childTree: initial.canonicalTree1_3
+    // });
 
     /* publications */
     initial.publication1 = model.Publication.new({

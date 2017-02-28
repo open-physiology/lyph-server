@@ -12,10 +12,13 @@ import { customError, href2Id, humanMsg } from './utility.es6.js';
 import { NOT_FOUND } from './http-status-codes.es6.js';
 import { model } from './resources.es6.js';
 
+const printCommands = false;
+const printReturns = false;
+
 export const createModelWithFrontend = (db) => modelFactory({
         /* Commit a newly created entity to DB */
         async commit_new({commandType, values}) {
-            console.log("commit_new", values);
+            if (printCommands) { console.log("commit_new", values); }
             values = values::cloneDeep();
             let cls = model[values.class];
             let res;
@@ -31,13 +34,13 @@ export const createModelWithFrontend = (db) => modelFactory({
                     res = await db.getSpecificRelationships(cls, [id]);
                 }
             }
-            //console.log("commit_new returns", res[0]);
+            if (printReturns) {console.log("commit_new returns", res[0]); }
             return res[0];
         },
 
         /* Commit an edited entity to DB */
         async commit_edit({entity, newValues}) {
-            console.log("commit_edit", entity, newValues);
+            if (printCommands) { console.log("commit_edit", entity, newValues); }
             newValues = newValues::cloneDeep();
             let cls = model[entity.class];
             let id = href2Id(entity.href);
@@ -51,13 +54,13 @@ export const createModelWithFrontend = (db) => modelFactory({
                     res = await db.getSpecificRelationships(cls, [id]);
                 }
             }
-            //console.log("commit_edit returns", res[0]);
+            if (printReturns) { console.log("commit_edit returns", res[0]); }
             return res[0];
         },
 
         /* Commit changes after deleting entity to DB */
         async commit_delete({entity}) {
-            console.log("commit_delete", entity);
+            if (printCommands) { console.log("commit_delete", entity); }
             let cls = model[entity.class];
             let id = href2Id(entity.href);
             if (cls.isResource){
@@ -71,7 +74,7 @@ export const createModelWithFrontend = (db) => modelFactory({
 
         /* Load from DB all entities with given IDs */
         async load(addresses, options = {}) {
-            console.log("load", addresses);
+            if (printCommands) { console.log("load", addresses); }
             let clsMaps = {};
             for (let address of Object.values(addresses)){
                 let cls = model[address.class];
@@ -100,13 +103,13 @@ export const createModelWithFrontend = (db) => modelFactory({
                     results.push(...clsResults);
                 }
             }
-            //console.log("load returns", JSON.stringify(results, null, 4));
+            if (printReturns) { console.log("load returns", results); }
             return results;
         },
 
         /* Load from DB all entities of a given class */
         async loadAll(cls, options = {}) {
-            console.log("loadAll", cls.name);
+            if (printCommands) { console.log("loadAll", cls.name); }
             let results = [];
             if (cls.isResource){
                 results = await db.getAllResources(cls, {withoutShortcuts: true});
@@ -115,7 +118,7 @@ export const createModelWithFrontend = (db) => modelFactory({
                     results = await db.getAllRelationships(cls);
                 }
             }
-            //console.log("loadAll returns", JSON.stringify(results, null, 4));
+            if (printReturns) { console.log("loadAll returns", results); }
             return results;
         }
     }).classes;

@@ -98,18 +98,16 @@ const requestHandler = {
 				let response = {};
 
 				let tmpID = body.id;
-				if (temporaryIDs.includes(body.id)){
+				if (temporaryIDs.includes(body.id)) {
 					delete body.id;
 					db.assignHref(body);
 					ids.push(body.id);
 				}
-				try{
+				try {
 					response = await requestHandler[pathObj['x-path-type']][method.toLowerCase()]({...info, ...{db}}, {body: body});
-				} catch(err){
+				} catch (err) {
 					response = {statusCode: err.status, response: err};
-					if (batchStatusCode === OK) {
-						batchStatusCode = err.status;
-					}
+					if (batchStatusCode === OK) { batchStatusCode = err.status; }
 				}
 				response.operation = operation;
 				responses.push(response);
@@ -119,7 +117,7 @@ const requestHandler = {
 					if (temporaryIDs.includes(tmpID)) {
 						for (let o of operations.filter(o => !!o.body)) {
 							let {cls} = getInfo(swagger.paths[o.path]);
-							if (cls.isResource){
+							if (cls.isResource) {
 								for (let key of Object.keys(cls.relationshipShortcuts).filter(key => !!o.body[key])) {
 									if (o.body[key] === tmpID) {
 										o.body[key] = response.entity.id;
@@ -134,15 +132,15 @@ const requestHandler = {
 						}
 					}
 				}
-			}
-			for (let response of responses){
-				if (response.entity){
-					console.log("Committing", response.toJSON());
-					await response.entity.commit();
-					if (response.statusCode === OK || response.statusCode === CREATED){
-						response.response = [response.entity.toJSON()];
+
+				for (let response of responses) {
+					if (response.entity) {
+						await response.entity.commit();
+						if (response.statusCode === OK || response.statusCode === CREATED) {
+							response.response = [response.entity.toJSON()];
+						}
+						delete response.entity;
 					}
-					delete response.entity;
 				}
 			}
 			res.status(batchStatusCode).jsonp({ids: ids, responses: responses});
@@ -150,15 +148,11 @@ const requestHandler = {
 	},
 	resources: /*get, post*/ {
 		async get({db, cls, doCommit}, req, res) {
-			try {
-				let response = [...await cls.getAll()].map(resource => resource.toJSON());
-				if (doCommit) {
-					res.status(OK).jsonp(response);
-				} else {
-					return {statusCode: OK, response: response}
-				}
-			} catch (e){
-				console.log(e);
+			let response = [...await cls.getAll()].map(resource => resource.toJSON());
+			if (doCommit) {
+				res.status(OK).jsonp(response);
+			} else {
+				return {statusCode: OK, response: response}
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
