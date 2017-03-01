@@ -97,7 +97,7 @@ export const arrowEnds = (relA) =>
 
 export const href2Id = (href) => Number.parseInt(href.substring(href.lastIndexOf("/") + 1));
 
-export const id2Href = (host, id) => (host + "://" + id);
+export const id2Href = (host, clsName, id) => (host + "://" + clsName + "/" + id);
 
 export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 

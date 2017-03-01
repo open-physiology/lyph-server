@@ -41,7 +41,7 @@ export function runSelectedRelationshipTest(){
         //Specific relationships
         describeEndpoint('/HasLayer/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
-            withValidPathParams(()=>({id: 200}), () => {
+            withValidPathParams(()=>({id: [...initial.mainLyph1["-->HasLayer"]][0].id}), () => {
 
                 GET("returns a relationship with expected fields", r=>r.expect(OK)
                     .expect(isArray)
@@ -63,7 +63,7 @@ export function runSelectedRelationshipTest(){
                         }
                     }));
 
-                   PUT("replace a given relationship", r=>r.send({
+                PUT("replace a given relationship", r=>r.send({
                     relativePosition: 1
                 }).expect(OK).expect(isArray)
                     .resources((resources) => {
@@ -76,7 +76,7 @@ export function runSelectedRelationshipTest(){
                 DELETE("delete a given relationship", r=>r.expect(NO_CONTENT).then(async() => {
                     let res = await requestResources(`/HasLayer`);
                     expect(res).to.be.instanceof(Array);
-                    expect(res.map(x => x.id)).to.not.include(200);
+                    expect(res.map(x => x.id)).to.not.include(initial.mainLyph1["-->HasLayer"].id);
                 }));
             });
         });

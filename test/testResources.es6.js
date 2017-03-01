@@ -13,7 +13,7 @@ import {initial, dynamic, describeResourceClass, describeEndpoint, describeBatch
     withInvalidPathParams, withValidPathParams,
     requestSingleResource, requestResources} from './testUtils.es6.js';
 import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
-import {model, resources, relationships} from '../src/resources.es6.js';
+import {resources} from '../src/resources.es6.js';
 import {href2Id} from '../src/utility.es6';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,10 +72,9 @@ export function runSelectedResourceTest(){
                         expect(resources).to.have.length.of(1);
                         for (let res of resources) {
                             expect(res).to.have.property('name').that.equals("Urine");
-                            expect(res).to.have.property('definition');
+                            expect(res).to.have.property('href');
                         }
-                     }));
-
+                    }));
             });
         });
     });
