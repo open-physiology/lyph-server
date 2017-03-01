@@ -9,12 +9,8 @@ import cloneDeep from 'lodash/cloneDeep';
 
 /* local stuff */
 import {toCamelCase} from './utility.es6.js';
-import {model, resources, relationships} from './resources.es6.js';
-import {
-	OK,
-	CREATED,
-	NO_CONTENT
-} from './http-status-codes.es6.js';
+import {modelClasses, resources, relationships} from './resources.es6.js';
+import {OK, CREATED, NO_CONTENT} from './http-status-codes.es6.js';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +26,7 @@ const $ref = (className) => ({ $ref: `#/definitions/${className}` });
 let swaggerDataTypes = {};
 
 //Creates definitions for resources and relationships (assuming that any entry in manifest is one of those)
-for (let [className, cls] of Object.entries(model)) {
+for (let [className, cls] of Object.entries(modelClasses)) {
 
     let xTag = (cls.isResource)? 'x-resource-type': (cls.isRelationship)? 'x-relationship-type': 'x-other-type';
 

@@ -39,7 +39,7 @@ let model;
 const resources = {};
 const relationships = {};
 
-// TODO: to avoid race conditions, use a Neo4j REST transactions to get some ACID around these multiple queries
+// TODO: direct calls to DB are needed to establish correct class of the entity by its id
 
 async function createModelResource(db, cls, fields, options = {}){
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
@@ -48,23 +48,13 @@ async function createModelResource(db, cls, fields, options = {}){
 		if (fieldSpec.cardinality.max === 1){ val = [val] }
 		if (val.length > 0){
 			let fieldCls = fieldSpec.codomain.resourceClass;
-			let hrefs = val.map(v => id2Href(db.config.host, v));
+			await db.assertResourcesExist(fieldCls, val);
+			let hrefs = [...await db.getSpecificResources(fieldCls, val)].map(r => r.href);
 			fields[fieldName] = [...await fieldCls.get(hrefs)];
 			if (fieldSpec.cardinality.max === 1){ fields[fieldName] = fields[fieldName][0] }
 		}
 	}
 	return cls.new(fields, options);
-}
-
-async function createModelRelationship(db, cls, relA, idA, idB, requestedFields){
-	/*Extract relationship ends*/
-	let hrefA = id2Href(db.config.host, idA);
-	let resA = await relA.resourceClass.get(hrefA);
-	let hrefB = id2Href(db.config.host, idB);
-	let resB = await relA.codomain.resourceClass.get(hrefB);
-    /*Create new relationship*/
-    //if (relA.keyInRelationship === 2){ return cls.new({...requestedFields, 1: resB, 2: resA}); }
-	return cls.new({...requestedFields, 1: resA, 2: resB});
 }
 
 const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
@@ -148,7 +138,7 @@ const requestHandler = {
 	},
 	resources: /*get, post*/ {
 		async get({db, cls, doCommit}, req, res) {
-			let response = [...await cls.getAll()].map(resource => resource.toJSON());
+			let response = [...await cls.getAll()].map(r => r.toJSON());
 			if (doCommit) {
 				res.status(OK).jsonp(response);
 			} else {
@@ -167,8 +157,10 @@ const requestHandler = {
 	},
 	specificResources: /*get, post, put, delete*/ {
 		async get({db, cls, doCommit}, req, res) {
-			let hrefs = req.pathParams.ids.map(id => id2Href(db.config.host, id));
-			let response = [...await cls.get(hrefs)].map(resource => resource.toJSON());
+			//TODO req.pathParams.ids => req.pathParams.hrefs
+			await db.assertResourcesExist(cls, [req.pathParams.ids]);
+			let hrefs = [...await db.getSpecificResources(cls, req.pathParams.ids)].map(r => r.href);
+			let response = [...await cls.get(hrefs)].map(r => r.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
 			} else {
@@ -176,9 +168,14 @@ const requestHandler = {
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, req.pathParams.id);
+			//TODO req.pathParams.id => req.pathParams.href
+			await db.assertResourcesExist(cls, [req.pathParams.id]);
+			let [{href}] = await db.getSpecificResources(cls, [req.pathParams.id]);
+
 			let entity = await cls.get(href);
-			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
+			for (let fieldName of Object.keys(req.body)) {
+				entity[fieldName] = req.body[fieldName];
+			}
 			if (doCommit) {
 				await entity.commit();
 				res.status(OK).jsonp([entity.toJSON()]);
@@ -187,7 +184,10 @@ const requestHandler = {
 			}
 		},
 		async put({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, req.pathParams.id);
+			//TODO req.pathParams.id => req.pathParams.href
+			await db.assertResourcesExist(cls, [req.pathParams.id]);
+			let [{href}] = await db.getSpecificResources(cls, [req.pathParams.id]);
+
 			let entity = await cls.get(href);
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
@@ -205,7 +205,9 @@ const requestHandler = {
 			}
 		},
 		async delete({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, req.pathParams.id);
+			//TODO req.pathParams.id => req.pathParams.href
+			await db.assertResourcesExist(cls, [req.pathParams.id]);
+			let [{href}] = await db.getSpecificResources(cls, [req.pathParams.id], {withoutRelationships: true});
 			let entity = await cls.get(href);
 			entity.delete();
 			if (doCommit){
@@ -218,10 +220,12 @@ const requestHandler = {
 	},
 	relatedResources: /*get*/ {
 		async get({db, cls, relA, doCommit}, req, res) {
-			let href = id2Href(db.config.host, req.pathParams.idA);
+			//TODO req.pathParams.idA => req.pathParams.hrefA
+			await db.assertResourcesExist(relA.resourceClass, [req.pathParams.idA]);
+			let [{href}] = await db.getSpecificResources(relA.resourceClass, [req.pathParams.idA], {withoutRelationships: true});
 			let resource = await relA.resourceClass.get(href);
 			let related = [...resource[relA.keyInResource]].map(rel => rel[2]);
-			let response = related.map(resource => resource.toJSON());
+			let response = related.map(r => r.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
 			} else {
@@ -232,7 +236,12 @@ const requestHandler = {
 	specificRelatedResource: /*put, delete*/ {
 		async put({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let entity = await createModelRelationship(db, cls, relA, idA, idB, req.body);
+			//TODO idA => hrefA, idB => hrefB
+			await db.assertResourcesExist(relA.resourceClass, [idA]);
+			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
+			let [resA] = await db.getSpecificResources(relA.resourceClass, [idA], {withoutRelationships: true});
+			let [resB] = await db.getSpecificResources(relA.codomain.resourceClass, [idB], {withoutRelationships: true});
+			let entity = cls.new({...req.body, 1: resA.href, 2: resB.href});
 			if (doCommit) {
 				await entity.commit();
 				res.status(OK).jsonp([entity.toJSON()]);
@@ -242,11 +251,12 @@ const requestHandler = {
 		},
 		async delete({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, idA);
-			let hrefB = id2Href(db.config.host, idB);
-			let resA = await relA.resourceClass.get(hrefA);
-			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
-			if (!entity){ res.status(NOT_FOUND).jsonp(); }
+			//TODO idA => hrefA, idB => hrefB
+			await db.assertResourcesExist(relA.resourceClass, [idA]);
+			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
+			let [{href}]  = await db.getRelationships(cls, relA.resourceClass, relA.codomain.resourceClass, idA, idB);
+			if (!href){ res.status(NOT_FOUND).jsonp(); }
+			let entity = await cls.get(href);
 			entity.delete();
 			if (doCommit){
 				await entity.commit();
@@ -258,7 +268,7 @@ const requestHandler = {
 	},
 	relationships: /*get */  {
         async get({db, cls, doCommit}, req, res) {
-			let response = [...await cls.getAll()].map(rel => rel.toJSON());
+			let response = [...await cls.getAll()].map(r => r.toJSON());
 			if (doCommit) {
 				res.status(OK).jsonp(response);
 			} else {
@@ -268,9 +278,10 @@ const requestHandler = {
     },
     specificRelationships: /*get, post, put, delete*/ {
 		async get({db, cls, doCommit}, req, res) {
-			let ids = req.pathParams.ids;
-			let hrefs = ids.map(id => id2Href(db.config.host, id));
-			let response = [...await cls.get(hrefs)].map(resource => resource.toJSON());
+			//TODO req.pathParams.ids => req.pathParams.hrefs
+			await db.assertRelationshipsExist(cls, req.pathParams.ids);
+			let hrefs = [...await db.getSpecificRelationships(cls, req.pathParams.ids)].map(r => r.href);
+			let response = [...await cls.get(hrefs)].map(r => r.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
 			} else {
@@ -278,7 +289,9 @@ const requestHandler = {
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, req.pathParams.id);
+			//TODO req.pathParams.id => req.pathParams.href
+			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
+			let [{href}] = await db.getSpecificRelationships(cls, [req.pathParams.id]);
 			let entity = await cls.get(href);
 			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
 			if (doCommit) {
@@ -289,7 +302,9 @@ const requestHandler = {
 			}
 		},
 		async put({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, req.pathParams.id);
+			//TODO req.pathParams.id => req.pathParams.href
+			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
+			let [{href}] = await db.getSpecificRelationships(cls, [req.pathParams.id]);
 			let entity = await cls.get(href);
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
@@ -307,7 +322,8 @@ const requestHandler = {
 			}
 		},
 		async delete({db, cls, doCommit}, req, res) {
-			let href = id2Href(db.config.host, req.pathParams.id);
+			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
+			let [{href}] = await db.getSpecificRelationships(cls, [req.pathParams.id]);
 			let entity = await cls.get(href);
 			entity.delete();
 			if (doCommit){
@@ -320,38 +336,50 @@ const requestHandler = {
 	},
     relatedRelationships: /* get */{
 		async get({db, cls, relA, doCommit}, req, res) {
-			let href = id2Href(db.config.host, req.pathParams.idA);
+			//TODO idA => hrefA
+			let {idA} = req.pathParams;
+			try{
+			await db.assertResourcesExist(relA.resourceClass, [idA]);
+			let [{href}] = await db.getSpecificResources(relA.resourceClass, [idA], {withoutRelationships: true});
 			let resource = await relA.resourceClass.get(href);
-			let related = [...resource[relA.keyInResource]];
-			let response = related.map(rel => rel.toJSON());
+			let response = [...resource[relA.keyInResource]].map(r => r.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
 			} else {
 				return {statusCode: OK, response: response}
-			}
+			}} catch(e){console.log("ERR", e);}
 		}
 	},
 	specificRelationshipByResources: /*get, post, put, delete*/ {
 		async get({db, cls, relA, doCommit}, req, res) {
+			//TODO idA, idB => hrefA, hrefB
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, idA);
-			let hrefB = id2Href(db.config.host, idB);
-			let resA = await relA.resourceClass.get(hrefA);
-			let related = [...resA[relA.keyInResource]].filter(rel => (rel[2].href === hrefB));
-			let response = related.map(rel => rel.toJSON());
-			if (doCommit){
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
-			}
+			try {
+				await db.assertResourcesExist(relA.resourceClass, [idA]);
+				await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
+				let [resA] = await db.getSpecificResources(relA.resourceClass, [idA], {withoutRelationships: true});
+				let [resB] = await db.getSpecificResources(relA.codomain.resourceClass, [idB], {withoutRelationships: true});
+				let resource = await relA.resourceClass.get(resA.href);
+				let related = [...resource[relA.keyInResource]].find(rel => (rel[2].href === resB.href));
+				if (!related) { res.status(NOT_FOUND).jsonp(); }
+				let response = [...related].map(r => r.toJSON());
+				if (doCommit) {
+					res.status(OK).jsonp(response);
+				} else {
+					return {statusCode: OK, response: response}
+				}
+			} catch(e){console.log("ERR",e);}
 		},
+
 		async post({db, cls, relA, doCommit}, req, res) {
+			//TODO idA, idB => hrefA, hrefB
 			let {idA, idB} = req.pathParams;
-            //TODO: fix, this will cause an error for relationships with abstract ends
-			let hrefA = id2Href(db.config.host, idA);
-			let hrefB = id2Href(db.config.host, idB);
-			let resA = await relA.resourceClass.get(hrefA);
-			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
+			await db.assertResourcesExist(relA.resourceClass, [idA]);
+			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
+			let [resA] = await db.getSpecificResources(relA.resourceClass, [idA], {withoutRelationships: true});
+			let [resB] = await db.getSpecificResources(relA.codomain.resourceClass, [idB], {withoutRelationships: true});
+			let resource = await relA.resourceClass.get(resA.href);
+			let entity = [...resource[relA.keyInResource]].find(rel => (rel[2].href === resB.href));
 			if (!entity){ res.status(NOT_FOUND).jsonp(); }
 			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
 			if (doCommit) {
@@ -362,11 +390,14 @@ const requestHandler = {
 			}
 		},
 		async put({db, cls, relA, doCommit}, req, res) {
+			//TODO idA, idB => hrefA, hrefB
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, idA);
-			let hrefB = id2Href(db.config.host, idB);
-			let resA = await relA.resourceClass.get(hrefA);
-			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
+			await db.assertResourcesExist(relA.resourceClass, [idA]);
+			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
+			let [resA] = await db.getSpecificResources(relA.resourceClass, [idA], {withoutRelationships: true});
+			let [resB] = await db.getSpecificResources(relA.codomain.resourceClass, [idB], {withoutRelationships: true});
+			let resource = await relA.resourceClass.get(resA.href);
+			let entity = [...resource[relA.keyInResource]].find(rel => (rel[2].href === resB.href));
 			if (!entity) { res.status(NOT_FOUND).jsonp(); }
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
@@ -385,10 +416,12 @@ const requestHandler = {
 		},
 		async delete({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let hrefA = id2Href(db.config.host, idA);
-			let hrefB = id2Href(db.config.host, idB);
-			let resA = await relA.resourceClass.get(hrefA);
-			let entity = [...resA[relA.keyInResource]].find(rel => (rel[2].href === hrefB));
+			await db.assertResourcesExist(relA.resourceClass, [idA]);
+			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
+			let [resA] = await db.getSpecificResources(relA.resourceClass, [idA], {withoutRelationships: true});
+			let [resB] = await db.getSpecificResources(relA.codomain.resourceClass, [idB], {withoutRelationships: true});
+			let resource = await relA.resourceClass.get(resA.href);
+			let entity = [...resource[relA.keyInResource]].find(rel => (rel[2].href === resB.href));
 			if (!entity){ res.status(NOT_FOUND).jsonp(); }
 			entity.delete();
 			if (doCommit){

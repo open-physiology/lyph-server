@@ -59,10 +59,10 @@ export default class LyphNeo4j extends Neo4j {
     assignHref(fields = {}) {
 		if (!fields.id::isNumber()) {
 			fields.id = ++this.newUID;
-			fields.href = id2Href(this.config.host, fields.id);
+			fields.href = id2Href(this.config.host, fields.class, fields.id);
 		} else {
 			if (!fields.href){
-				fields.href = id2Href(this.config.host, fields.id);
+				fields.href = id2Href(this.config.host, fields.class, fields.id);
 			}
 		}
     }
@@ -105,7 +105,7 @@ export default class LyphNeo4j extends Neo4j {
                 let fields = rel.toJSON();
 	            let relCls = relationships[rel.class];
 
-                await this.createRelationship(relCls, model[resA.class], model[resB.class], resA.id, resB.id, fields);
+                await this.createRelationship(relCls, modelClasses[resA.class], modelClasses[resB.class], resA.id, resB.id, fields);
 			}
 		}
 	}
@@ -470,7 +470,6 @@ export default class LyphNeo4j extends Neo4j {
 
 
 	async getRelatedRelationships(cls, clsA, clsB, idA){
-		await this.assertResourcesExist(clsA, [idA]);
 
 		/* formulating and sending the query */
 		let result = await this.query(`
@@ -568,8 +567,6 @@ export default class LyphNeo4j extends Neo4j {
 
 
     async deleteRelationshipByID(cls, id){
-		await this.assertRelationshipsExist(cls, [id]);
-
 		await this.query(`
 			MATCH () -[rel:${matchLabelsQueryFragment(cls).join('|')} {id: ${id}}]- () 
 			DELETE rel
