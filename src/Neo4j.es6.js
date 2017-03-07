@@ -25,7 +25,7 @@ const _restClient = Symbol('_restClient');
 const _waitingFor = Symbol('_waitingFor');
 export default class Neo4j {
 
-	newUID = -1;
+	newUID = 0;
 
 	constructor(config) {
 		/* set up */
@@ -33,13 +33,7 @@ export default class Neo4j {
 		this[_restClient] = new RestClient({ user: this.config.user, password: this.config.pass });
 		this[_waitingFor] = Promise.resolve();
 
-		/* initialize database if not yet done */
-		// this.waitFor(this.query(`
-		// 	MERGE (UID:UID)
-		// 	SET UID.counter = coalesce(UID.counter, 0)
-		// `));
-
-		this.waitFor(this.init());
+  	    this.waitFor(this.init());
 		console.log("Start with counter", this.newUID);
 
 	}

@@ -72,6 +72,8 @@ before(() => getServer(`${__dirname}/../../dist/`, {
     dbPass: 'nknk14',
     dbHost: '192.168.99.100',//localhost
     dbPort: 32769, //7474
+    host: 'localhost',
+    port: '8888',
     dbConsoleLogging: false,
     consoleLogging: false
 }).then(({database, server}) => {
@@ -253,10 +255,6 @@ let model;
 before(async () => {
     db.clear('Yes! Delete all everythings!');
     model = createModelWithFrontend(db);
-// });
-//
-// /* before each test, reset the database */
-// beforeEach(async () => {
 
     /* external resources */
     initial.externalResource1 = model.ExternalResource.new({
@@ -422,7 +420,6 @@ before(async () => {
 
 
 /* clear database for every tear-down */
-//afterEach(() => {db.clear('Yes! Delete all everythings!');});
 //after(() => {db.clear('Yes! Delete all everythings!');});
 
 
