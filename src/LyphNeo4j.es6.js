@@ -23,9 +23,8 @@ import {
 	humanMsg,
 	arrowMatch,
 	extractIds,
-	id2Href
+	relationships, resources
 } from './utility.es6.js';
-import {relationships, resources} from './resources.es6.js';
 import {
 	OK,
 	CREATED,
@@ -57,12 +56,14 @@ export default class LyphNeo4j extends Neo4j {
 	// Common funcarctionality for other methods //
 	////////////////////////////////////////////
     assignHref(fields = {}) {
+		const id2Href = (baseURL, clsName, id) => (baseURL + "/" + clsName + "/" + id);
+
 		if (!fields.id::isNumber()) {
 			fields.id = ++this.newUID;
-			fields.href = id2Href(this.config.host, fields.class, fields.id);
+			fields.href = id2Href(this.config.baseURL, fields.class, fields.id);
 		} else {
 			if (!fields.href){
-				fields.href = id2Href(this.config.host, fields.class, fields.id);
+				fields.href = id2Href(this.config.baseURL, fields.class, fields.id);
 			}
 		}
     }
@@ -322,6 +323,7 @@ export default class LyphNeo4j extends Neo4j {
 
 	async createResource(cls, fields = {}) {
 
+		if (!fields.class){ fields.class = cls.name; }
 		this.assignHref(fields);
 
         //Create resources with given ids
@@ -599,6 +601,7 @@ export default class LyphNeo4j extends Neo4j {
 
 
 	async createRelationship(cls, clsA, clsB, idA, idB, fields = {}) {
+		if (!fields.class){ fields.class = cls.name; }
 		this.assignHref(fields);
 
 		await this.query({

@@ -8,19 +8,21 @@ import isUndefined from 'lodash-bound/isUndefined';
 import cloneDeep from 'lodash-bound/cloneDeep';
 
 import modelFactory from "../node_modules/open-physiology-model/src/index.js";
-import { customError, href2Id, humanMsg } from './utility.es6.js';
+import { customError, humanMsg } from './utility.es6.js';
 import { NOT_FOUND } from './http-status-codes.es6.js';
-import { modelClasses } from './resources.es6.js';
 
 const printCommands = false;
 const printReturns = false;
 
-export const createModelWithFrontend = (db) => modelFactory({
+const href2Id = (href) => Number.parseInt(href.substring(href.lastIndexOf("/") + 1));
+
+export const createModelWithFrontend = (db) => {
+    let frontend = {
         /* Commit a newly created entity to DB */
         async commit_new({commandType, values}) {
             if (printCommands) { console.log("commit_new", values); }
             values = values::cloneDeep();
-            let cls = modelClasses[values.class];
+            let cls = model[values.class];
             let res;
             if (cls.isResource){
                 let id = await db.createResource(cls, values);
@@ -28,7 +30,7 @@ export const createModelWithFrontend = (db) => modelFactory({
             } else {
                 if (cls.isRelationship){
                     let id = await db.createRelationship(cls,
-                        modelClasses[values[1].class], modelClasses[values[2].class],
+                        model[values[1].class], model[values[2].class],
                         href2Id(values[1].href), href2Id(values[2].href),
                         values);
                     res = await db.getSpecificRelationships(cls, [id]);
@@ -42,7 +44,7 @@ export const createModelWithFrontend = (db) => modelFactory({
         async commit_edit({entity, newValues}) {
             if (printCommands) { console.log("commit_edit", entity, newValues); }
             newValues = newValues::cloneDeep();
-            let cls = modelClasses[entity.class];
+            let cls = model[entity.class];
             let id = href2Id(entity.href);
             let res;
             if (cls.isResource){
@@ -61,7 +63,7 @@ export const createModelWithFrontend = (db) => modelFactory({
         /* Commit changes after deleting entity to DB */
         async commit_delete({entity}) {
             if (printCommands) { console.log("commit_delete", entity); }
-            let cls = modelClasses[entity.class];
+            let cls = model[entity.class];
             let id = href2Id(entity.href);
             if (cls.isResource){
                 await db.deleteResource(cls, id);
@@ -74,10 +76,10 @@ export const createModelWithFrontend = (db) => modelFactory({
 
         /* Load from DB all entities with given IDs */
         async load(addresses, options = {}) {
-            if (printCommands) { console.log("load", addresses); }
+            if (printCommands) { console.log("load", addresses, options); }
             let clsMaps = {};
             for (let address of Object.values(addresses)){
-                let cls = modelClasses[address.class];
+                let cls = model[address.class];
                 let id = href2Id(address.href);
                 if (clsMaps[cls.name]::isUndefined()){
                     clsMaps[cls.name] = {cls: cls, ids: [id]}
@@ -89,7 +91,7 @@ export const createModelWithFrontend = (db) => modelFactory({
             for (let {cls, ids} of Object.values(clsMaps)){
                 let clsResults = (cls.isResource)?
                     await db.getSpecificResources(cls, ids, {withoutShortcuts: true}):
-                    await db.getSpecificRelationships(cls, ids);
+                await db.getSpecificRelationships(cls, ids);
                 clsResults = clsResults.filter(x => !x::isNull() && !x::isUndefined());
                 if (clsResults.length < ids.length){
                     throw customError({
@@ -109,7 +111,7 @@ export const createModelWithFrontend = (db) => modelFactory({
 
         /* Load from DB all entities of a given class */
         async loadAll(cls, options = {}) {
-            if (printCommands) { console.log("loadAll", cls.name); }
+            if (printCommands) { console.log("loadAll", cls.name, options); }
             let results = [];
             if (cls.isResource){
                 results = await db.getAllResources(cls, {withoutShortcuts: true});
@@ -119,7 +121,12 @@ export const createModelWithFrontend = (db) => modelFactory({
                 }
             }
             if (printReturns) { console.log("loadAll returns", results); }
+            //console.log("loadAll returns", results);
             return results;
         }
-    }).classes;
+    };
+
+    let model = modelFactory(frontend).classes;
+    return model;
+};
 

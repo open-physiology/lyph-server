@@ -9,7 +9,7 @@ import cloneDeep from 'lodash/cloneDeep';
 
 /* local stuff */
 import {toCamelCase} from './utility.es6.js';
-import {modelClasses, resources, relationships} from './resources.es6.js';
+import {modelClasses, resources, relationships} from './utility.es6.js';
 import {OK, CREATED, NO_CONTENT} from './http-status-codes.es6.js';
 
 
@@ -30,7 +30,7 @@ for (let [className, cls] of Object.entries(modelClasses)) {
 
     let xTag = (cls.isResource)? 'x-resource-type': (cls.isRelationship)? 'x-relationship-type': 'x-other-type';
 
-    let exposedRelationshipShortcuts = cls.relationshipShortcuts? Object.values(cls.relationshipShortcuts): {};
+    let exposedRelationshipShortcuts = cls.relationshipShortcuts? cls.relationshipShortcuts: {};
     let allExposedFields = {...cls.properties, ...exposedRelationshipShortcuts};
 
     function replaceProperties(properties){

@@ -8,7 +8,19 @@ import isUndefined from 'lodash-bound/isUndefined';
 import isNumber from 'lodash-bound/isNumber';
 import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
-import {relationships, resources } from './resources.es6.js';
+
+import modelFactory from "../node_modules/open-physiology-model/src/index.js"
+
+export const modelRef = modelFactory();
+export const modelClasses = modelRef.classes;
+
+export const resources = {};
+export const relationships = {};
+
+for (let [key, value] of Object.entries(modelRef.classes)){
+	if (value.isResource) {resources[key] = value;}
+	if (value.isRelationship) {relationships[key] = value;}
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // very general stuff                                                                                                 //
@@ -94,10 +106,6 @@ export const arrowEnds = (relA) =>
 	  (relA.keyInRelationship === 1) ? [' -','->']
 	: (relA.keyInRelationship === 2) ? ['<-','- ']
 	: 								   [' -','- '];
-
-export const href2Id = (href) => Number.parseInt(href.substring(href.lastIndexOf("/") + 1));
-
-export const id2Href = (host, clsName, id) => (host + "://" + clsName + "/" + id);
 
 export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 
