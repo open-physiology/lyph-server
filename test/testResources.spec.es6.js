@@ -8,7 +8,7 @@
 
 import _, {template, isString, isFunction, isArray, isUndefined} from 'lodash';
 import {expect} from 'chai';
-import {initial, dynamic, describeResourceClass, describeEndpoint, describeBatch,
+import {initial, dynamic, describeResourceClass, describeEndpoint,
     GET, POST, PUT, DELETE,
     withInvalidPathParams, withValidPathParams,
     requestSingleResource} from './testUtils.es6.js';

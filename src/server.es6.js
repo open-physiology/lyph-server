@@ -55,6 +55,7 @@ async function createModelResource(db, cls, fields, options = {}){
 }
 
 const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
+		[['clear'], ()=>({})],
 		[['batch'], ()=>({})],
 		[['resources', 'specificResources'], ()=>({
 			cls: model[pathObj['x-resource-type']]
@@ -73,6 +74,12 @@ const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
 );
 
 const requestHandler = {
+	clear: {
+		async post({db}, req, res){
+			db.clear('Yes! Delete all everythings!');
+			res.status(NO_CONTENT).jsonp();
+		}
+	},
 	batch: {
 		async post({db}, req, res){
 			let batchStatusCode = OK;

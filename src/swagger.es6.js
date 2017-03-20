@@ -753,6 +753,19 @@ function addOperationEndpoints() {
             }
         }
     };
+
+    operationEndpoints['/clear'] = {
+        'x-path-type': 'clear',
+        post: {
+            summary: "Clears the database.",
+            responses: {
+                [NO_CONTENT]: {
+                    description: `successfully deleted all entities`
+                }
+            }
+        }
+    };
+
 }
 
 ////////////////////////////////////////////////////////////////
