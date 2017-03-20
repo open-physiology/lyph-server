@@ -4,7 +4,7 @@
 
 import {expect} from 'chai';
 import swaggerSpec from '../src/swagger.es6.js';
-import {api} from './testUtils.es6.js';
+import {api, db} from './testUtils.es6.js';
 import {OK, NO_CONTENT} from '../src/http-status-codes.es6.js'
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,6 +39,11 @@ describe("docs", () => {
 describe("/clear", () => {
     it("DB is cleared", () => api.post('/clear')
         .expect(NO_CONTENT)
+        .then(async () => {
+                let [{count}] = await db.query(`MATCH (n) RETURN count(*) as count`);
+                expect(count).to.be.equal(0);
+            }
+        )
     )
 });
 
