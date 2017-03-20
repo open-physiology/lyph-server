@@ -5,7 +5,7 @@
 import {expect} from 'chai';
 import swaggerSpec from '../src/swagger.es6.js';
 import {api} from './testUtils.es6.js';
-import {OK} from '../src/http-status-codes.es6.js'
+import {OK, NO_CONTENT} from '../src/http-status-codes.es6.js'
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // test                                                                                                              //
@@ -35,4 +35,11 @@ describe("docs", () => {
         .expect(OK)
         .expect('Content-Type', /text\/html/));
 });
+
+describe("/clear", () => {
+    it("DB is cleared", () => api.post('/clear')
+        .expect(NO_CONTENT)
+    )
+});
+
 
