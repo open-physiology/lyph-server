@@ -106,7 +106,6 @@ export const createModelWithFrontend = (db) => {
                 }
             }
             if (printReturns) { console.log("load returns", results); }
-            console.log("load returns", JSON.stringify(results, null, 4));
             return results;
         },
 
@@ -122,7 +121,6 @@ export const createModelWithFrontend = (db) => {
                 }
             }
             if (printReturns) { console.log("loadAll returns", results); }
-            console.log("loadAll returns", results);
             return results;
         }
     };
