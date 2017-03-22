@@ -177,10 +177,7 @@ const requestHandler = {
 			//TODO req.pathParams.ids => req.pathParams.hrefs
 			await db.assertResourcesExist(cls, [req.pathParams.ids]);
 			let hrefs = [...await db.getSpecificResources(cls, req.pathParams.ids)].map(r => r.href);
-
-			let tmp = [...await cls.get(hrefs)];
-			console.log("Response raw", [...tmp[0].layers]);
-			let response = tmp.map(r => r.toJSON());
+			let response = [...await cls.get(hrefs)].map(r => r.toJSON());
 			console.log("Response", JSON.stringify(response, null, 4));
 			if (doCommit){
 				res.status(OK).jsonp(response);
