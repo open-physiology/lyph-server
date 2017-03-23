@@ -105,7 +105,7 @@ export const createModelWithFrontend = (db) => {
                     results.push(...clsResults);
                 }
             }
-            if (printReturns) { console.log("load returns", results); }
+            if (printReturns) { console.log("load returns", results.map(r => JSON.stringify(r))); }
             return results;
         },
 
@@ -120,7 +120,7 @@ export const createModelWithFrontend = (db) => {
                     results = await db.getAllRelationships(cls);
                 }
             }
-            if (printReturns) { console.log("loadAll returns", results); }
+            if (printReturns) { console.log("loadAll returns", results.map(r => JSON.stringify(r))); }
             return results;
         }
     };
