@@ -15,7 +15,8 @@ import { NOT_FOUND } from './http-status-codes.es6.js';
 //TODO import Rx from 'utility.es6.js'
 
 const printCommands = false;
-const printReturns = false;
+const printCommits = false;
+const printReturns = true;
 
 const href2Id = (href) => Number.parseInt(href.substring(href.lastIndexOf("/") + 1));
 
@@ -39,7 +40,7 @@ export const createModelWithFrontend = (db) => {
                     res = await db.getSpecificRelationships(cls, [id]);
                 }
             }
-            if (printReturns) {console.log("commit_new returns", res[0]); }
+            if (printCommits) {console.log("commit_new returns", res[0]); }
             return res[0];
         },
 
@@ -59,7 +60,7 @@ export const createModelWithFrontend = (db) => {
                     res = await db.getSpecificRelationships(cls, [id]);
                 }
             }
-            if (printReturns) { console.log("commit_edit returns", res[0]); }
+            if (printCommits) { console.log("commit_edit returns", res[0]); }
             return res[0];
         },
 

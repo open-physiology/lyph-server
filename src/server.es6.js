@@ -120,7 +120,7 @@ const requestHandler = {
 					response = {statusCode: err.status, response: err};
 					if (batchStatusCode === OK) { batchStatusCode = err.status; }
 				}
-				response.operation = operation;
+				//response.operation = operation;
 				responses.push(response);
 
 				if ((method === "POST") && (response.statusCode === CREATED)) {

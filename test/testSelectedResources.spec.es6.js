@@ -45,9 +45,12 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                     ]}).expect(OK).expect(isArray)
                     .resources((response) => {
                         let {ids, responses} = response;
+                        expect(responses).to.have.property('length').that.equals(3);
                         for (let response of responses){
                             expect(response).has.property("statusCode");
                             expect(response.statusCode === CREATED).to.be.equal(true);
+                            //NK: this is to make sure working structure retaining initial method call is not returned beack in response
+                            expect(response).not.to.have.property("operation");
                         }
                     }));
             });
