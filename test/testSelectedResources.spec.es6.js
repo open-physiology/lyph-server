@@ -56,9 +56,16 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
 
     describeResourceClass('Type', () => {
 
-        describeEndpoint('/types', ['POST'], () => {
+        describeEndpoint('/types', ['GET', 'POST'], () => {
 
             withValidPathParams(()=> {}, () => {
+                GET("returns types", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
+                    for (let res of resources) {
+                        expect(res).to.have.property('href');
+                        expect(res).to.have.property('class').that.equals("Type");
+                        expect(res).to.have.property('<--DefinesType');
+                    }
+                }));
 
                 POST("creates a new type", r=>r.send({
                     name: "Urine",
@@ -69,6 +76,7 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                         for (let res of resources) {
                             expect(res).to.have.property('name').that.equals("Urine");
                             expect(res).to.have.property('href');
+                            expect(res).to.have.property('<--DefinesType');
                         }
                     }));
             });
@@ -128,14 +136,13 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
         //Specific resource
         describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
-            // withInvalidPathParams("non-existing", {id: 999999});
-            //
-            // withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
+            withInvalidPathParams("non-existing", {id: 999999});
+
+            withInvalidPathParams("wrong-class", ()=>({id: initial.externalResource1.id}));
 
             withValidPathParams(()=>({id: initial.mainLyph1.id}), () => {
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
-                    console.log("Response", res);
                     expect(res).to.have.property('id').that.equals(initial.mainLyph1.id);
                     expect(res).to.have.property('href');
                     expect(res).to.have.property('class').that.equals("Lyph");
@@ -144,8 +151,8 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                     expect(res).to.have.property('thickness').that.deep.equals({value: 1});
                     expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
                     //TODO: HasAxis relationship does not turn into HasLongitudinalBorder
-                    //expect([...res['-->HasLongitudinalBorder']].map(x => x.href)).to.include(
-                    //    [...initial.mainLyph1['-->HasLongitudinalBorder']].map(x => x.href));
+                    expect([...res['-->HasLongitudinalBorder']].map(x => x.href)).to.include.members(
+                       [...initial.mainLyph1['-->HasLongitudinalBorder']].map(x => x.href));
                     expect([...res['-->HasLayer']].map(x => x.href)).to.include.members(
                         [...initial.mainLyph1['-->HasLayer']].map(x => x.href));
                     expect([...res['-->CorrespondsTo']].map(x => x.href)).to.include.members(
