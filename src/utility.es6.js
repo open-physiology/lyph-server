@@ -9,6 +9,7 @@ import isNumber from 'lodash-bound/isNumber';
 import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
 
+import './loadRxjs.es6.js';
 import modelFactory from "../node_modules/open-physiology-model/src/index.js"
 
 export const modelRef = modelFactory();

@@ -7,9 +7,12 @@ import isNull from 'lodash-bound/isNull';
 import isUndefined from 'lodash-bound/isUndefined';
 import cloneDeep from 'lodash-bound/cloneDeep';
 
+import './loadRxjs.es6.js';
 import modelFactory from "../node_modules/open-physiology-model/src/index.js";
 import { customError, humanMsg } from './utility.es6.js';
 import { NOT_FOUND } from './http-status-codes.es6.js';
+
+//TODO import Rx from 'utility.es6.js'
 
 const printCommands = false;
 const printReturns = false;
