@@ -7,18 +7,14 @@ import isNull from 'lodash-bound/isNull';
 import isUndefined from 'lodash-bound/isUndefined';
 import cloneDeep from 'lodash-bound/cloneDeep';
 
-import './loadRxjs.es6.js';
+import './utils/loadRxjs.es6.js';
 import modelFactory from "../node_modules/open-physiology-model/src/index.js";
-import { customError, humanMsg } from './utility.es6.js';
+import { customError, humanMsg } from './utils/utility.es6.js';
 import { NOT_FOUND } from './http-status-codes.es6.js';
 
-//TODO import Rx from 'utility.es6.js'
-
-const printCommands = false;
-const printCommits = false;
-const printReturns = true;
-
-const href2Id = (href) => Number.parseInt(href.substring(href.lastIndexOf("/") + 1));
+const printCommands = true;
+const printCommits = true;
+const printReturns = false;
 
 export const createModelWithFrontend = (db) => {
     let frontend = {
@@ -28,14 +24,15 @@ export const createModelWithFrontend = (db) => {
             values = values::cloneDeep();
             let cls = model[values.class];
             let res;
+            console.log("We commit an entity with ID", values.id);
             if (cls.isResource){
                 let id = await db.createResource(cls, values);
-                res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
+                res = await db.getSpecificResources(cls, [id]);
             } else {
                 if (cls.isRelationship){
                     let id = await db.createRelationship(cls,
-                        model[values[1].class], model[values[2].class],
-                        href2Id(values[1].href), href2Id(values[2].href),
+                        {clsA: model[values[1].class], idA: values[1].id},
+                        {clsB: model[values[2].class], idB: values[2].id},
                         values);
                     res = await db.getSpecificRelationships(cls, [id]);
                 }
@@ -49,15 +46,14 @@ export const createModelWithFrontend = (db) => {
             if (printCommands) { console.log("commit_edit", entity, newValues); }
             newValues = newValues::cloneDeep();
             let cls = model[entity.class];
-            let id = href2Id(entity.href);
             let res;
             if (cls.isResource){
-                await db.updateResource(cls, id, newValues);
-                res = await db.getSpecificResources(cls, [id], {withoutShortcuts: true});
+                await db.updateResource(cls, entity.id, newValues);
+                res = await db.getSpecificResources(cls, [entity.id]);
             } else {
                 if (cls.isRelationship){
-                    await db.updateRelationshipByID(cls, id, newValues);
-                    res = await db.getSpecificRelationships(cls, [id]);
+                    await db.updateRelationshipByID(cls, entity.id, newValues);
+                    res = await db.getSpecificRelationships(cls, [entity.id]);
                 }
             }
             if (printCommits) { console.log("commit_edit returns", res[0]); }
@@ -68,12 +64,11 @@ export const createModelWithFrontend = (db) => {
         async commit_delete({entity}) {
             if (printCommands) { console.log("commit_delete", entity); }
             let cls = model[entity.class];
-            let id = href2Id(entity.href);
             if (cls.isResource){
-                await db.deleteResource(cls, id);
+                await db.deleteResource(cls, entity.id);
             } else {
                 if (cls.isRelationship){
-                    await db.deleteRelationshipByID(cls, id);
+                    await db.deleteRelationshipByID(cls, entity.id);
                 }
             }
         },
@@ -84,17 +79,16 @@ export const createModelWithFrontend = (db) => {
             let clsMaps = {};
             for (let address of Object.values(addresses)){
                 let cls = model[address.class];
-                let id = href2Id(address.href);
                 if (clsMaps[cls.name]::isUndefined()){
-                    clsMaps[cls.name] = {cls: cls, ids: [id]}
+                    clsMaps[cls.name] = {cls: cls, ids: [address.id]}
                 } else {
-                    clsMaps[cls.name].ids.push(id);
+                    clsMaps[cls.name].ids.push(address.id);
                 }
             }
             let results = [];
             for (let {cls, ids} of Object.values(clsMaps)){
                 let clsResults = (cls.isResource)?
-                    await db.getSpecificResources(cls, ids, {withoutShortcuts: true}):
+                    await db.getSpecificResources(cls, ids):
                 await db.getSpecificRelationships(cls, ids);
                 clsResults = clsResults.filter(x => !x::isNull() && !x::isUndefined());
                 if (clsResults.length < ids.length){
@@ -118,7 +112,7 @@ export const createModelWithFrontend = (db) => {
             if (printCommands) { console.log("loadAll", cls.name, options); }
             let results = [];
             if (cls.isResource){
-                results = await db.getAllResources(cls, {withoutShortcuts: true});
+                results = await db.getAllResources(cls);
             } else {
                 if (cls.isRelationship){
                     results = await db.getAllRelationships(cls);

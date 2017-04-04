@@ -10,7 +10,7 @@ import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
 
 import './loadRxjs.es6.js';
-import modelFactory from "../node_modules/open-physiology-model/src/index.js"
+import modelFactory from "../../node_modules/open-physiology-model/src/index.js"
 
 export const modelRef = modelFactory();
 export const modelClasses = modelRef.classes;
@@ -132,7 +132,7 @@ export function matchLabelsQueryFragment(cls, entityName){
 }
 
 /* to get relationships of a given resource*/
-export function extractRelationshipFields(A, rels, skipShortcuts){
+export function extractRelationshipFields(A, rels, includeShortcuts = true){
 	let objA = neo4jToData(resources[A.class], A);
 	let relFields = {};
 	for (let {rel, B, s} of rels){
@@ -143,7 +143,7 @@ export function extractRelationshipFields(A, rels, skipShortcuts){
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
 		let props = neo4jToData(relationships[rel.class], rel);
 		//let relObj = {...props, 1: (s === A.id)? objA: objB, 2: (s === A.id)? objB: objA};
-		let relObj = { href: props.href, class: props.class };
+		let relObj = { id: props.id, class: props.class };
 
 		if (relFields[fieldName]::isUndefined()){ relFields[fieldName] = []; }
 		if (relFields[fieldName]::isArray()){
@@ -156,11 +156,11 @@ export function extractRelationshipFields(A, rels, skipShortcuts){
 		if ((relA.cardinality.max === 1) && relFields[fieldName]::isArray()) {
 			relFields[fieldName] = relFields[fieldName][0];
 		}
-		if (!skipShortcuts){
+		if (includeShortcuts){
             if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
                 if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
                 //relFields[relA.shortcutKey].push(objB);
-				relFields[relA.shortcutKey].push({href: objB.href, class: objB.class});
+				relFields[relA.shortcutKey].push({id: objB.href, class: objB.class});
 				if (relA.cardinality.max === 1) {
 					relFields[relA.shortcutKey] = relFields[relA.shortcutKey][0];
 				}

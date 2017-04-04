@@ -11,7 +11,7 @@ import {initial, describeResourceClass, describeEndpoint,
     GET, POST, PUT, DELETE,
     withInvalidPathParams, withValidPathParams, requestResources, db} from './testUtils.es6.js';
 import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
-import {resources, relationships} from '../src/utility.es6.js';
+import {resources, relationships} from '../src/utils/utility.es6.js';
 
 
     //Integrated test for HasLayer enpoints
@@ -24,9 +24,7 @@ import {resources, relationships} from '../src/utility.es6.js';
                 GET("returns HasLayer relationships", r=>r.expect(OK).expect(isArray)
                     .resources((resources) => {
                         for (let res of resources) {
-                            //Currently relationships craeted by model library dont have id and href filled
-                            //expect(res).to.have.property('id');
-                            //expect(res).to.have.property('href');
+                            expect(res).to.have.property('id');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
@@ -47,7 +45,7 @@ import {resources, relationships} from '../src/utility.es6.js';
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
                         for (let res of resources) {
-                            expect(res).to.have.property('href');
+                            expect(res).to.have.property('id');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                         }
                 }));
@@ -92,7 +90,7 @@ import {resources, relationships} from '../src/utility.es6.js';
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('href');
+                            expect(res[1]).to.have.property('id');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
                         }
                 }));
@@ -112,9 +110,9 @@ import {resources, relationships} from '../src/utility.es6.js';
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('href');
+                            expect(res[1]).to.have.property('id');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
-                            expect(res[2]).to.have.property('href');
+                            expect(res[2]).to.have.property('id');
                         }
                     }));
 
@@ -128,9 +126,9 @@ import {resources, relationships} from '../src/utility.es6.js';
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('href');
+                            expect(res[1]).to.have.property('id');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
-                            expect(res[2]).to.have.property('href');                        }
+                            expect(res[2]).to.have.property('id');                        }
                     }));
 
                 PUT("replaces HasLayer relationship", r=>r.send({
@@ -142,20 +140,21 @@ import {resources, relationships} from '../src/utility.es6.js';
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
                         for (let res of resources) {
-                            expect(res).to.have.property('href');
+                            expect(res).to.have.property('id');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('href');
+                            expect(res[1]).to.have.property('id');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
-                            expect(res[2]).to.have.property('href');                        }
+                            expect(res[2]).to.have.property('id');                        }
                     }));
 
                 DELETE("removes HasLayer relationship", r=>r.expect(NO_CONTENT).then(async() => {
                     let res = await db.getRelationships(
-                        relationships["-->HasLayer"], resources.Lyph, resources.Lyph,
-                        initial.mainLyph1.id, initial.lyph2.id);
+                        relationships["-->HasLayer"],
+                        {clsA: resources.Lyph, idA: initial.mainLyph1.id},
+                        {clsB: resources.Lyph, idB: initial.lyph2.id});
                     expect(res).to.have.length.of(0);
                 }));
             });

@@ -13,7 +13,7 @@ import {initial, dynamic, describeResourceClass, describeEndpoint,
     withInvalidPathParams, withValidPathParams,
     requestSingleResource} from './testUtils.es6.js';
 import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
-import {resources} from '../src/utility.es6.js';
+import {resources} from '../src/utils/utility.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -77,8 +77,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('name');  
                     expect(res).to.have.property('uri');   
                     expect(res).to.have.property('type').that.equals("fma");  //{ type: 'string'}
@@ -112,7 +111,6 @@ import {resources} from '../src/utility.es6.js';
                 GET("returns locals", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
                     for (let res of resources) {
                         expect(res).to.have.property('id');
-                        expect(res).to.have.property('href');
                         expect(res).to.have.property('class');
                     }
                 }));
@@ -132,8 +130,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');     
-                    expect(res).to.have.property('href');   
-                    expect(res).to.have.property('class');  
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('nature');
                 }));
             });
@@ -153,8 +150,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('name');  
                 }));
             });
@@ -180,8 +176,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id'); 
-                    expect(res).to.have.property('href'); 
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('name'); 
                     //expect(res).to.have.property('materials').with.members([ initial.materialType1.id]);
                 }));
@@ -224,8 +219,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id'); 
-                    expect(res).to.have.property('href'); 
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('cause').that.equals(initial.measurable1.id);
                     expect(res).to.have.property('effect').that.equals(initial.measurable2.id);
                 }));
@@ -252,8 +246,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id'); 
-                    expect(res).to.have.property('href'); 
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('measurables').with.members([initial.measurable1.id]);
                     //expect(res).to.have.property('outgoingProcesses');
                     //expect(res).to.have.property('incomingProcesses');
@@ -299,8 +292,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id'); 
-                    expect(res).to.have.property('href'); 
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('transportPhenomenon').that.equals("advection")//,
                     // expect(res).to.have.property('sourceLyph').that.equals(initial.lyph1.id);
                     // expect(res).to.have.property('targetLyph').that.equals(initial.lyph2.id);
@@ -344,8 +336,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('name');  
                     expect(res).to.have.property('elements').with.members([ initial.lyph1.id, initial.node1.id]);
                 }));
@@ -373,8 +364,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('name');  
                     expect(res).to.have.property('childBranches');
 
@@ -402,8 +392,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('name');  
                 }));
             });
@@ -429,8 +418,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('name');  
                     expect(res).to.have.property('parent').that.equals(initial.clinicalIndex1.id);
                 }));
@@ -457,8 +445,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('publication').that.equals(initial.publication1.id);
                     expect(res).to.have.property('clinicalIndices').with.members([initial.clinicalIndex1.id, initial.clinicalIndex2.id]);
                     expect(res).to.have.property('measurables').with.members([initial.measurable1.id, initial.measurable2.id]);
@@ -491,8 +478,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('lyphs').with.members([initial.lyph1.id, initial.lyph2.id]);
                 }));
             });
@@ -523,8 +509,7 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');    
-                    expect(res).to.have.property('href');  
-                    expect(res).to.have.property('class'); 
+                    expect(res).to.have.property('class');
                     expect(res).to.have.property('lyphs').with.members([initial.mainLyph1.id, initial.mainLyph2.id]);
                 }));
             });
@@ -551,7 +536,6 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');
-                    expect(res).to.have.property('href');
                     expect(res).to.have.property('class');
                     expect(res).to.have.property('name');
                     expect(res).to.have.property('definition').that.equals(initial.material1.id);
@@ -583,7 +567,6 @@ import {resources} from '../src/utility.es6.js';
                 GET("returns resources", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
                     for (let res of resources) {
                         expect(res).to.have.property('id');
-                        expect(res).to.have.property('href');
                         expect(res).to.have.property('class');
                     }
                 }));
@@ -598,7 +581,6 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');
-                    expect(res).to.have.property('href');
                     expect(res).to.have.property('class').that.equals(initial.externalResource1.class);
                     expect(res).to.have.property('name');
                 }));
@@ -610,7 +592,6 @@ import {resources} from '../src/utility.es6.js';
                 GET("returns externals",  r=>r.expect(OK).expect(isArray).resources((resources) => {
                     for (let res of resources) {
                         expect(res).to.have.property('id');
-                        expect(res).to.have.property('href');
                         expect(res).to.have.property('class').that.equals("ExternalResource");
                     }
                 }));
@@ -637,7 +618,6 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');
-                    expect(res).to.have.property('href');
                     expect(res).to.have.property('class');
                     expect(res).to.have.property('name');
                     expect(res).to.have.property('cardinalityBase');
@@ -681,7 +661,6 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');
-                    expect(res).to.have.property('href');
                     expect(res).to.have.property('class');
                     expect(res).to.have.property('name');
                     expect(res).to.have.property('cardinalityBase');
@@ -710,7 +689,6 @@ import {resources} from '../src/utility.es6.js';
 
                 GET("returns a resource with expected fields", r=>r.resource((res) => {
                     expect(res).to.have.property('id');
-                    expect(res).to.have.property('href');
                     expect(res).to.have.property('class');
                     expect(res).to.have.property('name');
                     expect(res).to.have.property('cardinalityBase');

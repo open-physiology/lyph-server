@@ -84,12 +84,14 @@ import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
                 GET("returns HasLayer relationships", r=>r.expect(OK).expect(isArray)
                     .resources((resources) => {
                         for (let res of resources) {
-                            expect(res).to.have.property('href');
+                            expect(res).to.have.property('id');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
+                            expect(res[1]).to.have.property('id');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
+                            expect(res[2]).to.have.property('id');
                         }
                     }));
             })
@@ -111,7 +113,7 @@ import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
                     .resources((resources) => {
                         expect(resources).to.have.length.of.at.least(1);
                         for (let res of resources) {
-                            expect(res).to.have.property('href');
+                            expect(res).to.have.property('id');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                         }
                 }));
@@ -152,7 +154,7 @@ import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
             withValidPathParams(()=>({id: [...initial.mainLyph1["-->HasBorder"]][0].id}), () => {
 
                 GET("returns a relationship with expected fields", r=>r.resource((res) => {
-                    expect(res).to.have.property('href');
+                    expect(res).to.have.property('id');
                     expect(res).to.have.property('class'); 
                     expect(res).to.have.property('name');  
                 }));
@@ -175,23 +177,20 @@ import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
                 GET("returns relationships with expected fields", r=>r.expect(OK).expect(isArray)
                     .resources((resources) => {
                         for (let res of resources) {
-                            expect(res).to.have.property('href');
+                            expect(res).to.have.property('id');
                             expect(res).to.have.property('class').that.equals("HasLayer");
                             expect(res).to.have.property('1');
                             expect(res).to.have.property('2');
                             expect(res[1]).to.have.property('class').that.equals("Lyph");
-                            expect(res[1]).to.have.property('href');
+                            expect(res[1]).to.have.property('id');
                             expect(res[2]).to.have.property('class').that.equals("Lyph");
+                            expect(res[2]).to.have.property('id');
                         }
                     }));
             });
         });
     });
 
-
-    /////////////////////////////////////////////////////
-    // Specific related relationships                  //
-    /////////////////////////////////////////////////////
 
 
 

@@ -21,7 +21,7 @@ import {
 	isCustomError,
 	cleanCustomError,
 	sw
-} from './utility.es6.js';
+} from './utils/utility.es6.js';
 import {
 	OK,
 	CREATED,
@@ -29,7 +29,7 @@ import {
 	NOT_FOUND,
 	INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
-import { createModelWithFrontend } from './commandHandlers.es6';
+import { createModelWithFrontend } from './model.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // request handlers                                                                                                   //
@@ -41,33 +41,23 @@ let model;
 /*Helpers*/
 async function createModelResource(db, cls, fields, options = {}){
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-		let val = fields[fieldName];
-		if (val::isUndefined() || val::isNull()) { continue }
-		if (fieldSpec.cardinality.max === 1){ val = [val] }
-		if (val.length > 0){
-			let fieldCls = fieldSpec.codomain.resourceClass;
-			await db.assertResourcesExist(fieldCls, val);
-			let hrefs = [...await db.getSpecificResources(fieldCls, val)].map(r => r.href);
-			fields[fieldName] = [...await fieldCls.get(hrefs)];
-			if (fieldSpec.cardinality.max === 1){ fields[fieldName] = fields[fieldName][0] }
+		let ids = fields[fieldName];
+		if (ids::isUndefined() || ids::isNull()) { continue }
+		let fieldCls = fieldSpec.codomain.resourceClass;
+		if (fieldSpec.cardinality.max === 1){
+			fields[fieldName] = await fieldCls.get(ids[0]);
+		} else {
+			fields[fieldName] = [...await fieldCls.get(ids)];
 		}
 	}
+	// TODO: ^ Maybe we don't need this loop at all anymore (no longer converting id to href)
 	return cls.new(fields, options);
 }
 
 async function getFullRelationships(db, cls, id, relName){
-	await db.assertResourcesExist(cls, [id]);
-	let [res] = await db.getSpecificResources(cls, [id], {withoutRelationships: true});
-	let resource = await cls.get(res.href);
-	let rels = await Promise.all([...resource[relName]].map(rel => model[rel.class].get(rel.href)));
+	let resource = await cls.get(id);
+	let rels = await Promise.all([...resource[relName]].map(rel => model[rel.class].get(rel.id)));
 	return rels;
-}
-
-async function findTargetResource(db, rels, cls, id){
-	await db.assertResourcesExist(cls, [id]);
-	let [resB] = await db.getSpecificResources(cls, [id], {withoutRelationships: true});
-	let entity = rels.find(rel => (rel[2].href === resB.href));
-	return entity;
 }
 
 const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
@@ -99,7 +89,8 @@ const requestHandler = {
 	batch: {
 		async post({db}, req, res){
 			let batchStatusCode = OK;
-			let responses = []; let ids = [];
+			let responses = [];
+			let ids = [];
 			let {temporaryIDs, operations} = req.body;
 			for (let operation of operations) {
 				let {method, path, body} = operation;
@@ -108,17 +99,22 @@ const requestHandler = {
 				let response = {};
 
 				let tmpID = body.id;
+				if (!body.class) {
+					body.class = info.cls.name;
+				}
 				if (temporaryIDs.includes(body.id)) {
-					delete body.id;
-					if (!body.class) { body.class = info.cls.name; }
-					db.assignHref(body);
+					//delete body.id;
+					db.assignId(body);
 					ids.push(body.id);
 				}
 				try {
 					response = await requestHandler[pathObj['x-path-type']][method.toLowerCase()]({...info, ...{db}}, {body: body});
 				} catch (err) {
 					response = {statusCode: err.status, response: err};
-					if (batchStatusCode === OK) { batchStatusCode = err.status; }
+					if (batchStatusCode === OK) {
+						console.log("Commit failed", err, operation);
+						batchStatusCode = err.status;
+					}
 				}
 				//response.operation = operation;
 				responses.push(response);
@@ -126,6 +122,7 @@ const requestHandler = {
 				if ((method === "POST") && (response.statusCode === CREATED)) {
 					//assign permanent ID and replace temporary IDs in the subsequent operations
 					if (temporaryIDs.includes(tmpID)) {
+						//ids.push(response.entity.toJSON().id);
 						for (let o of operations.filter(o => !!o.body)) {
 							let {cls} = getInfo(swagger.paths[o.path]);
 							if (cls.isResource) {
@@ -144,6 +141,7 @@ const requestHandler = {
 					}
 				}
 
+
 				for (let response of responses) {
 					if (response.entity) {
 						await response.entity.commit();
@@ -154,7 +152,11 @@ const requestHandler = {
 					}
 				}
 			}
-			res.status(batchStatusCode).jsonp({ids: ids, responses: responses});
+			try {
+				res.status(batchStatusCode).jsonp({ids: ids, responses: responses});
+			} catch(e){
+				console.log("Batch failed", e);
+			}
 		}
 	},
 
@@ -168,11 +170,12 @@ const requestHandler = {
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
-			let entity = await createModelResource(db, cls, req.body, {acceptHref: !doCommit});
+			let entity = await createModelResource(db, cls, req.body, {acceptId: !doCommit});
 			if (doCommit) {
 				await entity.commit();
 				res.status(CREATED).jsonp([entity.toJSON()]);
 			} else {
+				console.log("resource post: ", entity.id);
 				return {statusCode: CREATED, entity: entity}
 			}
 		}
@@ -190,9 +193,8 @@ const requestHandler = {
 
 	specificResources: /*get, post, put, delete*/ {
 		async get({db, cls, doCommit}, req, res) {
-			await db.assertResourcesExist(cls, [req.pathParams.ids]);
-			let hrefs = [...await db.getSpecificResources(cls, req.pathParams.ids)].map(r => r.href);
-			let response = [...await cls.get(hrefs)].map(r => r.toJSON());
+			await db.assertResourcesExist(cls, req.pathParams.ids);
+			let response = [...await cls.get(req.pathParams.ids)].map(r => r.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
 			} else {
@@ -200,9 +202,7 @@ const requestHandler = {
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
-			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			let [{href}] = await db.getSpecificResources(cls, [req.pathParams.id]);
-			let entity = await cls.get(href);
+			let entity = await cls.get(req.pathParams.id);
 			for (let fieldName of Object.keys(req.body)) {
 				entity[fieldName] = req.body[fieldName];
 			}
@@ -214,9 +214,7 @@ const requestHandler = {
 			}
 		},
 		async put({db, cls, doCommit}, req, res) {
-			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			let [{href}] = await db.getSpecificResources(cls, [req.pathParams.id]);
-			let entity = await cls.get(href);
+			let entity = await cls.get(req.pathParams.id);
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
 				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
@@ -233,9 +231,7 @@ const requestHandler = {
 			}
 		},
 		async delete({db, cls, doCommit}, req, res) {
-			await db.assertResourcesExist(cls, [req.pathParams.id]);
-			let [{href}] = await db.getSpecificResources(cls, [req.pathParams.id], {withoutRelationships: true});
-			let entity = await cls.get(href);
+			let entity = await cls.get(req.pathParams.id);
 			entity.delete();
 			if (doCommit){
 				await entity.commit();
@@ -247,9 +243,7 @@ const requestHandler = {
 	},
 	specificRelationships: /*get, post, put, delete*/ {
 		async get({db, cls, doCommit}, req, res) {
-			await db.assertRelationshipsExist(cls, req.pathParams.ids);
-			let hrefs = [...await db.getSpecificRelationships(cls, req.pathParams.ids)].map(r => r.href);
-			let response = [...await cls.get(hrefs)].map(r => r.toJSON());
+			let response = [...await cls.get(req.pathParams.ids)].map(r => r.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
 			} else {
@@ -257,9 +251,7 @@ const requestHandler = {
 			}
 		},
 		async post({db, cls, doCommit}, req, res) {
-			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
-			let [{href}] = await db.getSpecificRelationships(cls, [req.pathParams.id]);
-			let entity = await cls.get(href);
+			let entity = await cls.get(req.pathParams.id);
 			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
 			if (doCommit) {
 				await entity.commit();
@@ -269,9 +261,7 @@ const requestHandler = {
 			}
 		},
 		async put({db, cls, doCommit}, req, res) {
-			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
-			let [{href}] = await db.getSpecificRelationships(cls, [req.pathParams.id]);
-			let entity = await cls.get(href);
+			let entity = await cls.get(req.pathParams.id);
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
 				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
@@ -288,9 +278,7 @@ const requestHandler = {
 			}
 		},
 		async delete({db, cls, doCommit}, req, res) {
-			await db.assertRelationshipsExist(cls, [req.pathParams.id]);
-			let [{href}] = await db.getSpecificRelationships(cls, [req.pathParams.id]);
-			let entity = await cls.get(href);
+			let entity = await cls.get(req.pathParams.id);
 			entity.delete();
 			if (doCommit){
 				await entity.commit();
@@ -304,7 +292,7 @@ const requestHandler = {
 	relatedResources: /*get*/ {
 		async get({db, cls, relA, doCommit}, req, res) {
 			let rels = await getFullRelationships(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
-			let related = await Promise.all(rels.map(x => model[x[2].class].get(x[2].href)));
+			let related = await Promise.all(rels.map(x => model[x[2].class].get(x[2].id)));
 			let response = related.map(r => r.toJSON());
 			if (doCommit){
 				res.status(OK).jsonp(response);
@@ -330,12 +318,12 @@ const requestHandler = {
 			let {idA, idB} = req.pathParams;
 			await db.assertResourcesExist(relA.resourceClass, [idA]);
 			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
-			let [resA] = await db.getSpecificResources(relA.resourceClass, [idA], {withoutRelationships: true});
-			let [resB] = await db.getSpecificResources(relA.codomain.resourceClass, [idB], {withoutRelationships: true});
+			let [resA] = await db.getSpecificResources(relA.resourceClass, [idA], {includeRelationships: false});
+			let [resB] = await db.getSpecificResources(relA.codomain.resourceClass, [idB], {includeRelationships: false});
 
 			let entity = cls.new({...req.body,
-				1: {class: resA.class, href: resA.href},
-				2: {class: resB.class, href: resB.href}
+				1: {class: resA.class, id: resA.id},
+				2: {class: resB.class, id: resB.id}
 			});
 			if (doCommit) {
 				await entity.commit();
@@ -348,9 +336,11 @@ const requestHandler = {
 			let {idA, idB} = req.pathParams;
 			await db.assertResourcesExist(relA.resourceClass, [idA]);
 			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
-			let [{href}]  = await db.getRelationships(cls, relA.resourceClass, relA.codomain.resourceClass, idA, idB);
-			if (!href){ res.status(NOT_FOUND).jsonp(); }
-			let entity = await cls.get(href);
+			let [{id}]  = await db.getRelationships(cls,
+				{clsA: relA.resourceClass, idA: idA},
+				{clsB: relA.codomain.resourceClass, idB: idB});
+			if (!id){ res.status(NOT_FOUND).jsonp(); }
+			let entity = await cls.get(id);
 			entity.delete();
 			if (doCommit){
 				await entity.commit();
@@ -364,7 +354,7 @@ const requestHandler = {
 		async get({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let target = await findTargetResource(db, rels, relA.codomain.resourceClass, idB);
+			let target = rels.find(rel => (rel[2].id === idB));
 			if (!target) { res.status(NOT_FOUND).jsonp(); }
 			let response = [target.toJSON()];
 			if (doCommit) {
@@ -377,7 +367,7 @@ const requestHandler = {
 		async post({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let target = await findTargetResource(db, rels, relA.codomain.resourceClass, idB);
+			let target = rels.find(rel => (rel[2].id === idB));
 			if (!target){ res.status(NOT_FOUND).jsonp(); }
 			for (let fieldName of Object.keys(req.body)){ target[fieldName] = req.body[fieldName]; }
 			if (doCommit) {
@@ -390,7 +380,7 @@ const requestHandler = {
 		async put({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let target = await findTargetResource(db, rels, relA.codomain.resourceClass, idB);
+			let target = rels.find(rel => (rel[2].id === idB));
 			if (!target) { res.status(NOT_FOUND).jsonp(); }
 			for (let fieldName of Object.keys(target.fields)) {
 				let fieldSpec = target.constructor.properties[fieldName];
@@ -410,7 +400,7 @@ const requestHandler = {
 		async delete({db, cls, relA, doCommit}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let target = await findTargetResource(db, rels, relA.codomain.resourceClass, idB);
+			let target = rels.find(rel => (rel[2].id === idB));
 			if (!target){ res.status(NOT_FOUND).jsonp(); }
 			target.delete();
 			if (doCommit){
@@ -548,7 +538,6 @@ export default async (distDir, config) => {
 		consoleLogging: config.dbConsoleLogging,
 		baseURL: 		`http://${config.host}:${config.port}`
 	});
-
 
 	/* normalize parameter names */
 	server.use(parameterNormalizer);
