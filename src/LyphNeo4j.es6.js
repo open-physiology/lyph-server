@@ -7,7 +7,6 @@
 import _, {difference, find, property} from 'lodash';
 import isNull from 'lodash-bound/isNull';
 import isUndefined from 'lodash-bound/isUndefined';
-import isSet from 'lodash-bound/isSet';
 import isNumber from 'lodash-bound/isNumber';
 
 /* local stuff */
@@ -23,8 +22,8 @@ import {
 	humanMsg,
 	arrowMatch,
 	extractIds,
-	relationships, resources
-} from './utility.es6.js';
+    resources
+} from './utils/utility.es6.js';
 import {
 	OK,
 	CREATED,
@@ -43,7 +42,6 @@ import {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* Symbols for private methods */
-
 const createAllResourceRelationships      = Symbol('createAllResourceRelationships');
 const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
 const getResourcesToDelete                = Symbol('getResourcesToDelete');
@@ -52,47 +50,40 @@ const anythingAnchoredFromOutside         = Symbol('anythingAnchoredFromOutside'
 /* The LyphNeo4j class */
 export default class LyphNeo4j extends Neo4j {
 
-	////////////////////////////////////////////
-	// Common funcarctionality for other methods //
-	////////////////////////////////////////////
-    assignHref(fields = {}) {
-		const id2Href = (baseURL, clsName, id) => (baseURL + "/" + clsName + "/" + id);
-
-		if (!fields.id::isNumber()) {
+	assignId(fields = {}){
+		if (!fields.id || fields.id < 0){
 			fields.id = ++this.newUID;
-			fields.href = id2Href(this.config.baseURL, fields.class, fields.id);
-		} else {
-			if (!fields.href){
-				fields.href = id2Href(this.config.baseURL, fields.class, fields.id);
-			}
 		}
-    }
+	}
 
+	////////////////////////////////////////////
+	// Common functionality for other methods //
+	////////////////////////////////////////////
 	async [createAllResourceRelationships](cls, id, fields) {
-        for (let fieldName of Object.keys(fields).filter(key => !!cls.relationships[key])){
+		for (let fieldName of Object.keys(fields).filter(key => !!cls.relationships[key])){
 
-            let val = fields[fieldName];
+			let val = fields[fieldName];
 			if (val::isUndefined() || val::isNull()) { continue }
 
-            let rels = (val::isSet())? [...val]: [val];
+			let rels = (val::isSet())? [...val]: [val];
 			for (let rel of rels){
-			    if (rel::isNull() || rel::isUndefined()) { continue; }
+				if (rel::isNull() || rel::isUndefined()) { continue; }
 				//Skip more general collections, only create top most relationships
 				//Relationships to create have to correspond to the relationship field, e.g., -->HasLayer vs HasLayer
 				if (fieldName.substring(3) !== rel.class){ continue; }
 
 				let resA = rel[1], resB = rel[2];
 
-                let error = resA::isUndefined() || resB::isUndefined()
-                    || resA::isNull() || resB::isNull()
-                    || !resA.class || !resB.class;
+				let error = resA::isUndefined() || resB::isUndefined()
+					|| resA::isNull() || resB::isNull()
+					|| !resA.class || !resB.class;
 
-                if (!error && !resA.id::isNumber() && !resB.id::isNumber()) {
-                    //assign a newly created id to one of relationship ends
-                }
+				if (!error && !resA.id::isNumber() && !resB.id::isNumber()) {
+					//assign a newly created id to one of relationship ends
+				}
 
 				if (error){
-						throw customError({
+					throw customError({
 						status:  BAD_REQUEST,
 						class:   rel.class,
 						rel:     rel,
@@ -101,12 +92,14 @@ export default class LyphNeo4j extends Neo4j {
 				}
 
 				//If only one resource ID is missing, this entity has not been added to DB yet
-                if (!resA.id::isNumber() || !resB.id::isNumber()){ continue; }
+				if (!resA.id::isNumber() || !resB.id::isNumber()){ continue; }
 
-                let fields = rel.toJSON();
-	            let relCls = relationships[rel.class];
+				let fields = rel.toJSON();
+				let relCls = relationships[rel.class];
 
-                await this.createRelationship(relCls, modelClasses[resA.class], modelClasses[resB.class], resA.id, resB.id, fields);
+				await this.createRelationship(relCls,
+					{clsA: modelClasses[resA.class], idA: resA.id},
+					{clsB: modelClasses[resB.class], idB: resB.id}, fields);
 			}
 		}
 	}
@@ -143,7 +136,6 @@ export default class LyphNeo4j extends Neo4j {
 			await this.query(relDeletionStatements);
 		}
 	}
-
 
 	async [getResourcesToDelete](cls, id) {
 		/* collect nodes to delete */
@@ -214,51 +206,6 @@ export default class LyphNeo4j extends Neo4j {
 	//////////////////////////////////////////////////////
 	// Main methods to handle data in the DB            //
 	//////////////////////////////////////////////////////
-	async assertRelatedResourcesExist(ids, fieldSpec) {
-		let cls = fieldSpec.codomain.resourceClass;
-
-		let [{existing}] = await this.query(`
-			MATCH (n)
-			WHERE (${matchLabelsQueryFragment(cls, 'n').join(' OR ')})
-			AND n.id IN [${ids.join(',')}]
-			RETURN collect(n.id) as existing
-		`);
-		let nonexisting = difference(ids, existing);
-		if (nonexisting.length > 0) {
-			let c = (fieldSpec.cardinality.max === 1) ? 'singular' : 'plural';
-			throw customError({
-				status:  NOT_FOUND,
-				class:   cls.name,
-				ids:     nonexisting,
-				...((c === 'singular') ? { id: nonexisting[0] } : {}),
-				message: humanMsg`
-					The specified ${cls[c]}
-					${nonexisting.join(',')}
-					${(c === 'singular') ? 'does' : 'do'} not exist.
-				`
-			});
-		}
-	}
-
-
-	async assertReferencedResourcesExist(cls, fields) {
-		for (let [fieldName, fieldSpec] of Object.entries(cls.relationships)) {
-			let val = fields[fieldName];
-
-			if (val::isUndefined() || val::isNull()) { continue }
-			let ids = extractIds(val);
-
-			try { this.assertRelatedResourcesExist(ids, fieldSpec) }
-			catch (err) {
-				Object.assign(err, {
-					class: cls,
-					field: fieldName
-				});
-				throw err;
-			}
-		}
-	}
-
 
 	async assertResourcesExist(cls, ids) {
 
@@ -285,13 +232,14 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 	
-	async getSpecificResources(cls, ids, options = {}) {
+	async getSpecificResources(cls, ids, options = {includeRelationships: true, includeShortcuts: false}) {
 
-		let queryEnd = (options.withoutRelationships)? ` RETURN A, [] as rels` : `
+		let queryEnd = (options.includeRelationships)? `
 			OPTIONAL MATCH (A)-[rel]-(B) 
-			RETURN A, collect({rel: rel, B: B, s: startNode(rel).id}) as rels`;
+			RETURN A, collect({rel: rel, B: B, s: startNode(rel).id}) as rels`
+			: ` RETURN A, [] as rels`;
 
-			/* preparing the part of the query that adds relationship info */
+		/* preparing the part of the query that adds relationship info */
 		let result = await this.query(`
 			UNWIND [${ids.join(',')}] AS id WITH id
 		 	MATCH (A { id: id })
@@ -300,44 +248,41 @@ export default class LyphNeo4j extends Neo4j {
 		 `);
 
 		/* integrate relationship data into the resource object */
-		result = result.map(({A, rels}) => extractRelationshipFields(A, rels, options.withoutShortcuts));
+		result = result.map(({A, rels}) => extractRelationshipFields(A, rels, options.includeShortcuts));
 
 		/* return results in proper order */
 		return ids.map((id1) => result.find(({id}) => id1 === id));
 	}
 
 	
-	async getAllResources(cls, options = {}) {
-		let queryEnd = (options.withoutRelationships)? ` RETURN A, [] as rels` : `
+	async getAllResources(cls, options = {includeRelationships: true, includeShortcuts: false}) {
+		let queryEnd = (options.includeRelationships)? `
 			OPTIONAL MATCH (A)-[rel]-(B) 
-			RETURN A, collect({rel: rel, B: B, s: startNode(rel).id}) as rels`;
+			RETURN A, collect({rel: rel, B: B, s: startNode(rel).id}) as rels`
+			: ` RETURN A, [] as rels`;
 
 		let result = await this.query(`
 			MATCH (A) where ${matchLabelsQueryFragment(cls, 'A').join(' OR ')} 
 			${queryEnd}
 		`);
 
-		return result.map(({A, rels}) => extractRelationshipFields(A, rels, options.withoutShortcuts));
+		return result.map(({A, rels}) => extractRelationshipFields(A, rels, options.includeShortcuts));
 	}
 
 
 	async createResource(cls, fields = {}) {
 
 		if (!fields.class){ fields.class = cls.name; }
-		this.assignHref(fields);
+		this.assignId(fields);
 
-        //Create resources with given ids
 		await this.query({
 			statement: `
 				CREATE (n:${cls.name})
 				SET n += {dbProperties}
 				SET n.class = "${cls.name}"
 			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
-
-		/* create the required relationships */
-		//await this[createAllResourceRelationships](cls, id, fields);
 
 		return fields.id;
 	}
@@ -357,7 +302,7 @@ export default class LyphNeo4j extends Neo4j {
 				SET n.id    = ${id}
 				SET n.class = n.class
 			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
 
 		/* remove the relationships explicitly left out */
@@ -382,7 +327,7 @@ export default class LyphNeo4j extends Neo4j {
 				SET n.id    = ${id}
 				SET n.class = "${cls.name}"
 			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
 
 		/* remove the relationships explicitly left out */
@@ -414,7 +359,6 @@ export default class LyphNeo4j extends Neo4j {
 		}
 		let ids = dResources.map(property('id')).join(',');
 
-		/* the main query for deleting the node */
 		await this.query(`
 			MATCH (n)
 			WHERE n.id IN [${ids}]
@@ -424,25 +368,6 @@ export default class LyphNeo4j extends Neo4j {
 
 		return [ids];
 	}
-
-
-	async getRelatedResources(cls, clsA, clsB, idA, options = {}) {
-		let queryEnd = (options.withoutRelationships)? ` RETURN B, [] as rels` : `
-			OPTIONAL MATCH (B)-[r]-(C) 
-			RETURN B, collect({rel: r, B: C, s: startNode(r).id}) as rels`;
-
-		/* formulating and sending the query */
-		let result = await this.query(`
-			MATCH (A { id: ${idA} }) -[rel: ${matchLabelsQueryFragment(cls).join('|')}]-> (B)
-			WHERE (${matchLabelsQueryFragment(clsA, 'A').join(' OR ')})
-			  AND (${matchLabelsQueryFragment(clsB, 'B').join(' OR ')})
-			${queryEnd}			
-		`);
-
-		return result.map(({B, rels}) => extractRelationshipFields(B, rels, options.withoutShortcuts));
-
-	}
-
 
 	///////////////////////////////////////////////////////////////
     //Operations on relationships                                //
@@ -469,26 +394,6 @@ export default class LyphNeo4j extends Neo4j {
 			DELETE rel
 		`);
 	}
-
-
-	async getRelatedRelationships(cls, clsA, clsB, idA){
-
-		/* formulating and sending the query */
-		let result = await this.query(`
-			MATCH (A { id: ${idA} }) -[rel:${matchLabelsQueryFragment(cls).join(' |')}]-> (B)
-			WHERE (${matchLabelsQueryFragment(clsA, 'A').join(' OR ')})
-			  AND (${matchLabelsQueryFragment(clsB, 'B').join(' OR ')})      
-			RETURN A, rel, B
-		`);
-
-		/* integrate relationship data into the resource object */
-		return result.map(({A, rel, B}) => ({
-			...neo4jToData(cls, rel),
-			1: neo4jToData(resources[A.class], A),
-			2: neo4jToData(resources[B.class], B)
-		}));
-	}
-
 
 	////////////////////////////////////////////////////
 	//Relationships by ID                             //
@@ -518,7 +423,6 @@ export default class LyphNeo4j extends Neo4j {
 
 
 	async getSpecificRelationships(cls, ids){
-		/* formulating and sending the query */
 		let result = await this.query(`
 			MATCH (A) -[rel:${matchLabelsQueryFragment(cls).join('|')}]-> (B) 
 			WHERE rel.id IN [${ids.join(',')}]
@@ -536,25 +440,21 @@ export default class LyphNeo4j extends Neo4j {
 
 
     async updateRelationshipByID(cls, id, fields){
-		/* get the current fields of the relationship */
 		let [oldRelationship] = await this.getSpecificRelationships(cls, [id]);
 
-		/* the main query for creating the resource */
 		await this.query({
 			statement: `
 				MATCH () -[rel:${matchLabelsQueryFragment(cls).join('|')} { id: ${id} }]-> () 
 				SET rel += {dbProperties}
 			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
 	}
 
 
     async replaceRelationshipByID(cls, id, fields){
-		/* get the current fields of the relationship */
 		let [oldRelationship] = await this.getSpecificRelationships(cls, [id]);
 
-		/* the main query for creating the resource */
 		await this.query({
 			statement: `
 				MATCH (A) -[old:${cls.name} { id: ${id} }]-> (B)
@@ -563,7 +463,7 @@ export default class LyphNeo4j extends Neo4j {
 				SET rel.id    = ${id}
 				SET rel.class = "${cls.name}"
 			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
     }
 
@@ -580,11 +480,7 @@ export default class LyphNeo4j extends Neo4j {
 	//Relationships by resources                      //
 	////////////////////////////////////////////////////
 
-	//Assertions were removed from these functions to improve performance
-	//It is job of server requestHandler to check that entities in request params exist
-
-	async getRelationships(cls, clsA, clsB, idA, idB){
-		/* formulating and sending the query */
+	async getRelationships(cls, {clsA, idA}, {clsB, idB}){
 		let result = await this.query(`
 			MATCH (A { id: ${idA} }) -[rel:${matchLabelsQueryFragment(cls).join('|')}]-> (B { id: ${idB} })
 			WHERE (${matchLabelsQueryFragment(clsA, 'A').join(' OR ')})
@@ -592,7 +488,6 @@ export default class LyphNeo4j extends Neo4j {
 			RETURN A, rel, B
 		`);
 
-		/* integrate relationship data into the resource object */
 		return result.map(({A, rel, B}) => ({
 			...neo4jToData(cls, rel),
 			1: neo4jToData(clsA, A),
@@ -600,9 +495,9 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 
-	async createRelationship(cls, clsA, clsB, idA, idB, fields = {}) {
+	async createRelationship(cls, {clsA, idA}, {clsB, idB}, fields = {}) {
 		if (!fields.class){ fields.class = cls.name; }
-		this.assignHref(fields);
+		this.assignId(fields);
 
 		await this.query({
 			statement: `
@@ -619,8 +514,7 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 
-	async updateRelationship(cls, clsA, clsB, idA, idB, fields){
-		/* formulating and sending the query */
+	async updateRelationship(cls, {clsA, idA}, {clsB, idB}, fields){
 		await this.query({
 			statement: `
 				MATCH (A { id: ${idA} }) -[rel:${matchLabelsQueryFragment(cls).join('|')}]-> (B { id: ${idB} })
@@ -628,13 +522,12 @@ export default class LyphNeo4j extends Neo4j {
 			  	  AND (${matchLabelsQueryFragment(clsB, 'B').join(' OR ')})      	  
 				SET rel += {dbProperties}
 			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
 	}
 
 
-	async replaceRelationship(cls, clsA, clsB, idA, idB, fields){
-		/* the main query for creating the resource */
+	async replaceRelationship(cls, {clsA, idA}, {clsB, idB}, fields){
 		await this.query({
 			statement: `
 				MATCH (A { id: ${idA} }), (B { id: ${idB} })
@@ -644,13 +537,12 @@ export default class LyphNeo4j extends Neo4j {
 				SET rel += {dbProperties}
 				SET rel.class = "${cls.name}"    	  
 			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) } // TODO: serialize nested objects/arrays
+			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
 	}
 
 
-	async deleteRelationship(cls, clsA, clsB, idA, idB) {
-		/* the main query for removing the relationship */
+	async deleteRelationship(cls, {clsA, idA}, {clsB, idB}) {
 		await this.query(`
 			MATCH (A { id: ${idA} }) -[rel:${matchLabelsQueryFragment(cls).join('|')}]-> (B { id: ${idB} })
 			WHERE (${matchLabelsQueryFragment(clsA, 'A').join(' OR ')})

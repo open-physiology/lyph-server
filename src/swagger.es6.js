@@ -8,8 +8,7 @@ import isEmpty from 'lodash-bound/isEmpty';
 import cloneDeep from 'lodash/cloneDeep';
 
 /* local stuff */
-import {toCamelCase} from './utility.es6.js';
-import {modelClasses, resources, relationships} from './utility.es6.js';
+import {toCamelCase, modelClasses, resources, relationships} from './utils/utility.es6.js';
 import {OK, CREATED, NO_CONTENT} from './http-status-codes.es6.js';
 
 

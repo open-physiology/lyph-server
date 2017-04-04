@@ -35,7 +35,6 @@ export default class Neo4j {
 
   	    this.waitFor(this.init());
 		console.log("Start with counter", this.newUID);
-
 	}
 
 	async init() {

@@ -13,7 +13,7 @@ import chai, {expect} from 'chai';
 import supertest   from './custom-supertest.es6.js';
 import getServer   from '../src/server.es6.js';
 import {OK, NOT_FOUND} from '../src/http-status-codes.es6.js';
-import { createModelWithFrontend } from '../src/commandHandlers.es6';
+import { createModelWithFrontend } from '../src/model.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -70,8 +70,8 @@ before(() => getServer(`${__dirname}/../../dist/`, {
     dbDocker: 'neo4j',
     dbUser: 'neo4j',
     dbPass: 'nknk14',
-    dbHost: '192.168.99.100',//localhost
-    dbPort: 32769, //7474
+    dbHost: '192.168.99.100',
+    dbPort: 32769,
     host: 'localhost',
     port: '8888',
     dbConsoleLogging: false,
@@ -82,7 +82,7 @@ before(() => getServer(`${__dirname}/../../dist/`, {
 }));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// utility                                                                                                            //
+// utils                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* server request api (through our REST server) */
@@ -278,6 +278,8 @@ before(async () => {
     /* types */
     initial.materialType1 = model.Type.new({
         name: "Blood", definition: initial.material1});
+    initial.materialType2 = model.Type.new({
+        name: "Urine", definition: initial.material2});
 
     /* causalities */
     initial.causality1 = model.Causality.new({
@@ -331,8 +333,7 @@ before(async () => {
 
     /* nodes */
     initial.node1 = model.Node.new({
-        // Note: if we uncomment this, test DELETE lyphs/{id} will fail as node anchors the lyph's measurable
-        //measurables: [initial.measurable1],
+        measurables: [initial.measurable1],
         incomingProcesses:  [initial.process1],
         locations: [initial.mainLyph1]});
 
@@ -358,13 +359,6 @@ before(async () => {
         parentTree: initial.canonicalTree1,
         childTree: initial.canonicalTree1_2
     });
-
-    // initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
-    //     name:  "SLN 2st level branch",
-    //     conveyingLyphType: initial.lyphType2,
-    //     parentTree: initial.canonicalTree1_2,
-    //     childTree: initial.canonicalTree1_3
-    // });
 
     /* publications */
     initial.publication1 = model.Publication.new({
@@ -396,11 +390,7 @@ before(async () => {
     initial.coalescenceScenario1 = model.CoalescenceScenario.new({
         lyphs: [initial.mainLyph1, initial.mainLyph2]});
 
-    for (let key of Object.keys(initial)){
-        await initial[key].commit();
-    }
-
-    //Uncommitted resources for testing
+    for (let key of Object.keys(initial)){ await initial[key].commit(); }
 
     dynamic.externalResource1 = model.ExternalResource.new({
         name: "Right fourth dorsal metatarsal vein",
@@ -414,8 +404,6 @@ before(async () => {
     dynamic.lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [dynamic.borders5, dynamic.borders6]});
 
     for (let key of Object.keys(dynamic)){ await dynamic[key].commit(); }
-
-    console.log("Test utils successfully completed!");
 });
 
 
