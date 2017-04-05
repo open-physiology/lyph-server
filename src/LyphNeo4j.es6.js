@@ -207,31 +207,6 @@ export default class LyphNeo4j extends Neo4j {
 	// Main methods to handle data in the DB            //
 	//////////////////////////////////////////////////////
 
-	async assertResourcesExist(cls, ids) {
-
-		/* eliminate duplication */
-		ids = [...new Set(ids)];
-
-		/* a query for checking existence of these resources */
-		let [{count}] = await this.query(`
-			MATCH (n)
-			WHERE (${matchLabelsQueryFragment(cls, 'n').join(' OR ')})
-			AND n.id IN [${ids.join(',')}]
-			RETURN count(n) AS count
-		`);
-
-		/* throw the 404 error if 'exists' is false */
-		if (count < ids.length) {
-			throw customError({
-				status:  NOT_FOUND,
-				class:   cls.name,
-				ids:     ids,
-				message: humanMsg`Not all specified ${cls.plural} with given IDs exist.`
-			});
-		}
-	}
-
-	
 	async getSpecificResources(cls, ids, options = {includeRelationships: true, includeShortcuts: false}) {
 
 		let queryEnd = (options.includeRelationships)? `
@@ -398,29 +373,6 @@ export default class LyphNeo4j extends Neo4j {
 	////////////////////////////////////////////////////
 	//Relationships by ID                             //
 	////////////////////////////////////////////////////
-	async assertRelationshipsExist(cls, ids){
-		/* eliminate duplication */
-		ids = [...new Set(ids)];
-
-		/* a query for checking existence of these relationships */
-
-		let [{count}] = await this.query(`
-			MATCH (A) -[rel:${matchLabelsQueryFragment(cls).join('|')}]-> (B) 
-			WHERE rel.id IN [${ids.join(',')}]
-			RETURN count(rel) AS count
-		`);
-
-		/* throw the 404 error if 'exists' is false */
-		if (count < ids.length) {
-			throw customError({
-				status:  NOT_FOUND,
-				class:   cls.name,
-				ids:     ids,
-				message: humanMsg`Not all specified ${cls.name} relationships with IDs '${ids.join(',')}' exist.`
-			});
-		}
-	}
-
 
 	async getSpecificRelationships(cls, ids){
 		let result = await this.query(`
