@@ -12,8 +12,8 @@ import modelFactory from "../node_modules/open-physiology-model/src/index.js";
 import { customError, humanMsg } from './utils/utility.es6.js';
 import { NOT_FOUND } from './http-status-codes.es6.js';
 
-const printCommands = true;
-const printCommits = true;
+const printCommands = false;
+const printCommits = false;
 const printReturns = false;
 
 export const createModelWithFrontend = (db) => {
@@ -24,7 +24,6 @@ export const createModelWithFrontend = (db) => {
             values = values::cloneDeep();
             let cls = model[values.class];
             let res;
-            console.log("We commit an entity with ID", values.id);
             if (cls.isResource){
                 let id = await db.createResource(cls, values);
                 res = await db.getSpecificResources(cls, [id]);
@@ -89,7 +88,7 @@ export const createModelWithFrontend = (db) => {
             for (let {cls, ids} of Object.values(clsMaps)){
                 let clsResults = (cls.isResource)?
                     await db.getSpecificResources(cls, ids):
-                await db.getSpecificRelationships(cls, ids);
+                    await db.getSpecificRelationships(cls, ids);
                 clsResults = clsResults.filter(x => !x::isNull() && !x::isUndefined());
                 if (clsResults.length < ids.length){
                     throw customError({

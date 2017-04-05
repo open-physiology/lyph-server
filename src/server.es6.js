@@ -50,14 +50,16 @@ async function createModelResource(db, cls, fields, options = {}){
 			fields[fieldName] = [...await fieldCls.get(ids)];
 		}
 	}
-	// TODO: ^ Maybe we don't need this loop at all anymore (no longer converting id to href)
+	// TODO: Maybe we don't need this loop at all anymore (no longer converting id to href)
+	// TODO: response: we still need it, maybe test that model library can create resources with IDs in shortcut fields
 	return cls.new(fields, options);
 }
 
+//TODO: getFullRelationships is used to fetch all relationships and then find a specific one given other side ID
+//TODO: This can be optimized: model library can provide an operation to get specific relationship
 async function getFullRelationships(db, cls, id, relName){
 	let resource = await cls.get(id);
-	let rels = await Promise.all([...resource[relName]].map(rel => model[rel.class].get(rel.id)));
-	return rels;
+	return await Promise.all([...resource[relName]].map(rel => model[rel.class].get(rel.id)));
 }
 
 const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
@@ -83,7 +85,7 @@ const requestHandler = {
 	clear: {
 		async post({db}, req, res){
 			db.clear('Yes! Delete all everythings!');
-			res.status(NO_CONTENT).jsonp();
+			return {statusCode: NO_CONTENT};
 		}
 	},
 	batch: {
@@ -96,43 +98,37 @@ const requestHandler = {
 				let {method, path, body} = operation;
 				let pathObj = swagger.paths[path];
 				let info = getInfo(pathObj);
-				let response = {};
+				if (!body.class) { body.class = info.cls.name; }
 
 				let tmpID = body.id;
-				if (!body.class) {
-					body.class = info.cls.name;
-				}
 				if (temporaryIDs.includes(body.id)) {
-					//delete body.id;
 					db.assignId(body);
 					ids.push(body.id);
 				}
+				let result = {};
 				try {
-					response = await requestHandler[pathObj['x-path-type']][method.toLowerCase()]({...info, ...{db}}, {body: body});
+					result = await requestHandler[pathObj['x-path-type']][method.toLowerCase()]({...info, ...{db}}, {body: body});
 				} catch (err) {
-					response = {statusCode: err.status, response: err};
+					result = {statusCode: err.status, response: err};
 					if (batchStatusCode === OK) {
-						console.log("Commit failed", err, operation);
 						batchStatusCode = err.status;
 					}
 				}
-				//response.operation = operation;
-				responses.push(response);
+				responses.push(result);
 
-				if ((method === "POST") && (response.statusCode === CREATED)) {
+				if ((method === "POST") && (result.statusCode === CREATED)) {
 					//assign permanent ID and replace temporary IDs in the subsequent operations
 					if (temporaryIDs.includes(tmpID)) {
-						//ids.push(response.entity.toJSON().id);
 						for (let o of operations.filter(o => !!o.body)) {
 							let {cls} = getInfo(swagger.paths[o.path]);
 							if (cls.isResource) {
 								for (let key of Object.keys(cls.relationshipShortcuts).filter(key => !!o.body[key])) {
 									if (o.body[key] === tmpID) {
-										o.body[key] = response.entity.id;
+										o.body[key] = result.entity.id;
 									} else {
 										let index = [...o.body[key]].indexOf(tmpID);
 										if (index > -1) {
-											o.body[key][index] = response.entity.id;
+											o.body[key][index] = result.entity.id;
 										}
 									}
 								}
@@ -140,7 +136,6 @@ const requestHandler = {
 						}
 					}
 				}
-
 
 				for (let response of responses) {
 					if (response.entity) {
@@ -152,68 +147,38 @@ const requestHandler = {
 					}
 				}
 			}
-			try {
-				res.status(batchStatusCode).jsonp({ids: ids, responses: responses});
-			} catch(e){
-				console.log("Batch failed", e);
-			}
+			return {statusCode: batchStatusCode, response: {ids: ids, responses: responses}}
 		}
 	},
 
 	resources: /*get, post*/ {
-		async get({db, cls, doCommit}, req, res) {
+		async get({db, cls}, req, res) {
 			let response = [...await cls.getAll()].map(r => r.toJSON());
-			if (doCommit) {
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
-			}
+			return {statusCode: OK, response: response};
 		},
 		async post({db, cls, doCommit}, req, res) {
 			let entity = await createModelResource(db, cls, req.body, {acceptId: !doCommit});
-			if (doCommit) {
-				await entity.commit();
-				res.status(CREATED).jsonp([entity.toJSON()]);
-			} else {
-				console.log("resource post: ", entity.id);
-				return {statusCode: CREATED, entity: entity}
-			}
+			return {statusCode: CREATED, entity: entity};
 		}
 	},
 	relationships: /*get */  {
 		async get({db, cls, doCommit}, req, res) {
 			let response = [...await cls.getAll()].map(r => r.toJSON());
-			if (doCommit) {
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
-			}
+			return {statusCode: OK, response: response};
 		}
 	},
 
 	specificResources: /*get, post, put, delete*/ {
-		async get({db, cls, doCommit}, req, res) {
-			await db.assertResourcesExist(cls, req.pathParams.ids);
+		async get({db, cls }, req, res) {
 			let response = [...await cls.get(req.pathParams.ids)].map(r => r.toJSON());
-			if (doCommit){
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
-			}
+			return {statusCode: OK, response: response};
 		},
-		async post({db, cls, doCommit}, req, res) {
+		async post({db, cls }, req, res) {
 			let entity = await cls.get(req.pathParams.id);
-			for (let fieldName of Object.keys(req.body)) {
-				entity[fieldName] = req.body[fieldName];
-			}
-			if (doCommit) {
-				await entity.commit();
-				res.status(OK).jsonp([entity.toJSON()]);
-			} else {
-				return {statusCode: OK, entity: entity}
-			}
+			for (let fieldName of Object.keys(req.body)) { entity[fieldName] = req.body[fieldName]; }
+			return {statusCode: OK, entity: entity};
 		},
-		async put({db, cls, doCommit}, req, res) {
+		async put({db, cls}, req, res) {
 			let entity = await cls.get(req.pathParams.id);
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
@@ -223,44 +188,25 @@ const requestHandler = {
 				let fieldSpec = entity.constructor.properties[fieldName];
 				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
 			}
-			if (doCommit) {
-				await entity.commit();
-				res.status(OK).jsonp([entity.toJSON()]);
-			} else {
-				return {statusCode: OK, entity: entity}
-			}
+			return {statusCode: OK, entity: entity};
 		},
 		async delete({db, cls, doCommit}, req, res) {
 			let entity = await cls.get(req.pathParams.id);
 			entity.delete();
-			if (doCommit){
-				await entity.commit();
-				res.status(NO_CONTENT).jsonp();
-			} else {
-				return {statusCode: NO_CONTENT, entity: entity}
-			}
+			return {statusCode: NO_CONTENT, entity: entity};
 		}
 	},
 	specificRelationships: /*get, post, put, delete*/ {
-		async get({db, cls, doCommit}, req, res) {
+		async get({db, cls}, req, res) {
 			let response = [...await cls.get(req.pathParams.ids)].map(r => r.toJSON());
-			if (doCommit){
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
-			}
+			return {statusCode: OK, response: response};
 		},
-		async post({db, cls, doCommit}, req, res) {
+		async post({db, cls}, req, res) {
 			let entity = await cls.get(req.pathParams.id);
 			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
-			if (doCommit) {
-				await entity.commit();
-				res.status(OK).jsonp([entity.toJSON()]);
-			} else {
-				return {statusCode: OK, entity: entity}
-			}
+			return {statusCode: OK, entity: entity};
 		},
-		async put({db, cls, doCommit}, req, res) {
+		async put({db, cls}, req, res) {
 			let entity = await cls.get(req.pathParams.id);
 			for (let fieldName of Object.keys(entity.fields)) {
 				let fieldSpec = entity.constructor.properties[fieldName];
@@ -270,145 +216,91 @@ const requestHandler = {
 				let fieldSpec = entity.constructor.properties[fieldName];
 				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
 			}
-			if (doCommit) {
-				await entity.commit();
-				res.status(OK).jsonp([entity.toJSON()]);
-			} else {
-				return {statusCode: OK, entity: entity}
-			}
+			return {statusCode: OK, entity: entity};
 		},
-		async delete({db, cls, doCommit}, req, res) {
+		async delete({db, cls}, req, res) {
 			let entity = await cls.get(req.pathParams.id);
 			entity.delete();
-			if (doCommit){
-				await entity.commit();
-				res.status(NO_CONTENT).jsonp();
-			} else {
-				return {statusCode: NO_CONTENT, entity: entity};
-			}
+			return {statusCode: NO_CONTENT, entity: entity};
 		}
 	},
 
 	relatedResources: /*get*/ {
-		async get({db, cls, relA, doCommit}, req, res) {
+		async get({db, cls, relA}, req, res) {
 			let rels = await getFullRelationships(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
 			let related = await Promise.all(rels.map(x => model[x[2].class].get(x[2].id)));
 			let response = related.map(r => r.toJSON());
-			if (doCommit){
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
-			}
+			return {statusCode: OK, response: response};
 		}
 	},
 	relatedRelationships: /* get */{
-		async get({db, cls, relA, doCommit}, req, res) {
+		async get({db, cls, relA}, req, res) {
 			let rels = await getFullRelationships(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
 			let response = rels.map(r => r.toJSON());
-			if (doCommit){
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
-			}
+			return {statusCode: OK, response: response};
 		}
 	},
 
 	specificRelatedResource: /*put, delete*/ {
-		async put({db, cls, relA, doCommit}, req, res) {
+		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await db.assertResourcesExist(relA.resourceClass, [idA]);
-			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
-			let [resA] = await db.getSpecificResources(relA.resourceClass, [idA], {includeRelationships: false});
-			let [resB] = await db.getSpecificResources(relA.codomain.resourceClass, [idB], {includeRelationships: false});
-
+			let resA = await relA.resourceClass.get(idA);
+			let resB = await relA.codomain.resourceClass.get(idB);
 			let entity = cls.new({...req.body,
 				1: {class: resA.class, id: resA.id},
 				2: {class: resB.class, id: resB.id}
 			});
-			if (doCommit) {
-				await entity.commit();
-				res.status(OK).jsonp([entity.toJSON()]);
-			} else {
-				return {statusCode: OK, entity: entity}
-			}
+			return {statusCode: OK, entity: entity};
 		},
-		async delete({db, cls, relA, doCommit}, req, res) {
+		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			await db.assertResourcesExist(relA.resourceClass, [idA]);
-			await db.assertResourcesExist(relA.codomain.resourceClass, [idB]);
-			let [{id}]  = await db.getRelationships(cls,
-				{clsA: relA.resourceClass, idA: idA},
-				{clsB: relA.codomain.resourceClass, idB: idB});
-			if (!id){ res.status(NOT_FOUND).jsonp(); }
-			let entity = await cls.get(id);
+			let rels = await getFullRelationships(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
+			let entity = rels.find(rel => (rel[2].id === idB));
+			if (!entity){ return {statusCode: NOT_FOUND}; }
 			entity.delete();
-			if (doCommit){
-				await entity.commit();
-				res.status(NO_CONTENT).jsonp();
-			} else {
-				return {statusCode: NO_CONTENT, entity: entity};
-			}
+			return {statusCode: NO_CONTENT, entity: entity};
 		}
 	},
 	specificRelationshipByResources: /*get, post, put, delete*/ {
-		async get({db, cls, relA, doCommit}, req, res) {
+		async get({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let target = rels.find(rel => (rel[2].id === idB));
-			if (!target) { res.status(NOT_FOUND).jsonp(); }
-			let response = [target.toJSON()];
-			if (doCommit) {
-				res.status(OK).jsonp(response);
-			} else {
-				return {statusCode: OK, response: response}
-			}
+			let entity = rels.find(rel => (rel[2].id === idB));
+			if (!entity){ return {statusCode: NOT_FOUND}; }
+			let response = [entity.toJSON()];
+			return {statusCode: OK, response: response};
 		},
 
-		async post({db, cls, relA, doCommit}, req, res) {
+		async post({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let target = rels.find(rel => (rel[2].id === idB));
-			if (!target){ res.status(NOT_FOUND).jsonp(); }
-			for (let fieldName of Object.keys(req.body)){ target[fieldName] = req.body[fieldName]; }
-			if (doCommit) {
-				await target.commit();
-				res.status(OK).jsonp([target.toJSON()]);
-			} else {
-				return {statusCode: OK, entity: target}
-			}
+			let entity = rels.find(rel => (rel[2].id === idB));
+			if (!entity) { return {statusCode: NOT_FOUND}; }
+			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
+			return {statusCode: OK, entity: entity};
 		},
-		async put({db, cls, relA, doCommit}, req, res) {
+		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let target = rels.find(rel => (rel[2].id === idB));
-			if (!target) { res.status(NOT_FOUND).jsonp(); }
-			for (let fieldName of Object.keys(target.fields)) {
-				let fieldSpec = target.constructor.properties[fieldName];
-				if (!(fieldSpec && fieldSpec.readonly)) { delete target[fieldName]; }
+			let entity = rels.find(rel => (rel[2].id === idB));
+			if (!entity) { return {statusCode: NOT_FOUND}; }
+			for (let fieldName of Object.keys(entity.fields)) {
+				let fieldSpec = entity.constructor.properties[fieldName];
+				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
 			}
 			for (let fieldName of Object.keys(req.body)) {
-				let fieldSpec = target.constructor.properties[fieldName];
-				if (!(fieldSpec && fieldSpec.readonly)) { target[fieldName] = req.body[fieldName]; }
+				let fieldSpec = entity.constructor.properties[fieldName];
+				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
 			}
-			if (doCommit) {
-				await target.commit();
-				res.status(OK).jsonp([target.toJSON()]);
-			} else {
-				return {statusCode: OK, entity: target}
-			}
+			return {statusCode: OK, entity: entity};
 		},
-		async delete({db, cls, relA, doCommit}, req, res) {
+		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
 			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let target = rels.find(rel => (rel[2].id === idB));
-			if (!target){ res.status(NOT_FOUND).jsonp(); }
-			target.delete();
-			if (doCommit){
-				await target.commit();
-				res.status(NO_CONTENT).jsonp();
-			} else {
-				return {statusCode: NO_CONTENT, entity: target};
-			}
+			let entity = rels.find(rel => (rel[2].id === idB));
+			if (!entity) { return {statusCode: NOT_FOUND}; }
+			entity.delete();
+			return {statusCode: NO_CONTENT, entity: entity};
 		}
 	}
 };
@@ -560,13 +452,22 @@ export default async (distDir, config) => {
 
 		for (let method of _(pathObj).keys().intersection(['get', 'post', 'put', 'delete'])) {
 			let info = getInfo(pathObj);
-			server[method](expressStylePath, (req, res, next) => {
+			server[method](expressStylePath, async (req, res, next) => {
+				let result = {};
 				try {
 					req.url = encodeURI(req.url);
-					requestHandler[pathObj['x-path-type']][method]({...info, doCommit: true, ...{db}}, req, res).catch(next) }
-				catch (err) {
-					next(err)
+					result = await requestHandler[pathObj['x-path-type']][method]({...info, doCommit: true, ...{db}}, req, res);
+					if (result.entity){
+						await result.entity.commit();
+						if (result.status !== NO_CONTENT){
+							result.response = [result.entity.toJSON()];
+						}
+					}
 				}
+				catch (err) {
+					result = {statusCode: err.status, response: err};
+				}
+				res.status(result.statusCode).jsonp(result.response);
 			});
 		}
 	}
