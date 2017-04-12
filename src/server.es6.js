@@ -47,7 +47,7 @@ async function createModelResource(db, cls, fields, options = {}){
 		if (ids::isUndefined() || ids::isNull()) { continue }
 		let fieldCls = fieldSpec.codomain.resourceClass;
 		if (fieldSpec.cardinality.max === 1){
-			fields[fieldName] = await fieldCls.get(ids[0]);
+			fields[fieldName] = await fieldCls.get(ids);
 		} else {
 			fields[fieldName] = [...await fieldCls.get(ids)];
 		}
@@ -109,7 +109,7 @@ const requestHandler = {
 				}
 				let result = {};
 				try {
-					result = await requestHandler[pathObj['x-path-type']][method.toLowerCase()]({...info, ...{db}}, {body: body});
+					result = await requestHandler[pathObj['x-path-type']][method.toLowerCase()]({...info, ...{db}}, {body});
 				} catch (err) {
 					result = {statusCode: err.status, response: err};
 					if (batchStatusCode === OK) {
@@ -467,7 +467,6 @@ export default async (distDir, config) => {
 					}
 				}
 				catch (err) {
-					console.log("Error", err);
 					result = {statusCode: err.status, response: err};
 				}
 				res.status(result.statusCode).jsonp(result.response);
