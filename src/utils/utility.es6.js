@@ -32,23 +32,7 @@ export const debugPromise = (marker) => [
 	(data) => { console.error(`(${marker}) REJECTED:`, JSON.stringify(data)); throw  data; }
 ];
 
-export function toCamelCase(str) {
-	return str
-			.replace(/\s(.)/g, l => l.toUpperCase())
-			.replace(/\s/g,    ''                  )
-			.replace(/^(.)/,   l => l.toLowerCase());
-}
-
-export const simpleSpaced = (str) => str.replace(/\s+/mg, ' ');
-
-export const humanMsg = (strings, ...values) => {
-	let result = strings[0];
-	for (let [val, str] of _(values).zip(strings.slice(1))) {
-		result += val + simpleSpaced(str);
-	}
-	return trim(result);
-};
-
+//TODO remove after sw from utilities is fixed
 export const sw = (val) => (...map) => {
 	if (map.length === 1) { // one case per result
 		return ( (val in map[0]) ? map[0][val] : map[0].default );

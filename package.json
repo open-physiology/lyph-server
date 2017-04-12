@@ -32,7 +32,8 @@
     "node-rest-client": "~1",
     "promisify": "~0.0",
     "swagger-express-middleware": "~0.4",
-    "open-physiology-model": "https://github.com/mhelvens/open-physiology-model.git#command-pattern",
+    "open-physiology-model": "open-physiology/open-physiology-model.git#command-pattern",
+    "utilities": "open-physiology/utilities",
     "rxjs": "~5"
   },
   "devDependencies": {
@@ -74,6 +75,6 @@
     "thenify": "~3",
     "thenify-all": "~1",
     "webpack": "^1.13.1",
-    "webpack-node-externals": "^1.3.3"
+    "webpack-node-externals": "1.5"
   }
 }

@@ -38,6 +38,10 @@ module.exports = {
 			{
 				test: /open-physiology-model/,
 				loader: 'babel'
+			},
+			{
+				test: /node_modules[\/\\]utilities[\/\\]src[\/\\].*\.js$/,
+				loader: 'babel-loader'
 			}
 		]
 	}

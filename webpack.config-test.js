@@ -7,7 +7,8 @@ var nodeModules = {};
 fs.readdirSync('node_modules')
 	.filter(function(x) { return ['.bin'].indexOf(x) === -1 })
 	.filter(function(x) { return ['open-physiology-model'].indexOf(x) === -1 })
-	.forEach(function(mod) { nodeModules[mod] = 'commonjs ' + mod });
+    .filter(function(x) { return ['utilities'].indexOf(x) === -1 })
+    .forEach(function(mod) { nodeModules[mod] = 'commonjs ' + mod });
 
 module.exports = {
 	devtool: 'source-map',
@@ -27,9 +28,13 @@ module.exports = {
 				loader: 'json'
 			},
 			{
-				test: /open-physiology-model\/src\/index\.js$/,
+				test: /open-physiology-model[\/\\]src[\/\\]index\.js$/,
 				loader: 'babel'
 			},
+			{
+				test: /node_modules[\/\\]utilities[\/\\]src[\/\\].*\.js$/,
+				loader: 'babel-loader'
+			}
 		]
 	},
 	output: {
@@ -42,5 +47,7 @@ module.exports = {
 		__filename: true,
 		__dirname:  false
 	},
-	externals: [require('webpack-node-externals')()].concat(nodeModules)
+	externals: [require('webpack-node-externals')({
+        whitelist: ['utilities']
+    })].concat(nodeModules)
 };
