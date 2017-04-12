@@ -314,7 +314,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
     const singularB 	= relB.resourceClass.singular;
 
     const singularIdKeyA = `${singularA::camelCase()}ID`;
-    const singularIdKeyB = `${(relA.resourceClass === relB.resourceClass? "other " : "") + (singularB)::camelCase()}ID`;
+    const singularIdKeyB = `${((relA.resourceClass === relB.resourceClass? "other " : "") + singularB)::camelCase()}ID`;
     const pluralKeyA     = pluralA::camelCase();
 
     const msg = relA.resourceClass === relB.resourceClass? pluralA: singularA + " and " + singularB;
@@ -561,7 +561,7 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
     const singularB 	= relB.resourceClass.singular;
 
     const singularIdKeyA = `${singularA::camelCase()}ID`;
-    const singularIdKeyB = `${(relA.resourceClass === relB.resourceClass? "other " : "") + (singularB)::camelCase()}ID`;
+    const singularIdKeyB = `${((relA.resourceClass === relB.resourceClass? "other " : "") + singularB)::camelCase()}ID`;
     const pluralKeyA     = pluralA::camelCase();
 
     const msg = relA.resourceClass === relB.resourceClass? pluralA: singularA + " and " + singularB;

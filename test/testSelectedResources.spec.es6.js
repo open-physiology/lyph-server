@@ -57,79 +57,79 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
         });
     });
 
-    // describeResourceClass('Type', () => {
-    //
-    //     describeEndpoint('/types', ['GET', 'POST'], () => {
-    //
-    //         withValidPathParams(()=> {}, () => {
-    //             GET("returns types", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
-    //                 for (let res of resources) {
-    //                     expect(res).to.have.property('id');
-    //                     expect(res).to.have.property('class').that.equals("Type");
-    //                     expect(res).to.have.property('<--DefinesType');
-    //                 }
-    //             }));
-    //
-    //             POST("creates a new type", r=>r.send({
-    //                 name: "Urine",
-    //                 definition: initial.material2.id
-    //             }).expect(CREATED).expect(isArray)
-    //                  .resources((resources) => {
-    //                     expect(resources).to.have.length.of(1);
-    //                     for (let res of resources) {
-    //                         expect(res).to.have.property('name').that.equals("Urine");
-    //                         expect(res).to.have.property('id');
-    //                         expect(res).to.have.property('<--DefinesType');
-    //                     }
-    //                 }));
-    //         });
-    //     });
-    // });
-    //
-    // describeResourceClass('CanonicalTreeBranch', () => {
-    //
-    //     describeEndpoint('/canonicalTreeBranches', ['POST'], () => {
-    //
-    //         withValidPathParams(()=> {}, () => {
-    //
-    //             POST("creates a new canonical tree branch", r=>r.send({
-    //                 name: "SLN 2st level branch",
-    //                 conveyingLyphType: initial.lyphType2.id,
-    //                 parentTree: initial.canonicalTree1_2.id,
-    //                 childTree: initial.canonicalTree1_3.id
-    //             }).expect(CREATED).then(async() => {
-    //
-    //                 let nodes = await requestResources(`/canonicalTrees`);
-    //                 expect(nodes).to.have.length.of(3);
-    //                 let branches = await requestResources(`/canonicalTreeBranches`);
-    //                 expect(branches).to.have.length.of(2);
-    //
-    //             }));
-    //         });
-    //     });
-    //
-    //     describeEndpoint('/canonicalTreeBranches/{id}', ['GET'], () => {
-    //         withValidPathParams(()=>({id: initial.canonicalTreeBranch1_2.id}), () => {
-    //
-    //             GET("returns a resource with expected fields", r=>r.resource((res) => {
-    //                 expect(res).to.have.property('id').that.equals(initial.canonicalTreeBranch1_2.id);
-    //                 expect(res).to.have.property('name');
-    //                 expect(res).to.have.property('id');
-    //                 expect(res).to.have.property('class').that.equals("CanonicalTreeBranch");
-    //                 expect(res['-->BranchesTo']).not.to.be.null;
-    //                 expect(res['<--HasBranch']).not.to.be.null;
-    //                 expect(res['-->IsConveyedBy']).not.to.be.null;
-    //                 expect([...res['-->BranchesTo']].map(x => x.id)).to.include.members(
-    //                     [...initial.canonicalTreeBranch1_2['-->BranchesTo']].map(x => x.id));
-    //                 expect([...res['<--HasBranch']].map(x => x.id)).to.include.members(
-    //                     [...initial.canonicalTreeBranch1_2['<--HasBranch']].map(x => x.id));
-    //                 expect([...res['-->IsConveyedBy']].map(x => x.id)).to.include.members(
-    //                     [...initial.canonicalTreeBranch1_2['-->IsConveyedBy']].map(x => x.id));
-    //             }));
-    //         });
-    //     });
-    // });
-    //
+    describeResourceClass('Type', () => {
+
+        describeEndpoint('/types', ['GET', 'POST'], () => {
+
+            withValidPathParams(()=> {}, () => {
+                GET("returns types", r=>r.expect(OK).expect(isArray).resources((resources) =>  {
+                    for (let res of resources) {
+                        expect(res).to.have.property('id');
+                        expect(res).to.have.property('class').that.equals("Type");
+                        expect(res).to.have.property('<--DefinesType');
+                    }
+                }));
+
+                POST("creates a new type", r=>r.send({
+                    name: "Urine",
+                    definition: initial.material2.id
+                }).expect(CREATED).expect(isArray)
+                     .resources((resources) => {
+                        expect(resources).to.have.length.of(1);
+                        for (let res of resources) {
+                            expect(res).to.have.property('name').that.equals("Urine");
+                            expect(res).to.have.property('id');
+                            expect(res).to.have.property('<--DefinesType');
+                        }
+                    }));
+            });
+        });
+    });
+
+    describeResourceClass('CanonicalTreeBranch', () => {
+
+        describeEndpoint('/canonicalTreeBranches', ['POST'], () => {
+
+            withValidPathParams(()=> {}, () => {
+
+                POST("creates a new canonical tree branch", r=>r.send({
+                    name: "SLN 2st level branch",
+                    conveyingLyphType: initial.lyphType2.id,
+                    parentTree: initial.canonicalTree1_2.id,
+                    childTree: initial.canonicalTree1_3.id
+                }).expect(CREATED).then(async() => {
+
+                    let nodes = await requestResources(`/canonicalTrees`);
+                    expect(nodes).to.have.length.of(3);
+                    let branches = await requestResources(`/canonicalTreeBranches`);
+                    expect(branches).to.have.length.of(2);
+
+                }));
+            });
+        });
+
+        describeEndpoint('/canonicalTreeBranches/{id}', ['GET'], () => {
+            withValidPathParams(()=>({id: initial.canonicalTreeBranch1_2.id}), () => {
+
+                GET("returns a resource with expected fields", r=>r.resource((res) => {
+                    expect(res).to.have.property('id').that.equals(initial.canonicalTreeBranch1_2.id);
+                    expect(res).to.have.property('name');
+                    expect(res).to.have.property('id');
+                    expect(res).to.have.property('class').that.equals("CanonicalTreeBranch");
+                    expect(res['-->BranchesTo']).not.to.be.null;
+                    expect(res['<--HasBranch']).not.to.be.null;
+                    expect(res['-->IsConveyedBy']).not.to.be.null;
+                    expect([...res['-->BranchesTo']].map(x => x.id)).to.include.members(
+                        [...initial.canonicalTreeBranch1_2['-->BranchesTo']].map(x => x.id));
+                    expect([...res['<--HasBranch']].map(x => x.id)).to.include.members(
+                        [...initial.canonicalTreeBranch1_2['<--HasBranch']].map(x => x.id));
+                    expect([...res['-->IsConveyedBy']].map(x => x.id)).to.include.members(
+                        [...initial.canonicalTreeBranch1_2['-->IsConveyedBy']].map(x => x.id));
+                }));
+            });
+        });
+    });
+
     describeResourceClass('Lyph', () => {
 
         //Resources
@@ -158,7 +158,7 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
         });
 
         //Specific resource
-        describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {
+        describeEndpoint('/lyphs/{id}', ['GET', 'POST', 'PUT'/*, 'DELETE'*/], () => {
 
             withInvalidPathParams("non-existing", {id: 999999});
 
@@ -208,12 +208,14 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                         }
                     }));
 
+/*
                 DELETE("delete a given external resource", r=>r.expect(NO_CONTENT).then(async() => {
                     let res = await requestSingleResource(`/lyphs/${initial.mainLyph1.id}`);
                     let res2 = await requestSingleResource(`/lyphs/${initial.mainLyph2.id}`);
                     expect(res).to.be.undefined;
                     expect(res2).to.have.property("id").that.equals(initial.mainLyph2.id);
                 }));
+*/
             });
         });
 
@@ -230,7 +232,7 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
         });
 
         //Specific related resource
-        describeEndpoint('/lyphs/{lyphID}/layers/{otherLyphID}', ['PUT', 'DELETE'], () => {
+        describeEndpoint('/lyphs/{lyphID}/layers/{otherLyphID}', ['PUT'/*, 'DELETE'*/], () => {
 
             withValidPathParams(()=>({lyphID: initial.mainLyph1.id, otherLyphID: initial.lyph3.id}), () => {
 
@@ -247,10 +249,12 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                         }
                     }));
 
+/*
                 DELETE("removes layer", r=>r.expect(NO_CONTENT).then(async() => {
                     let res = await requestResources(`/lyphs/${initial.mainLyph1.id}/layers`);
                     expect(res).to.have.length.of(2);
                 }));
+*/
             });
         });
     });
