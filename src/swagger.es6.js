@@ -4,13 +4,13 @@
 
 /* external libs */
 import isUndefined from 'lodash-bound/isUndefined';
-import isEmpty from 'lodash-bound/isEmpty';
-import cloneDeep from 'lodash/cloneDeep';
+import isEmpty     from 'lodash-bound/isEmpty';
+import cloneDeep   from 'lodash/cloneDeep';
+import camelCase   from 'lodash-bound/camelCase';
 
 /* local stuff */
-import {toCamelCase, modelClasses, resources, relationships} from './utils/utility.es6.js';
+import {modelClasses, resources, relationships} from './utils/utility.es6.js';
 import {OK, CREATED, NO_CONTENT} from './http-status-codes.es6.js';
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // utilities                                                                                                          //
@@ -117,7 +117,7 @@ const BACKWARD = Symbol('BACKWARD');
 function addResourceEndpoint(cls) {
 
     const {singular, plural, abstract} = cls;
-	const pluralKey     = toCamelCase(plural);
+	const pluralKey     = plural::camelCase();
 
 	resourceEndpoints[`/${pluralKey}`] = {
 		'x-path-type': 'resources',
@@ -135,7 +135,7 @@ function addResourceEndpoint(cls) {
 			post: {
 				summary: `create a new ${singular}`,
 				parameters: [{
-					name:        toCamelCase(`new ${singular}`),
+					name:        `new ${singular}`::camelCase(),
 					in:          'body',
 					description: `the new ${singular} to create`,
 					required:    true,
@@ -158,8 +158,8 @@ function addSpecificResourceEndpoint(cls) {
 
     const {singular, plural, abstract} = cls;
 
-    const singularIdKey = `${toCamelCase(singular)}ID`;
-    const pluralKey     = toCamelCase(plural);
+    const singularIdKey = `${singular::camelCase()}ID`;
+    const pluralKey     = plural::camelCase();
 
     resourceEndpoints[`/${pluralKey}/{${singularIdKey}}`] = {
         'x-path-type': 'specificResources',
@@ -195,7 +195,7 @@ function addSpecificResourceEndpoint(cls) {
                 required:    true,
                 type:        'integer'
             }, {
-                name:        toCamelCase(`new ${singular}`),
+                name:        `new ${singular}`::camelCase(),
                 in:          'body',
                 description: `a (partial) ${singular} object with the data that should be updated`,
                 required:    true,
@@ -233,7 +233,7 @@ function addSpecificResourceEndpoint(cls) {
                     required:    true,
                     type:        'integer'
                 }, {
-                    name:        toCamelCase(`new ${singular}`),
+                    name:        `new ${singular}`::camelCase(),
                     in:          'body',
                     description: `the new ${singular} to replace the old one with`,
                     required:    true,
@@ -264,8 +264,8 @@ function addRelatedResourceEndpoint(cls, i, direction) {
     const singularA 	= relA.resourceClass.singular;
     const pluralB   	= relB.resourceClass.plural;
 
-    const singularIdKeyA = `${toCamelCase(singularA )}ID`;
-    const pluralKeyA     = toCamelCase(pluralA);
+    const singularIdKeyA = `${singularA::camelCase()}ID`;
+    const pluralKeyA     = pluralA::camelCase();
 
     resourceEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}`] = {
         'x-path-type': 'relatedResources',
@@ -313,9 +313,9 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
     const pluralB   	= relB.resourceClass.plural;
     const singularB 	= relB.resourceClass.singular;
 
-    const singularIdKeyA = `${toCamelCase(singularA )}ID`;
-    const singularIdKeyB = `${toCamelCase((relA.resourceClass === relB.resourceClass? "other " : "") + (singularB))}ID`;
-    const pluralKeyA     = toCamelCase(pluralA);
+    const singularIdKeyA = `${singularA::camelCase()}ID`;
+    const singularIdKeyB = `${(relA.resourceClass === relB.resourceClass? "other " : "") + (singularB)::camelCase()}ID`;
+    const pluralKeyA     = pluralA::camelCase();
 
     const msg = relA.resourceClass === relB.resourceClass? pluralA: singularA + " and " + singularB;
 
@@ -346,7 +346,7 @@ function addSpecificRelatedResourceEndpoint(cls, i, direction) {
                     required:    true,
                     type:        'integer'
                 }, {
-                    name:        toCamelCase(`new ${cls.name}`),
+                    name:        `new ${cls.name}`::camelCase(),
                     in:          'body',
                     description: `properties of a new ${cls.name} relationship between given ${msg}`,
                     required:    true,
@@ -414,7 +414,7 @@ function addSpecificRelationshipEndpoint(cls) {
 
     const {abstract} = cls;
 
-    const singularIdKey = `${toCamelCase(cls.name)}ID`;
+    const singularIdKey = `${cls.name::camelCase()}ID`;
 
     relationshipEndpoints[`/${cls.name}/{${singularIdKey}}`] = {
         'x-path-type': 'specificRelationships',
@@ -450,7 +450,7 @@ function addSpecificRelationshipEndpoint(cls) {
                 required:    true,
                 type:        'integer'
             }, {
-                name:        toCamelCase(`new ${cls.name}`),
+                name:        `new ${cls.name}`::camelCase(),
                 in:          'body',
                 description: `a (partial) ${cls.name} relationship object with the data that should be updated`,
                 required:    true,
@@ -488,7 +488,7 @@ function addSpecificRelationshipEndpoint(cls) {
                     required:    true,
                     type:        'integer'
                 }, {
-                    name:        toCamelCase(`new ${cls.name}`),
+                    name:        `new ${cls.name}`::camelCase(),
                     in:          'body',
                     description: `the new ${cls.name} relationship to replace the old one with`,
                     required:    true,
@@ -514,8 +514,8 @@ function addRelatedRelationshipEndpoint(cls, i, direction) {
 
     const pluralA        = relA.resourceClass.plural;
     const singularA 	 = relA.resourceClass.singular;
-    const singularIdKeyA = `${toCamelCase(singularA )}ID`;
-    const pluralKeyA     = toCamelCase(pluralA);
+    const singularIdKeyA = `${singularA::camelCase()}ID`;
+    const pluralKeyA     = pluralA::camelCase();
 
     relationshipEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${relName}`] = {
         'x-path-type': 'relatedRelationships',
@@ -560,9 +560,9 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
     const pluralB   	= relB.resourceClass.plural;
     const singularB 	= relB.resourceClass.singular;
 
-    const singularIdKeyA = `${toCamelCase(singularA )}ID`;
-    const singularIdKeyB = `${toCamelCase((relA.resourceClass === relB.resourceClass? "other " : "") + (singularB))}ID`;
-    const pluralKeyA     = toCamelCase(pluralA);
+    const singularIdKeyA = `${singularA::camelCase()}ID`;
+    const singularIdKeyB = `${(relA.resourceClass === relB.resourceClass? "other " : "") + (singularB)::camelCase()}ID`;
+    const pluralKeyA     = pluralA::camelCase();
 
     const msg = relA.resourceClass === relB.resourceClass? pluralA: singularA + " and " + singularB;
 
@@ -617,7 +617,7 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
                     required:    true,
                     type:        'integer'
                 }, {
-                    name:        toCamelCase(`new ${cls.name}`),
+                    name:        `new ${cls.name}`::camelCase(),
                     in:          'body',
                     description: `a (partial) ${cls.name} relationship object with the data that should be updated`,
                     required:    true,
@@ -671,7 +671,7 @@ function addSpecificRelationshipByResourceEndpoint(cls, i, direction) {
                         required: true,
                         type: 'integer'
                     }, {
-                        name:        toCamelCase(`new ${cls.name}`),
+                        name:        `new ${cls.name}`::camelCase(),
                         in:          'body',
                         description: `the new ${cls.name} relationship to replace the old one with`,
                         required:    true,

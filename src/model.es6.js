@@ -9,8 +9,9 @@ import cloneDeep from 'lodash-bound/cloneDeep';
 
 import './utils/loadRxjs.es6.js';
 import modelFactory from "../node_modules/open-physiology-model/src/index.js";
-import { customError, humanMsg } from './utils/utility.es6.js';
+import { customError} from './utils/utility.es6.js';
 import { NOT_FOUND } from './http-status-codes.es6.js';
+import {humanMsg} from 'utilities';
 
 const printCommands = false;
 const printCommits = false;

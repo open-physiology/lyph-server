@@ -30,6 +30,8 @@ import {
 	INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
 import { createModelWithFrontend } from './model.es6.js';
+//import {sw} from 'utilities'; //TODO: replace sw from utility.es6.js after it is fixed
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // request handlers                                                                                                   //
@@ -465,6 +467,7 @@ export default async (distDir, config) => {
 					}
 				}
 				catch (err) {
+					console.log("Error", err);
 					result = {statusCode: err.status, response: err};
 				}
 				res.status(result.statusCode).jsonp(result.response);

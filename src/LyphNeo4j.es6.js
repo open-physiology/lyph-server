@@ -19,11 +19,12 @@ import {
 	arrowEnds,
 	matchLabelsQueryFragment,
 	extractRelationshipFields,
-	humanMsg,
 	arrowMatch,
 	extractIds,
     resources
 } from './utils/utility.es6.js';
+import {humanMsg} from 'utilities';
+
 import {
 	OK,
 	CREATED,
