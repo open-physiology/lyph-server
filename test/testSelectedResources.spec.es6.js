@@ -49,7 +49,7 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                         for (let response of responses){
                             expect(response).has.property("statusCode");
                             expect(response.statusCode === CREATED).to.be.equal(true);
-                            //NK: this is to make sure working structure retaining initial method call is not returned beack in response
+                            //NK: this is to make sure working structure retaining initial method call is not returned back in response
                             expect(response).not.to.have.property("operation");
                         }
                     }));
@@ -174,8 +174,8 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                     expect(res).to.have.property('thickness').that.deep.equals({value: 1});
                     expect(res).to.have.property('length').that.deep.equals({min: 1, max: 10});
                     //TODO: HasAxis relationship does not turn into HasLongitudinalBorder
-                    //expect([...res['-->HasLongitudinalBorder']].map(x => x.id)).to.include.members(
-                    //   [...initial.mainLyph1['-->HasLongitudinalBorder']].map(x => x.id));
+                    expect([...res['-->HasLongitudinalBorder']].map(x => x.id)).to.include.members(
+                      [...initial.mainLyph1['-->HasLongitudinalBorder']].map(x => x.id));
                     expect([...res['-->HasLayer']].map(x => x.id)).to.include.members(
                         [...initial.mainLyph1['-->HasLayer']].map(x => x.id));
                     expect([...res['-->CorrespondsTo']].map(x => x.id)).to.include.members(
@@ -188,13 +188,13 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
 
                 POST("updates a given resource", r=>r.send({
                     name: "Kidney 1",
-                    //materials: [initial.materialType2.id]
+                    materials: [initial.materialType2.id]
                 }).expect(OK).expect(isArray)
                     .resources((resources) => {
                     expect(resources).to.have.length.of.at.least(1);
                     for (let res of resources) {
                         expect(res).to.have.property('name').that.equals("Kidney 1");
-                        //expect([...res['-->ContainsMaterial']].map(x => x.id)).to.include.members([initial.materialType2.id]);
+                        expect([...res['-->ContainsMaterial']].map(x => x.id)).to.include.members([initial.materialType2.id]);
                     }
                 }));
 
@@ -208,14 +208,12 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                         }
                     }));
 
-/*
                 DELETE("delete a given external resource", r=>r.expect(NO_CONTENT).then(async() => {
                     let res = await requestSingleResource(`/lyphs/${initial.mainLyph1.id}`);
                     let res2 = await requestSingleResource(`/lyphs/${initial.mainLyph2.id}`);
                     expect(res).to.be.undefined;
                     expect(res2).to.have.property("id").that.equals(initial.mainLyph2.id);
                 }));
-*/
             });
         });
 
@@ -249,12 +247,11 @@ import {OK, NO_CONTENT, CREATED} from "../src/http-status-codes.es6";
                         }
                     }));
 
-/*
                 DELETE("removes layer", r=>r.expect(NO_CONTENT).then(async() => {
                     let res = await requestResources(`/lyphs/${initial.mainLyph1.id}/layers`);
                     expect(res).to.have.length.of(2);
                 }));
-*/
+
             });
         });
     });

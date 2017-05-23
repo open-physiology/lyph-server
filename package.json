@@ -32,7 +32,7 @@
     "node-rest-client": "~1",
     "promisify": "~0.0",
     "swagger-express-middleware": "~0.4",
-    "open-physiology-model": "open-physiology/open-physiology-model.git#command-pattern",
+    "open-physiology-model": "open-physiology/open-physiology-model",
     "utilities": "open-physiology/utilities",
     "rxjs": "~5"
   },

@@ -434,7 +434,6 @@ import {resources} from '../src/utils/utility.es6.js';
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
     describeResourceClass('Correlation', () => {
 
         describeEndpoint('/correlations/{id}', ['GET', 'POST', 'PUT', 'DELETE'], () => {

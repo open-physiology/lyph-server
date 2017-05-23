@@ -30,11 +30,11 @@ export const createModelWithFrontend = (db) => {
                 res = await db.getSpecificResources(cls, [id]);
             } else {
                 if (cls.isRelationship){
-                    let id = await db.createRelationship(cls,
+                    res = await db.createRelationship(cls,
                         {clsA: model[values[1].class], idA: values[1].id},
                         {clsB: model[values[2].class], idB: values[2].id},
                         values);
-                    res = await db.getSpecificRelationships(cls, [id]);
+                    //res = await db.getSpecificRelationships(cls, [id]);
                 }
             }
             if (printCommits) {console.log("commit_new returns", res[0]); }
@@ -50,12 +50,13 @@ export const createModelWithFrontend = (db) => {
             if (cls.isResource){
                 await db.updateResource(cls, entity.id, newValues);
                 res = await db.getSpecificResources(cls, [entity.id]);
-            } else {
-                if (cls.isRelationship){
-                    await db.updateRelationshipByID(cls, entity.id, newValues);
-                    res = await db.getSpecificRelationships(cls, [entity.id]);
-                }
             }
+            // else {
+            //     if (cls.isRelationship){
+            //         await db.updateRelationshipByID(cls, entity.id, newValues);
+            //         res = await db.getSpecificRelationships(cls, [entity.id]);
+            //     }
+            // }
             if (printCommits) { console.log("commit_edit returns", res[0]); }
             return res[0];
         },
@@ -66,9 +67,10 @@ export const createModelWithFrontend = (db) => {
             let cls = model[entity.class];
             if (cls.isResource){
                 await db.deleteResource(cls, entity.id);
-            } else {
+            }
+            else {
                 if (cls.isRelationship){
-                    await db.deleteRelationshipByID(cls, entity.id);
+                    //await db.deleteRelationshipByID(cls, entity.id);
                 }
             }
         },

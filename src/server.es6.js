@@ -38,8 +38,6 @@ import { createModelWithFrontend } from './model.es6.js';
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 let model;
 
-// TODO: direct calls to DB are needed to establish correct class of the entity by its id
-
 /*Helpers*/
 async function createModelResource(db, cls, fields, options = {}){
 	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
@@ -52,16 +50,12 @@ async function createModelResource(db, cls, fields, options = {}){
 			fields[fieldName] = [...await fieldCls.get(ids)];
 		}
 	}
-	// TODO: Maybe we don't need this loop at all anymore (no longer converting id to href)
-	// TODO: response: we still need it, maybe test that model library can create resources with IDs in shortcut fields
 	return cls.new(fields, options);
 }
 
-//TODO: getFullRelationships is used to fetch all relationships and then find a specific one given other side ID
-//TODO: This can be optimized: model library can provide an operation to get specific relationship
-async function getFullRelationships(db, cls, id, relName){
+async function getRelatedResources(db, cls, id, relName){
 	let resource = await cls.get(id);
-	return await Promise.all([...resource[relName]].map(rel => model[rel.class].get(rel.id)));
+	return [...resource[relName]];
 }
 
 const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
@@ -71,15 +65,8 @@ const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
 			cls: model[pathObj['x-resource-type']]
 		})],
 		[['relatedResources', 'specificRelatedResource'], ()=> ({
-			cls: model[pathObj['x-relationship-type']],
-			relA: model[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
-		})],
-		[['relationships', 'specificRelationships'], ()=>({
-			cls: model[pathObj['x-relationship-type']]
-		})],
-		[['relatedRelationships', 'specificRelationshipByResources'], ()=>({
-			cls: model[pathObj['x-relationship-type']],
-			relA: model[pathObj['x-relationship-type']].domainPairs[pathObj['x-i']][pathObj['x-A']]
+			cls: model[pathObj['x-resource-type']],
+			relA: model[pathObj['x-resource-type']].relationships[pathObj['x-relationship-type']]
 		})]
 );
 
@@ -90,6 +77,7 @@ const requestHandler = {
 			return {statusCode: NO_CONTENT};
 		}
 	},
+
 	batch: {
 		async post({db}, req, res){
 			let batchStatusCode = OK;
@@ -163,12 +151,6 @@ const requestHandler = {
 			return {statusCode: CREATED, entity: entity};
 		}
 	},
-	relationships: /*get */  {
-		async get({db, cls, doCommit}, req, res) {
-			let response = [...await cls.getAll()].map(r => r.toJSON());
-			return {statusCode: OK, response: response};
-		}
-	},
 
 	specificResources: /*get, post, put, delete*/ {
 		async get({db, cls }, req, res) {
@@ -198,47 +180,12 @@ const requestHandler = {
 			return {statusCode: NO_CONTENT, entity: entity};
 		}
 	},
-	specificRelationships: /*get, post, put, delete*/ {
-		async get({db, cls}, req, res) {
-			let response = [...await cls.get(req.pathParams.ids)].map(r => r.toJSON());
-			return {statusCode: OK, response: response};
-		},
-		async post({db, cls}, req, res) {
-			let entity = await cls.get(req.pathParams.id);
-			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
-			return {statusCode: OK, entity: entity};
-		},
-		async put({db, cls}, req, res) {
-			let entity = await cls.get(req.pathParams.id);
-			for (let fieldName of Object.keys(entity.fields)) {
-				let fieldSpec = entity.constructor.properties[fieldName];
-				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
-			}
-			for (let fieldName of Object.keys(req.body)) {
-				let fieldSpec = entity.constructor.properties[fieldName];
-				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
-			}
-			return {statusCode: OK, entity: entity};
-		},
-		async delete({db, cls}, req, res) {
-			let entity = await cls.get(req.pathParams.id);
-			entity.delete();
-			return {statusCode: NO_CONTENT, entity: entity};
-		}
-	},
 
 	relatedResources: /*get*/ {
 		async get({db, cls, relA}, req, res) {
-			let rels = await getFullRelationships(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
-			let related = await Promise.all(rels.map(x => model[x[2].class].get(x[2].id)));
+			let rels = await getRelatedResources(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
+			let related = await Promise.all(rels.map(x => model[x.class].get(x.id)));
 			let response = related.map(r => r.toJSON());
-			return {statusCode: OK, response: response};
-		}
-	},
-	relatedRelationships: /* get */{
-		async get({db, cls, relA}, req, res) {
-			let rels = await getFullRelationships(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
-			let response = rels.map(r => r.toJSON());
 			return {statusCode: OK, response: response};
 		}
 	},
@@ -256,55 +203,13 @@ const requestHandler = {
 		},
 		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let rels = await getFullRelationships(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
-			let entity = rels.find(rel => (rel[2].id === idB));
+			let rels = await getRelatedResources(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
+			let entity = rels.find(rel => (rel.id === idB));
 			if (!entity){ return {statusCode: NOT_FOUND}; }
 			entity.delete();
 			return {statusCode: NO_CONTENT, entity: entity};
 		}
 	},
-	specificRelationshipByResources: /*get, post, put, delete*/ {
-		async get({db, cls, relA}, req, res) {
-			let {idA, idB} = req.pathParams;
-			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let entity = rels.find(rel => (rel[2].id === idB));
-			if (!entity){ return {statusCode: NOT_FOUND}; }
-			let response = [entity.toJSON()];
-			return {statusCode: OK, response: response};
-		},
-
-		async post({db, cls, relA}, req, res) {
-			let {idA, idB} = req.pathParams;
-			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let entity = rels.find(rel => (rel[2].id === idB));
-			if (!entity) { return {statusCode: NOT_FOUND}; }
-			for (let fieldName of Object.keys(req.body)){ entity[fieldName] = req.body[fieldName]; }
-			return {statusCode: OK, entity: entity};
-		},
-		async put({db, cls, relA}, req, res) {
-			let {idA, idB} = req.pathParams;
-			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let entity = rels.find(rel => (rel[2].id === idB));
-			if (!entity) { return {statusCode: NOT_FOUND}; }
-			for (let fieldName of Object.keys(entity.fields)) {
-				let fieldSpec = entity.constructor.properties[fieldName];
-				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
-			}
-			for (let fieldName of Object.keys(req.body)) {
-				let fieldSpec = entity.constructor.properties[fieldName];
-				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
-			}
-			return {statusCode: OK, entity: entity};
-		},
-		async delete({db, cls, relA}, req, res) {
-			let {idA, idB} = req.pathParams;
-			let rels = await getFullRelationships(db, relA.resourceClass, idA, relA.keyInResource);
-			let entity = rels.find(rel => (rel[2].id === idB));
-			if (!entity) { return {statusCode: NOT_FOUND}; }
-			entity.delete();
-			return {statusCode: NO_CONTENT, entity: entity};
-		}
-	}
 };
 
 
