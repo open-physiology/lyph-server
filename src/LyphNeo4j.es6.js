@@ -21,7 +21,7 @@ import {
 	extractRelationshipFields,
 	arrowMatch,
 	extractIds,
-    resources
+    modelClasses
 } from './utils/utility.es6.js';
 import {humanMsg} from 'utilities';
 
@@ -96,7 +96,7 @@ export default class LyphNeo4j extends Neo4j {
 				if (!resA.id::isNumber() || !resB.id::isNumber()){ continue; }
 
 				let fields = rel.toJSON();
-				let relCls = relationships[rel.class];
+				let relCls = modelClasses[rel.class];
 
 				await this.createRelationship(relCls,
 					{clsA: modelClasses[resA.class], idA: resA.id},
@@ -165,7 +165,7 @@ export default class LyphNeo4j extends Neo4j {
 				RETURN { id: n.id, cls: n.class } AS n
 			`).then(pluckData('n'));
 
-			await Promise.all(nResources.map(({id, cls}) => ({id, cls: resources[cls]})).map(recurse));
+			await Promise.all(nResources.map(({id, cls}) => ({id, cls: modelClasses[cls]})).map(recurse));
 		};
 		await recurse({ cls, id });
 
@@ -358,8 +358,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		return result.map(({A, rel, B}) => ({
 			...neo4jToData(cls, rel),
-			1: neo4jToData(resources[A.class], A),
-			2: neo4jToData(resources[B.class], B)
+			1: neo4jToData(modelClasses[A.class], A),
+			2: neo4jToData(modelClasses[B.class], B)
 		}));
     }
 
@@ -370,63 +370,6 @@ export default class LyphNeo4j extends Neo4j {
 			DELETE rel
 		`);
 	}
-
-	////////////////////////////////////////////////////
-	//Relationships by ID                             //
-	////////////////////////////////////////////////////
-
-	async getSpecificRelationships(cls, ids){
-		let result = await this.query(`
-			MATCH (A) -[rel:${matchLabelsQueryFragment(cls).join('|')}]-> (B) 
-			WHERE rel.id IN [${ids.join(',')}]
-			RETURN A, rel, B
-		`);
-
-		result = result.map(({A, rel, B}) => ({
-			...neo4jToData(cls, rel),
-			1: neo4jToData(resources[A.class], A),
-			2: neo4jToData(resources[B.class], B)}));
-
-		/* return results in proper order */
-		return ids.map((id1) => result.find(({id}) => id1 === id));
-	}
-
-
-    async updateRelationshipByID(cls, id, fields){
-		let [oldRelationship] = await this.getSpecificRelationships(cls, [id]);
-
-		await this.query({
-			statement: `
-				MATCH () -[rel:${matchLabelsQueryFragment(cls).join('|')} { id: ${id} }]-> () 
-				SET rel += {dbProperties}
-			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
-		});
-	}
-
-
-    async replaceRelationshipByID(cls, id, fields){
-		let [oldRelationship] = await this.getSpecificRelationships(cls, [id]);
-
-		await this.query({
-			statement: `
-				MATCH (A) -[old:${cls.name} { id: ${id} }]-> (B)
-				MERGE (A) -[rel:${cls.name}]-> (B)
-				SET rel      += {dbProperties}
-				SET rel.id    = ${id}
-				SET rel.class = "${cls.name}"
-			`,
-			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
-		});
-    }
-
-
-    async deleteRelationshipByID(cls, id){
-		await this.query(`
-			MATCH () -[rel:${matchLabelsQueryFragment(cls).join('|')} {id: ${id}}]- () 
-			DELETE rel
-		`);
-    }
 
 
     ////////////////////////////////////////////////////
@@ -450,7 +393,6 @@ export default class LyphNeo4j extends Neo4j {
 
 	async createRelationship(cls, {clsA, idA}, {clsB, idB}, fields = {}) {
 		if (!fields.class){ fields.class = cls.name; }
-		this.assignId(fields);
 
 		await this.query({
 			statement: `
@@ -463,7 +405,7 @@ export default class LyphNeo4j extends Neo4j {
 			parameters: {  dbProperties:  dataToNeo4j(cls, fields) } }
 		);
 
-		return fields.id;
+		return fields;
 	}
 
 
