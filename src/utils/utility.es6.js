@@ -6,9 +6,20 @@
 import _, {trim, matches} from 'lodash';
 import isUndefined from 'lodash-bound/isUndefined';
 import isNumber from 'lodash-bound/isNumber';
-import isSet from 'lodash-bound/isSet';
+import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
-import {relationships, resources } from './resources.es6.js';
+
+import './loadRxjs.es6.js';
+import modelFactory from "../../node_modules/open-physiology-model/src/index.js"
+
+export const modelRef = modelFactory();
+export const modelClasses = modelRef.classes;
+
+export const resources = {};
+
+for (let [key, value] of Object.entries(modelRef.classes)){
+	if (value.isResource) {resources[key] = value;}
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // very general stuff                                                                                                 //
@@ -19,38 +30,7 @@ export const debugPromise = (marker) => [
 	(data) => { console.error(`(${marker}) REJECTED:`, JSON.stringify(data)); throw  data; }
 ];
 
-export function toCamelCase(str) {
-	return str
-			.replace(/\s(.)/g, l => l.toUpperCase())
-			.replace(/\s/g,    ''                  )
-			.replace(/^(.)/,   l => l.toLowerCase());
-}
-
-export function def(object, field, defaultValue) {
-	if (typeof object[field] === 'undefined') {
-		object[field] = defaultValue;
-	}
-	return object[field];
-}
-
-export const or = (v, ...rest) => {
-	if (typeof v !== undefined) { return v }
-	return or(rest);
-};
-
-export const a = (object, field) => def(object, field, []);
-export const o = (object, field) => def(object, field, {});
-
-export const simpleSpaced = (str) => str.replace(/\s+/mg, ' ');
-
-export const humanMsg = (strings, ...values) => {
-	let result = strings[0];
-	for (let [val, str] of _(values).zip(strings.slice(1))) {
-		result += val + simpleSpaced(str);
-	}
-	return trim(result);
-};
-
+//TODO remove after sw from utilities is fixed
 export const sw = (val) => (...map) => {
 	if (map.length === 1) { // one case per result
 		return ( (val in map[0]) ? map[0][val] : map[0].default );
@@ -112,17 +92,7 @@ export const arrowEnds = (relA) =>
 
 export const extractFieldValues = (r) => (r.fields)? _(r.fields).mapValues((x) => x.value).value(): r;
 
-
-export const setsToArrayOfIds = (obj) => {
-	for (let [key, value] of Object.entries(obj)){
-		if (value::isSet()) {
-			obj[key] = [...value].map(val => extractFieldValues(val)).filter(val => val.id).map(val => val.id);
-		}
-	}
-	return obj;
-};
-
-/* extracts IDs frome resource or relationship fields */
+/* extracts IDs from resource or relationship fields */
 export const extractIds = (obj) => {
 	let values = _(obj).map(val => extractFieldValues(val));
 	return values.filter(x => x::isNumber() || x.id ).map(x => x::isNumber() ? x : x.id);
@@ -144,7 +114,7 @@ export function matchLabelsQueryFragment(cls, entityName){
 }
 
 /* to get relationships of a given resource*/
-export function extractRelationshipFields(A, rels, skipShortcuts){
+export function extractRelationshipFields(A, rels, includeShortcuts = true){
 	let objA = neo4jToData(resources[A.class], A);
 	let relFields = {};
 	for (let {rel, B, s} of rels){
@@ -153,21 +123,29 @@ export function extractRelationshipFields(A, rels, skipShortcuts){
 		let objB = neo4jToData(resources[B.class], B);
 
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
-		let relObj = {
-			...neo4jToData(relationships[rel.class], rel),
-			1: (s === A.id)? objA: objB,
-			2: (s === A.id)? objB: objA
-		};
-		if (relFields[fieldName]::isUndefined()){
-			relFields[fieldName] = [];
+		let props = neo4jToData(relationships[rel.class], rel);
+		//let relObj = {...props, 1: (s === A.id)? objA: objB, 2: (s === A.id)? objB: objA};
+		let relObj = { id: props.id, class: props.class };
+
+		if (relFields[fieldName]::isUndefined()){ relFields[fieldName] = []; }
+		if (relFields[fieldName]::isArray()){
+			relFields[fieldName].push(relObj);
+		} else {
+			relFields[fieldName] = relObj;
 		}
-		relFields[fieldName] = relObj;
 
 		let relA = resources[A.class].relationships[fieldName];
-		if (!skipShortcuts){
+		if ((relA.cardinality.max === 1) && relFields[fieldName]::isArray()) {
+			relFields[fieldName] = relFields[fieldName][0];
+		}
+		if (includeShortcuts){
             if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
                 if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
-                relFields[relA.shortcutKey].push(objB);
+                //relFields[relA.shortcutKey].push(objB);
+				relFields[relA.shortcutKey].push({id: objB.href, class: objB.class});
+				if (relA.cardinality.max === 1) {
+					relFields[relA.shortcutKey] = relFields[relA.shortcutKey][0];
+				}
             }
         }
 	}

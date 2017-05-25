@@ -1,23 +1,19 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // imports                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+'use strict';
 
 import _, {template} from 'lodash';
 import isString from 'lodash-bound/isString';
 import isFunction from 'lodash-bound/isFunction';
-import isNumber from 'lodash-bound/isNumber';
 import isArray from 'lodash-bound/isArray';
-import isNull from 'lodash-bound/isNull';
-import isUndefined from 'lodash-bound/isUndefined';
 
 import chai, {expect} from 'chai';
 
 import supertest   from './custom-supertest.es6.js';
-import getServer   from '../server.es6.js';
-import {resources, relationships} from '../resources.es6.js';
-import {OK, NOT_FOUND, CREATED} from "../http-status-codes.es6";
-import {extractFieldValues, setsToArrayOfIds} from '../utility.es6';
-import modelFactory from "open-physiology-model/src/index.js";
+import getServer   from '../src/server.es6.js';
+import {OK, NOT_FOUND} from '../src/http-status-codes.es6.js';
+import { createModelWithFrontend } from '../src/model.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -68,13 +64,16 @@ chai.use((_chai, utils) => {
 /* before testing: start server, wait for it, get the supertest library rolling */
 export let api, db;
 
-before(() => getServer(`${__dirname}/../`, {
+//escaping out of .tmp/mocha-webpack/dist
+before(() => getServer(`${__dirname}/../../dist/`, {
     exposeDB: true,
     dbDocker: 'neo4j',
     dbUser: 'neo4j',
     dbPass: 'nknk14',
-    dbHost: '192.168.99.100',//localhost
-    dbPort: 32769, //7474
+    dbHost: '192.168.99.100',
+    dbPort: 32769,
+    host: 'localhost',
+    port: '8888',
     dbConsoleLogging: false,
     consoleLogging: false
 }).then(({database, server}) => {
@@ -82,30 +81,15 @@ before(() => getServer(`${__dirname}/../`, {
     api = supertest(Promise)(server);
 }));
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// utility                                                                                                            //
+// utils                                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/* database operations (bypassing REST server) */
-const getAllResources   = async (className)         => await db.getAllResources(resources[className]);
-const getResources      = async (className, ids)    => await db.getSpecificResources(resources[className], ids);
-const getSingleResource = async (className, id)     => (await getResources(className, [id]))[0];
-const refreshResource   = async (res)              => Object.assign(res, await getSingleResource(res.class, res.id));
-const createResource    = async (className, fields) => await getSingleResource(className,
-                                                       await db.createResource(resources[className], fields));
-
-/* database operations that work with manifest resources (bypassing REST server) */
-const createCLResource = async (resource) => {
-    let fields = extractFieldValues(resource);
-    return await getSingleResource(resource.constructor.name, await db.createResource(resource.constructor, fields));
-};
 
 /* server request api (through our REST server) */
 export const requestResources      = async (path) => (await api.get(path)).body;
 export const requestSingleResource = async (path) => (await requestResources(path))[0];
 
-/* dynamically created, specialized functions and variables used in describing our tests */
+/* dynamically created, specialized functions and variables used in describing our test */
 export let GET, POST, PUT, DELETE;
 export let setInvalidPathParams, setValidPathParams, withInvalidPathParams, withValidPathParams;
 export let describeEndpoint;
@@ -145,7 +129,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                     describe(`(${desc} path parameters)`, () => {
                         beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
 
-                        /* run tests common to all endpoints with valid path params */
+                        /* run test common to all endpoints with valid path params */
                         if (/^\/\w+\/{\w+}$/.test(givenPath)) {
                             GET("returns an array with at least one resource of the expected class", r=>r
                                 .expect(OK)
@@ -161,7 +145,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                             );
                         }
 
-                        /* run given tests */
+                        /* run given test */
                         if (runParamTests) { runParamTests() }
                     });
                 };
@@ -173,7 +157,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                         /* set the compiled path before each test */
                         beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
 
-                        /* run tests common to all endpoints with invalid path params  */
+                        /* run test common to all endpoints with invalid path params  */
                         if (/^\/\w+\/{\w+}$/.test(givenPath)) {
                             for (let verb of supportedVerbs) {
                                 // TODO: to test this on POST and PUT, supply 'example' body from swagger
@@ -183,12 +167,12 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                             }
                         }
 
-                        /* run given tests */
+                        /* run given test */
                         if (runParamTests) { runParamTests() }
                     });
                 };
 
-                /* run tests common to all endpoints */
+                /* run test common to all endpoints */
                 if (/^\/\w+$/.test(givenPath)) {
                     GET("returns an array with resources of the expected class", r=>r
                         .expect(OK)
@@ -204,17 +188,59 @@ export const describeResourceClass = (className, runResourceClassTests) => {
                     );
                 }
 
-                /* run given tests */
+                /* run given test */
                 if (runEndpointTests) { runEndpointTests() }
 
             });
         };
 
-        /* run given tests */
+        /* run given test */
         if (runResourceClassTests) { runResourceClassTests() }
 
     });
 };
+
+export const describeBatch = (runBatchTests) => {
+    describe("/batch", () => {
+        /* DESCRIBE BLOCK: given endpoint */
+        describeEndpoint = (givenPath, supportedVerbs, runEndpointTests) => {
+            describe(givenPath, () => {
+
+                /* for setting the path parameters */
+                let compiledPath = givenPath;
+                let compilePath  = template(compiledPath, { interpolate: /{(\w+?)}/g });
+
+                /* the verb testers */
+                const verbTester = (verb) => (claim, expectations) => {
+                    it(`${verb.toUpperCase()} ${claim}`, () => expectations(api[verb](compiledPath)));
+                };
+                GET    = verbTester('get');
+                POST   = verbTester('post');
+                PUT    = verbTester('put');
+                DELETE = verbTester('delete');
+                let VERB = {GET, POST, PUT, DELETE};
+
+                /* DESCRIBE BLOCK: given valid path parameters */
+                withValidPathParams = (desc, params, runParamTests) => {
+                    if (!desc::isString()) { [desc, params, runParamTests] = ["valid", desc, params] }
+                    describe(`(${desc} path parameters)`, () => {
+                        beforeEach(() => { compiledPath = compilePath(params::isFunction() ? params() : params) });
+                        /* run given test */
+                        if (runParamTests) { runParamTests() }
+                    });
+                };
+
+                /* run given test */
+                if (runEndpointTests) { runEndpointTests() }
+            });
+        };
+
+        /* run given test */
+        if (runBatchTests) { runBatchTests() }
+
+    });
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // before each test, reset the database                                                                               //
@@ -226,27 +252,9 @@ export let dynamic = {};
 let model;
 
 /* initial database clearing */
-before(() => {
+before(async () => {
     db.clear('Yes! Delete all everythings!');
-    model = modelFactory().classes;
-});
-
-/* before each test, reset the database */
-beforeEach(async () => {
-
-    ////////////////////////////////////////////////////////////////////////
-    /*Create test resources via client library*/
-
-    // let lyph0 = model.Lyph.new({name: "Heart"});
-    // //let lyph0 = model.Lyph.new({name: "Heart", longitudinalBorders: []});
-    // let border1 = model.Border.new({nature: "open"});
-    // let border2 = model.Border.new({nature: "closed"});
-    // lyph0.longitudinalBorders = [border1, border2];
-    // await border1.commit();
-    // await border2.commit();
-    // await lyph0.commit();
-
-
+    model = createModelWithFrontend(db);
 
     /* external resources */
     initial.externalResource1 = model.ExternalResource.new({
@@ -255,43 +263,35 @@ beforeEach(async () => {
         type:  "fma"});
 
     /* borders */
-    //for mainLyph1, mainLyph2
-    initial.border1 = model.Border.new({ nature: "open" });
-    initial.border2 = model.Border.new({ nature: "closed" });
-    initial.border3 = model.Border.new({ nature: "open" });
-    initial.border4 = model.Border.new({ nature: "closed" });
-    //for lyph1, lyph2, lyph3
-    initial.border5  = model.Border.new({ nature: "open" });
-    initial.border6  = model.Border.new({ nature: "closed" });
-    initial.border7  = model.Border.new({ nature: "open" });
-    initial.border8  = model.Border.new({ nature: "closed" });
-    initial.border9  = model.Border.new({ nature: "open" });
-    initial.border10 = model.Border.new({ nature: "closed" });
+    for (let i = 1; i <= 10; i++){
+        initial["border" + i] = model.Border.new({ nature: "open", name: "Initial border #" + i});
+    }
 
     /* materials */
-    initial.material1 = model.Material.new({ name: "Blood" });
-    initial.material2 = model.Material.new({ name: "Urine" });
+    initial.material1 = model.Material.new({ name: "Blood"});
+    initial.material2 = model.Material.new({ name: "Urine"});
+
+    /* measurables */
+    initial.measurable1 =  model.Measurable.new({ name:  "Concentration of water"});
+    initial.measurable2 =  model.Measurable.new({ name:  "Concentration of ion"});
 
     /* types */
     initial.materialType1 = model.Type.new({
-    name: "Blood",
-    definition: initial.material1});
-
-    /* measurables */
-    initial.measurable1 =  model.Measurable.new({ name:  "Concentration of water" });
-    initial.measurable2 =  model.Measurable.new({ name:  "Concentration of ion" });
+        name: "Blood", definition: initial.material1});
+    initial.materialType2 = model.Type.new({
+        name: "Urine", definition: initial.material2});
 
     /* causalities */
     initial.causality1 = model.Causality.new({
         name:   "Functional dependency",
         cause:  initial.measurable1,
-        effect: initial.measurable2
-    });
+        effect: initial.measurable2});
+
 
     /* lyphs */
     initial.lyph1 = model.Lyph.new({name: "Renal hilum", longitudinalBorders: [initial.border5, initial.border6] });
     initial.lyph2 = model.Lyph.new({name: "Renal parenchyma", longitudinalBorders: [initial.border7, initial.border8] });
-    initial.lyph = model.Lyph.new({name: "Renal capsule", longitudinalBorders: [initial.border9, initial.border10] });
+    initial.lyph3 = model.Lyph.new({name: "Renal capsule", longitudinalBorders: [initial.border9, initial.border10] });
 
     initial.mainLyph1 = model.Lyph.new({
         name      : "Kidney",
@@ -308,7 +308,7 @@ beforeEach(async () => {
 
     initial.mainLyph2 = model.Lyph.new({
         name:  "Stomach",
-        layers: [initial.lyph, initial.lyph2],
+        layers: [initial.lyph3, initial.lyph2],
         measurables: [initial.measurable2],
         longitudinalBorders: [initial.border3, initial.border4]
     });
@@ -323,23 +323,19 @@ beforeEach(async () => {
 
     initial.lyphType3 = model.Type.new({
         name: "Renal capsule type",
-        definition: initial.lyph});
+        definition: initial.lyph3});
 
     /* processes */
     initial.process1 = model.Process.new({
         name : "Blood advective process",
         transportPhenomenon: "advection",
-        //sourceLyph: initial.lyph1,       //TODO - these will be removed from model library for now
-        //targetLyph: initial.lyph2,
-        conveyingLyph: [initial.mainLyph1]
-    });
+        conveyingLyph: [initial.mainLyph1]});
 
     /* nodes */
     initial.node1 = model.Node.new({
-        //measurables: [initial.measurable1], //Note: if we uncomment this, test DELETE lyphs/{id} will fail as node anchors the lyph's measurable
+        measurables: [initial.measurable1],
         incomingProcesses:  [initial.process1],
-        locations: [initial.mainLyph1]
-    });
+        locations: [initial.mainLyph1]});
 
     /* groups */
     initial.group1 = model.Group.new({
@@ -349,16 +345,13 @@ beforeEach(async () => {
 
     /* canonical trees */
     initial.canonicalTree1 = model.CanonicalTree.new({
-        name:  "SLN"
-    });
+        name:  "SLN"});
 
     initial.canonicalTree1_2 = model.CanonicalTree.new({
-        name:  "SLN tail 1"
-    });
+        name:  "SLN tail 1"});
 
     initial.canonicalTree1_3 = model.CanonicalTree.new({
-        name:  "SLN tail 2"
-    });
+        name:  "SLN tail 2"});
 
     initial.canonicalTreeBranch1_2 = model.CanonicalTreeBranch.new({
         name:  "SLN 1st level branch",
@@ -367,15 +360,6 @@ beforeEach(async () => {
         childTree: initial.canonicalTree1_2
     });
 
-
-    // initial.canonicalTreeBranch2_3 = model.CanonicalTreeBranch.new({
-    //     name:  "SLN 2st level branch",
-    //     conveyingLyphType: initial.lyphType2,
-    //     parentTree: initial.canonicalTree1_2,
-    //     childTree: initial.canonicalTree1_3
-    // });
-
-
     /* publications */
     initial.publication1 = model.Publication.new({
         name:  "Multimodal MRI of the hippocampus in Parkinson's disease with visual hallucinations"
@@ -383,17 +367,15 @@ beforeEach(async () => {
 
     /* clinical indices */
     initial.clinicalIndex1 = model.ClinicalIndex.new({
-        name:  "NP3FRZGT MDS - Unified Parkinson's Disease Rating Scale (3.11 Freezing of Gait)"
+        name:  "NP3FRZGT MDS - Unified Parkinson's Disease Rating Scale (3.11 Freezing of Gait)",
     });
 
     initial.clinicalIndex2 = model.ClinicalIndex.new({
         name:  "NP1HALL MDS - Unified Parkinson's Disease Rating Scale (1.2 Hallucinations and Psychosis)",
-        parent: initial.clinicalIndex1
-    });
+        parent: initial.clinicalIndex1});
 
     /* correlations */
     initial.correlation1 = model.Correlation.new({
-        class: "Correlation",
         publication: initial.publication1,
         clinicalIndices: [initial.clinicalIndex1, initial.clinicalIndex2],
         measurables: [initial.measurable1, initial.measurable2]
@@ -406,184 +388,26 @@ beforeEach(async () => {
 
     /* coalescence scenarios */
     initial.coalescenceScenario1 = model.CoalescenceScenario.new({
-        lyphs: [initial.mainLyph1, initial.mainLyph2]
-    });
+        lyphs: [initial.mainLyph1, initial.mainLyph2]});
 
-    //Commit all to get IDs assigned
-    await Promise.all(Object.values(initial).map(p => p.commit()));
+    for (let key of Object.keys(initial)){ await initial[key].commit(); }
 
-    /*Create DB nodes for test resources*/
-    for (let [resName, resSpec] of Object.entries(initial)){
-        initial[resName] = await createCLResource(resSpec);
-    }
-
-    /* refresh all resource objects */
-    await Promise.all(Object.values(initial).map(refreshResource));
-
-    ///////////////////////////////////////////////////
-    //Test various direct DB operations here         //
-    ///////////////////////////////////////////////////
-
-    //Testing DB creation of resources
-    let newExternalResource1 = model.ExternalResource.new({
+    dynamic.externalResource1 = model.ExternalResource.new({
         name: "Right fourth dorsal metatarsal vein",
         uri: "http://purl.obolibrary.org/obo/FMA_44515",
         type: "fma"
     });
-    await newExternalResource1.commit();
 
-    let borders = [];
-    for (let i = 0; i <6; i++){
-        borders.push(model.Border.new({id: 500 + i, nature: "open" }));
-    }
-    let lyph  = model.Lyph.new({name:  "Liver", longitudinalBorders: [borders[0], borders[1]]});
-    let lyph1 = model.Lyph.new({name:  "Heart chamber", longitudinalBorders: [borders[2], borders[3]]});
-    let lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [borders[4], borders[5]]});
+    for (let i = 1; i <= 6; i++){ dynamic["borders" + i] = model.Border.new({nature: "open" })}
 
-    await Promise.all(borders.map(p => p.commit()));
-    await lyph.commit();
-    await lyph1.commit();
-    await lyph2.commit();
+    dynamic.lyph1 = model.Lyph.new({name:  "Aorta", longitudinalBorders: [dynamic.borders3, dynamic.borders4]});
+    dynamic.lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [dynamic.borders5, dynamic.borders6]});
 
-    /* "dynamic" contains objects with arrays of values instead of Rel$Field etc. */
-    dynamic.externalResource1 = extractFieldValues(await createCLResource(newExternalResource1));
-    dynamic.borders = [];
-    for (let i = 0; i < 6; i++){
-        dynamic.borders.push(extractFieldValues(await createCLResource(borders[i])));
-    }
-    dynamic.lyph              = setsToArrayOfIds(extractFieldValues(lyph));
-    dynamic.lyph1             = extractFieldValues(await createCLResource(lyph1));
-    dynamic.lyph2             = extractFieldValues(await createCLResource(lyph2));
-
-    //HasLayer with ID
-    await db.addRelationship(
-        resources["Lyph"].relationships["-->HasLayer"],
-        dynamic.lyph1.id, dynamic.lyph2.id, {id: 200, class: "HasLayer"});
-    await db.assertRelationshipsExist(relationships["HasLayer"], [200]);
-
-    //await testDBOperationsViaModelLibrary();
+    for (let key of Object.keys(dynamic)){ await dynamic[key].commit(); }
 });
 
-async function testDirectDBOperations(){
-
-    /* Add, update, replace, delete, get relationships (layers) */
-    let fields = extractFieldValues(module["HasLayer"]
-        .new({...{relativePosition: 1},
-            1: resources["Lyph"].new({id: initial.mainLyph1.id}),
-            2: resources["Lyph"].new({id: initial.lyph.id})}));
-
-    await db.addRelationship(resources["Lyph"].relationships["-->HasLayer"],
-        initial.mainLyph1.id, initial.lyph.id, fields);
-
-    await db.updateRelationship(resources["Lyph"].relationships["-->HasLayer"],
-       initial.mainLyph1.id, initial.lyph2.id, {relativePosition: 1});
-    await db.assertRelationshipsExist(relationships["HasLayer"], [201]);
-
-    await db.replaceRelationship(resources["Lyph"].relationships["-->HasLayer"],
-        initial.mainLyph1.id, initial.lyph2.id, {id: 202, class: "HasLayer"});
-    await db.assertRelationshipsExist(relationships["HasLayer"], [202]);
-
-    let res = await db.getAllRelationships(relationships["HasLayer"]);
-    res = [...res].map(val => extractFieldValues(val));
-
-    /* Add, update, replace, delete, get resources (various, including abstract) */
-    await db.replaceResource(resources["Lyph"], initial.mainLyph1.id, {"name": "Head"});
-    let replacedLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
-    console.log("Replaced lyph", replacedLyph);
-
-    await db.replaceResource(resources["ExternalResource"], 300, dynamic.externalResource1);
-    await db.getSpecificResources(resources["ExternalResource"], [300]);
-
-    await db.createResource(resources["Lyph"], dynamic.lyph);
-    await db.getSpecificResources(resources["Lyph"], [dynamic.lyph.id]);
-
-    await db.deleteResource(resources["Lyph"], initial.mainLyph1.id);
-    await db.deleteResource(resources["Border"], initial.border1.id);
-
-    let lyphs = await db.getAllResources(resources["Lyph"]);
-    console.log("All lyphs:", lyphs);
-
-    let allRes = await db.getAllResources(resources["Resource"]);
-    console.log("All resources:", allRes);
-
-    let relatedResources = await db.getRelatedResources(resources["Lyph"].relationships['-->HasLayer'], initial.mainLyph1.id);
-    console.log("Related resources",  relatedResources);
-
-    let mainLyph = await db.getSpecificResources(resources["Lyph"], [initial.mainLyph1.id]);
-    console.log("Main lyph", mainLyph);
-
-
-}
-
-async function testDBOperationsViaModelLibrary(){
-    let newUID = 1000;
-
-    /*Copy of the server function that replaces submitted JSON object fields with Model Library object fields*/
-    async function getFields(cls, reqFields, id){
-        let fields = {};
-        for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-            let val = reqFields[fieldName];
-            if (val::isUndefined() || val::isNull()) { continue }
-            if (fieldSpec.cardinality.max === 1){ val = [val] }
-            if (val.length > 0){
-                let objects = await db.getSpecificResources(fieldSpec.codomain.resourceClass, val);
-                reqFields[fieldName] = objects.map(o => {
-                    let props = {};
-                    for (let key of Object.keys(resources[o.class].properties)){ props[key] = o[key]; }
-                    return resources[o.class].new(props);
-                });
-                if (fieldSpec.cardinality.max === 1){ reqFields[fieldName] = reqFields[fieldName][0] }
-            }
-        }
-        if (id::isNumber()){
-            let res = cls.new(reqFields);
-            fields = extractFieldValues(res);
-            fields.id = id;
-        } else {
-            let res = cls.new(reqFields);
-            //assign new ID only if it was not given by user
-            if (!reqFields.id::isNumber()){
-                res.set('id', ++newUID, { ignoreReadonly: true });
-            }
-            await res.commit();
-            fields = extractFieldValues(res);
-        }
-        return fields;
-    }
-
-    /* Testing field replacement by model library */
-
-    // let reqFields1 = {
-    //     "thickness": { "min": 0, "class": "Range" },
-    //     "length": { "min": 0, "class": "Range" },
-    //     "cardinalityBase": {"value": 1, "class": "Value"},
-    //     "id": dynamic.lyph3.id,
-    //     "href": dynamic.lyph3.href,
-    //     "class": "Lyph",
-    //     "name": "Liver",
-    //     "axis": 500,
-    //     "longitudinalBorders": [ 501 ]
-    // };
-    //
-    // let id1 = await db.createResource(resources["Lyph"], await getFields(resources["Lyph"], reqFields1));
-    // let res1 = await db.getSpecificResources(resources["Lyph"], [id1]);
-    // console.log(res2);
-
-    let reqFields2 = {
-        name:  "SLN 2st level branch",
-        conveyingLyphType: initial.lyphType2.id,
-        parentTree: initial.canonicalTree1_2.id,
-        childTree: initial.canonicalTree1_3.id
-    };
-
-    let cls = resources["CanonicalTreeBranch"];
-
-    let id2 = await db.createResource(cls, await getFields(cls, reqFields2));
-    let res2 = await db.getSpecificResources(cls, [id2]);
-    console.log("Created resource", res2);
-}
 
 /* clear database for every tear-down */
-afterEach(() => {db.clear('Yes! Delete all everythings!');});
+//after(() => {db.clear('Yes! Delete all everythings!');});
 
 

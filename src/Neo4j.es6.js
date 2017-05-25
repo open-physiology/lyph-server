@@ -25,18 +25,28 @@ const _restClient = Symbol('_restClient');
 const _waitingFor = Symbol('_waitingFor');
 export default class Neo4j {
 
+	newUID = 0;
+
 	constructor(config) {
 		/* set up */
 		this.config = config;
 		this[_restClient] = new RestClient({ user: this.config.user, password: this.config.pass });
 		this[_waitingFor] = Promise.resolve();
 
-		/* initialize database if not yet done */
-		this.waitFor(this.query(`
-			MERGE (UID:UID)
-			SET UID.counter = coalesce(UID.counter, 0)
-		`));
+  	    this.waitFor(this.init());
+		console.log("Start with counter", this.newUID);
 	}
+
+	async init() {
+		let [{maxID}] = await this.query(`
+			MATCH (n) WITH collect(n.id) as nodeIds
+			OPTIONAL MATCH ()-[r]-() WITH nodeIds + collect(r.id) as allIds
+			UNWIND allIds as ids
+			RETURN coalesce(max(ids), 0) as maxID
+		`);
+		this.newUID = maxID;
+		console.log("Last index in DB: ", this.newUID);
+	};
 
 	/**
 	 * Clear the database and set up meta-data.
@@ -47,16 +57,12 @@ export default class Neo4j {
 		if (confirmation !== 'Yes! Delete all everythings!') {
 			throw new Error("You almost deleted everything in the database, but you didn't provide the proper confirmation phrase.");
 		}
-		//return this.query([`
-		return this.waitFor(this.query([`		
+		this.waitFor(this.query(`		
 			MATCH (n)
 			OPTIONAL MATCH (n) -[r]-> ()
-			DELETE n, r
-		`, `
-			MERGE (UID:UID)
-			SET UID.counter = 0
-		`])
-		 );
+			DELETE n, r`)
+		);
+		this.newUID = 0;
 	}
 
 	/**
