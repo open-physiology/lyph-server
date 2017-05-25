@@ -66,15 +66,14 @@
     "power-assert": "^1.4.1",
     "progress": "~1",
     "raw-loader": "~0.5",
+    "source-map-support": "^0.4.2",
     "superagent": "latest",
     "superagent-promise": "~1",
     "supertest": "~1",
     "supertest-as-promised": "~2",
     "swagger-ui": "~2",
-    "source-map-support": "^0.4.2",
     "thenify": "~3",
     "thenify-all": "~1",
-    "webpack": "^1.13.1",
-    "webpack-node-externals": "1.5"
+    "webpack": "~1"
   }
 }

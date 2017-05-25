@@ -343,18 +343,11 @@ function addSpecificRelatedResourceEndpoint(relA) {
                         description: `ID of the ${singularB} which is added to the given ${singularA}`,
                         required: true,
                         type: 'integer'
-                    }, {
-                        name: `new ${cls.name}`::camelCase(),
-                        in: 'body',
-                        description: `properties of a new ${cls.name} relationship between given ${msg}`,
-                        required: true,
-                        schema: $ref(cls.name)
                     }
                 ],
                 responses: {
-                    [OK]: {
-                        description: `an array containing one element: the full added ${cls.name} relationship`,
-                        schema: {type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1}
+                    [NO_CONTENT]: {
+                        description: `successfully added the relationship with the ${singularB}`
                     }
                 }
             },

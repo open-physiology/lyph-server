@@ -195,11 +195,14 @@ const requestHandler = {
 			let {idA, idB} = req.pathParams;
 			let resA = await relA.resourceClass.get(idA);
 			let resB = await relA.codomain.resourceClass.get(idB);
-			let entity = cls.new({...req.body,
+
+            //TODO How to create a new relationship?
+            //resA[relA.keyInResource].add(resB);
+			let entity = relA.new({
 				1: {class: resA.class, id: resA.id},
 				2: {class: resB.class, id: resB.id}
 			});
-			return {statusCode: OK, entity: entity};
+			return {statusCode: NO_CONTENT, entity: entity}; //TODO
 		},
 		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;

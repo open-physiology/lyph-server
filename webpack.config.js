@@ -5,7 +5,8 @@ var nodeModules = {};
 fs.readdirSync('node_modules')
 		.filter(function(x) { return ['.bin'].indexOf(x) === -1 })
 	    .filter(function(x) { return ['open-physiology-model'].indexOf(x) === -1 })
-		.forEach(function(mod) { nodeModules[mod] = 'commonjs ' + mod });
+        .filter(function(x) { return ['utilities'].indexOf(x) === -1 })
+    	.forEach(function(mod) { nodeModules[mod] = 'commonjs ' + mod });
 
 module.exports = {
 	devtool: 'source-map',
