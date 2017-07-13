@@ -13,7 +13,7 @@ import {initial, dynamic, describeResourceClass, describeEndpoint,
     withInvalidPathParams, withValidPathParams,
     requestSingleResource} from './testUtils.es6.js';
 import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
-import {resources} from '../src/utils/utility.es6.js';
+import {resourceClasses} from '../src/utils/utility.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -24,7 +24,7 @@ import {resources} from '../src/utils/utility.es6.js';
         "Group", "CanonicalTree", "Publication", "ClinicalIndex", "Correlation", "Coalescence",
         "CoalescenceScenario", "Type"
     ]){
-        let plural = resources[className].plural;
+        let plural = resourceClasses[className].plural;
         // it(`plural of class ${className} is defined`, () =>
         //     expect(plural).to.not.be.undefined
         // );
@@ -48,7 +48,7 @@ import {resources} from '../src/utils/utility.es6.js';
     for (let className of [
         "Template", "NodeLocation", "MeasurableLocation"
     ]){
-        let plural = resources[className].plural;
+        let plural = resourceClasses[className].plural;
         // it(`plural of class ${className} is defined`, () =>
         //     expect(plural).to.not.be.undefined
         // );
@@ -158,7 +158,10 @@ import {resources} from '../src/utils/utility.es6.js';
 
         describeEndpoint('/materials/{id}/materials', ['GET'], () => {
             withValidPathParams(()=>({id: initial.material1.id}), () => {
-                GET("returns materials",  r=>r.expect(OK).expect(isArray).resources((resources) => {}));
+                GET("returns materials",  r=>r.expect(OK).expect(isArray).resources((resources) => {
+                    //TODO test extracted resource properties if we have time
+                    //This is true for other places in this file
+                }));
             });
         });
     });

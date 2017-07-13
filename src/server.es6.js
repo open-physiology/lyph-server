@@ -58,7 +58,8 @@ async function getRelatedResources(db, cls, id, relName){
 	return [...resource[relName]];
 }
 
-const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
+const getInfo = (
+	pathObj) => sw(pathObj['x-path-type'])(
 		[['clear'], ()=>({})],
 		[['batch'], ()=>({})],
 		[['resources', 'specificResources'], ()=>({

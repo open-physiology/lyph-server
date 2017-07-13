@@ -19,65 +19,46 @@ const printReturns = false;
 
 export const createModelWithFrontend = (db) => {
     let frontend = {
-        /* Commit a newly created entity to DB */
-        async commit_new({commandType, values}) {
+
+        async commit_new(values) {
             if (printCommands) { console.log("commit_new", values); }
             values = values::cloneDeep();
             let cls = model[values.class];
-            let res;
-            if (cls.isResource){
-                let id = await db.createResource(cls, values);
-                res = await db.getSpecificResources(cls, [id]);
-            } else {
-                if (cls.isRelationship){
-                    res = await db.createRelationship(cls,
-                        {clsA: model[values[1].class], idA: values[1].id},
-                        {clsB: model[values[2].class], idB: values[2].id},
-                        values);
-                    //res = await db.getSpecificRelationships(cls, [id]);
-                }
-            }
+            let id = await db.createResource(cls, values);
+            let res = res = await db.getSpecificResources(cls, [id]);
             if (printCommits) {console.log("commit_new returns", res[0]); }
             return res[0];
         },
-
-        /* Commit an edited entity to DB */
-        async commit_edit({entity, newValues}) {
-            if (printCommands) { console.log("commit_edit", entity, newValues); }
+        async commit_edit(address, newValues) {
+            if (printCommands) { console.log("commit_edit", address, newValues); }
             newValues = newValues::cloneDeep();
-            let cls = model[entity.class];
-            let res;
-            if (cls.isResource){
-                await db.updateResource(cls, entity.id, newValues);
-                res = await db.getSpecificResources(cls, [entity.id]);
-            }
-            // else {
-            //     if (cls.isRelationship){
-            //         await db.updateRelationshipByID(cls, entity.id, newValues);
-            //         res = await db.getSpecificRelationships(cls, [entity.id]);
-            //     }
-            // }
+            let cls = model[address.class];
+            await db.updateResource(cls, address.id, newValues);
+            let res = await db.getSpecificResources(cls, [address.id]);
             if (printCommits) { console.log("commit_edit returns", res[0]); }
             return res[0];
         },
-
-        /* Commit changes after deleting entity to DB */
-        async commit_delete({entity}) {
-            if (printCommands) { console.log("commit_delete", entity); }
-            let cls = model[entity.class];
-            if (cls.isResource){
-                await db.deleteResource(cls, entity.id);
-            }
-            else {
-                if (cls.isRelationship){
-                    //await db.deleteRelationshipByID(cls, entity.id);
-                }
-            }
+        async commit_delete(address) {
+            if (printCommands) { console.log("commit_delete", address); }
+            let cls = model[address.class];
+            await db.deleteResource(cls, address.id);
         },
-
-        /* Load from DB all entities with given IDs */
-        async load(addresses, options = {}) {
-            if (printCommands) { console.log("load", addresses, options); }
+        async commit_link(address1, key, address2) {
+            if (printCommands) { console.log("commit_link", address1, key, address2); }
+            await db.createRelationship(cls,
+                {clsA: model[address[1].class], idA: address[1].id},
+                {clsB: model[address[2].class], idB: address[2].id});
+            if (printCommits) { console.log("commit_link completed"); }
+        },
+        async commit_unlink(address1, key, address2) {
+            if (printCommands) { console.log("commit_unlink", address1, key, address2); }
+            await db.deleteRelationship(cls,
+                {clsA: model[address[1].class], idA: address[1].id},
+                {clsB: model[address[2].class], idB: address[2].id});
+            if (printCommits) { console.log("commit_unlink completed"); }
+        },
+        async load(addresses) {
+            if (printCommands) { console.log("load", addresses); }
             let clsMaps = {};
             for (let address of Object.values(addresses)){
                 let cls = model[address.class];
@@ -89,9 +70,7 @@ export const createModelWithFrontend = (db) => {
             }
             let results = [];
             for (let {cls, ids} of Object.values(clsMaps)){
-                let clsResults = (cls.isResource)?
-                    await db.getSpecificResources(cls, ids):
-                    await db.getSpecificRelationships(cls, ids);
+                let clsResults = await db.getSpecificResources(cls, ids);
                 clsResults = clsResults.filter(x => !x::isNull() && !x::isUndefined());
                 if (clsResults.length < ids.length){
                     throw customError({
@@ -108,14 +87,13 @@ export const createModelWithFrontend = (db) => {
             if (printReturns) { console.log("load returns", results.map(r => JSON.stringify(r))); }
             return results;
         },
-
-        /* Load from DB all entities of a given class */
-        async loadAll(cls, options = {}) {
-            if (printCommands) { console.log("loadAll", cls.name, options); }
+        async loadAll({class: clsName}) {
+            if (printCommands) { console.log("loadAll", clsName, options); }
+            let cls = model[clsName];
             let results = [];
             if (cls.isResource){
                 results = await db.getAllResources(cls);
-            } else {
+            } else { //TODO do we need to load all relationships of a certain type?
                 if (cls.isRelationship){
                     results = await db.getAllRelationships(cls);
                 }

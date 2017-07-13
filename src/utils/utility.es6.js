@@ -10,15 +10,16 @@ import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
 
 import './loadRxjs.es6.js';
-import modelFactory from "../../node_modules/open-physiology-model/src/index.js"
+//import modelFactory from "../../node_modules/open-physiology-model/src/index.js"
+//import moduleFactory from 'open-physiology-manifest';
+import moduleFactory from "../../node_modules/open-physiology-manifest/src/index.js"
 
-export const modelRef = modelFactory();
+export const modelRef = moduleFactory();
 export const modelClasses = modelRef.classes;
 
-export const resources = {};
-
+export const resourceClasses = {};
 for (let [key, value] of Object.entries(modelRef.classes)){
-	if (value.isResource) {resources[key] = value;}
+	if (value.isResource) {resourceClasses[key] = value;}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,12 +116,12 @@ export function matchLabelsQueryFragment(cls, entityName){
 
 /* to get relationships of a given resource*/
 export function extractRelationshipFields(A, rels, includeShortcuts = true){
-	let objA = neo4jToData(resources[A.class], A);
+	let objA = neo4jToData(resourceClasses[A.class], A);
 	let relFields = {};
 	for (let {rel, B, s} of rels){
 		if (rel::isNull() || B::isNull()) { continue }
 		if (rel.class::isUndefined() || B.class::isUndefined()) { continue }
-		let objB = neo4jToData(resources[B.class], B);
+		let objB = neo4jToData(resourceClasses[B.class], B);
 
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
 		let props = neo4jToData(relationships[rel.class], rel);
@@ -134,7 +135,7 @@ export function extractRelationshipFields(A, rels, includeShortcuts = true){
 			relFields[fieldName] = relObj;
 		}
 
-		let relA = resources[A.class].relationships[fieldName];
+		let relA = resourceClasses[A.class].relationships[fieldName];
 		if ((relA.cardinality.max === 1) && relFields[fieldName]::isArray()) {
 			relFields[fieldName] = relFields[fieldName][0];
 		}

@@ -9,12 +9,12 @@ import path from 'path';
 /* local stuff */
 import swagger from '../swagger.es6';
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // write Swagger spec to json file                                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const file = path.resolve(__dirname, '../../dist/swagger.json');
+
 const json = JSON.stringify(swagger, null, 4);
 fs.writeFile(file, json, (err) => {
 	if (err) { return console.error(err) }

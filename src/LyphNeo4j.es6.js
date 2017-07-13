@@ -391,21 +391,13 @@ export default class LyphNeo4j extends Neo4j {
 	}
 
 
-	async createRelationship(cls, {clsA, idA}, {clsB, idB}, fields = {}) {
-		if (!fields.class){ fields.class = cls.name; }
-
-		await this.query({
-			statement: `
+	async createRelationship(cls, {clsA, idA}, {clsB, idB}) {
+		await this.query(`
 				MATCH (A:${clsA.name} { id: ${idA} }),
 					  (B:${clsB.name} { id: ${idB} })
 				CREATE UNIQUE (A) -[rel:${cls.name}]-> (B)
-				SET rel += {dbProperties}
 				SET rel.class = "${cls.name}"
-            `,
-			parameters: {  dbProperties:  dataToNeo4j(cls, fields) } }
-		);
-
-		return fields;
+            `);
 	}
 
 
