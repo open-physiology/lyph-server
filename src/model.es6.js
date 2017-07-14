@@ -3,22 +3,26 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 'use strict';
 
-import isNull from 'lodash-bound/isNull';
+import isNull      from 'lodash-bound/isNull';
 import isUndefined from 'lodash-bound/isUndefined';
-import cloneDeep from 'lodash-bound/cloneDeep';
+import cloneDeep   from 'lodash-bound/cloneDeep';
 
 import './utils/loadRxjs.es6.js';
-import modelFactory from "../node_modules/open-physiology-model/src/index.js";
-import { customError} from './utils/utility.es6.js';
-import { NOT_FOUND } from './http-status-codes.es6.js';
-import {humanMsg} from 'utilities';
+import manifestFactory from 'open-physiology-manifest';
+import {Module} from 'open-physiology-model';
+
+import {customError} from './utils/utility.es6.js';
+import {NOT_FOUND}   from './http-status-codes.es6.js';
+import {humanMsg}    from 'utilities';
 
 const printCommands = false;
-const printCommits = false;
-const printReturns = false;
+const printCommits  = false;
+const printReturns  = false;
 
-export const createModelWithFrontend = (db) => {
-    let frontend = {
+export const createModelWithBackend = (db) => {
+    let manifest = manifestFactory();
+
+    let backend = {
 
         async commit_new(values) {
             if (printCommands) { console.log("commit_new", values); }
@@ -90,20 +94,14 @@ export const createModelWithFrontend = (db) => {
         async loadAll({class: clsName}) {
             if (printCommands) { console.log("loadAll", clsName, options); }
             let cls = model[clsName];
-            let results = [];
-            if (cls.isResource){
-                results = await db.getAllResources(cls);
-            } else { //TODO do we need to load all relationships of a certain type?
-                if (cls.isRelationship){
-                    results = await db.getAllRelationships(cls);
-                }
-            }
+            let results = await db.getAllResources(cls);
             if (printReturns) { console.log("loadAll returns", results.map(r => JSON.stringify(r))); }
             return results;
         }
     };
 
-    let model = modelFactory(frontend).classes;
+    let module = new Module({manifest, backend});
+    let model = module.classes; //entityClasses?
     return model;
 };
 

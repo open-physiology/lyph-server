@@ -21,7 +21,7 @@ import {
 	extractRelationshipFields,
 	arrowMatch,
 	extractIds,
-    modelClasses
+    manifestClasses
 } from './utils/utility.es6.js';
 import {humanMsg} from 'utilities';
 
@@ -46,7 +46,6 @@ import {
 const createAllResourceRelationships      = Symbol('createAllResourceRelationships');
 const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
 const getResourcesToDelete                = Symbol('getResourcesToDelete');
-const anythingAnchoredFromOutside         = Symbol('anythingAnchoredFromOutside');
 
 /* The LyphNeo4j class */
 export default class LyphNeo4j extends Neo4j {
@@ -96,11 +95,11 @@ export default class LyphNeo4j extends Neo4j {
 				if (!resA.id::isNumber() || !resB.id::isNumber()){ continue; }
 
 				let fields = rel.toJSON();
-				let relCls = modelClasses[rel.class];
+				let relCls = manifestClasses[rel.class];
 
 				await this.createRelationship(relCls,
-					{clsA: modelClasses[resA.class], idA: resA.id},
-					{clsB: modelClasses[resB.class], idB: resB.id}, fields);
+					{clsA: manifestClasses[resA.class], idA: resA.id},
+					{clsB: manifestClasses[resB.class], idB: resB.id}, fields);
 			}
 		}
 	}
@@ -165,42 +164,12 @@ export default class LyphNeo4j extends Neo4j {
 				RETURN { id: n.id, cls: n.class } AS n
 			`).then(pluckData('n'));
 
-			await Promise.all(nResources.map(({id, cls}) => ({id, cls: modelClasses[cls]})).map(recurse));
+			await Promise.all(nResources.map(({id, cls}) => ({id, cls: manifestClasses[cls]})).map(recurse));
 		};
 		await recurse({ cls, id });
 
 		/* return the nodes that would be deleted */
 		return [...markedNodes.values()];
-	}
-
-
-	async [anythingAnchoredFromOutside](cls, ids) {
-
-		let anchoringRelationships = [];
-		for (let rel of Object.values(cls.relationships)){
-			if (rel.options.anchors) { anchoringRelationships.push(rel)}
-		}
-
-		const l2rAnchoring       = anchoringRelationships.filter((relA) => relA.keyInRelationship === 1);
-		const r2lAnchoring       = anchoringRelationships.filter((relA) => relA.keyInRelationship === 2);
-
-		return await this.query(`
-			WITH [${ids.join(',')}] AS ids
-			${ l2rAnchoring.length ? `
-				OPTIONAL MATCH (y) -[:${l2rAnchoring.map(({relationshipClass:{name}})=>name).join('|')}]-> (b)
-				WHERE (NOT y.id in ids) AND (b.id in ids)
-				WITH ids, collect({ anchoring: y.id, anchored: b.id }) AS anchors1
-			` : 'WITH ids, [] AS anchors1' }
-			${ r2lAnchoring.length ? `
-				OPTIONAL MATCH (z) <-[:${r2lAnchoring.map(({relationshipClass:{name}})=>name).join('|')}]- (c)
-				WHERE (NOT z.id in ids) AND (c.id in ids)
-				WITH ids, anchors1 + collect({ anchoring: z.id, anchored: c.id }) AS anchors2
-			` : 'WITH ids, anchors1 AS anchors2' }
-			UNWIND anchors2 AS n
-			WITH DISTINCT n
-			WHERE n.anchoring IS NOT NULL
-			RETURN DISTINCT n
-		`).then(pluckData('n'));
 	}
 
 
@@ -319,20 +288,6 @@ export default class LyphNeo4j extends Neo4j {
 
 		/* get all ids+classes that would be auto-deleted by deleting this particular node */
 		let dResources = await this[getResourcesToDelete](cls, id);
-
-		/* then test whether of those are still anchored, and we have to abort the delete operation */
-		let anchors = await this[anythingAnchoredFromOutside](cls, dResources.map(property('id')));
-		if (anchors.length > 0) {
-			throw customError({
-				status: CONFLICT,
-				anchors,
-				message: humanMsg`
-					Certain resources would need to be deleted in response to this request,
-					but they are being kept alive by other resources 
-					[${anchors.map(x => x.anchoring + "=>" + x.anchored).join(', ')}]
-				`
-			});
-		}
 		let ids = dResources.map(property('id')).join(',');
 
 		await this.query(`
@@ -358,8 +313,8 @@ export default class LyphNeo4j extends Neo4j {
 
 		return result.map(({A, rel, B}) => ({
 			...neo4jToData(cls, rel),
-			1: neo4jToData(modelClasses[A.class], A),
-			2: neo4jToData(modelClasses[B.class], B)
+			1: neo4jToData(manifestClasses[A.class], A),
+			2: neo4jToData(manifestClasses[B.class], B)
 		}));
     }
 

@@ -13,7 +13,7 @@ import chai, {expect} from 'chai';
 import supertest   from './custom-supertest.es6.js';
 import getServer   from '../src/server.es6.js';
 import {OK, NOT_FOUND} from '../src/http-status-codes.es6.js';
-import { createModelWithFrontend } from '../src/model.es6.js';
+import { createModelWithBackend } from '../src/model.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // chai helpers                                                                                                       //
@@ -254,7 +254,7 @@ let model;
 /* initial database clearing */
 before(async () => {
     db.clear('Yes! Delete all everythings!');
-    model = createModelWithFrontend(db);
+    model = createModelWithBackend(db);
 
     /* external resources */
     initial.externalResource1 = model.ExternalResource.new({

@@ -32,6 +32,10 @@ for (let [className, cls] of Object.entries(resourceClasses)) {
     let exposedRelationshipShortcuts = cls.relationshipShortcuts? cls.relationshipShortcuts: {};
     let allExposedFields = {...cls.properties, ...exposedRelationshipShortcuts};
 
+    //TODO do not allow properties in new resources?
+    //TODO do not allow relationship shortcut fields in update operations?
+    //let allExposedFields = cls.properties;
+
     function replaceProperties(properties){
         for (let prop of Object.values(properties)) {
             delete prop.default;

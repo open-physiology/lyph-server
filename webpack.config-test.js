@@ -1,6 +1,7 @@
 var webpack = require('webpack');
-var loaders = require('./webpack.loaders.js');
+var fs      = require('fs');
 var path    = require('path');
+var loaders = require('./webpack.loaders.js');
 
 module.exports = {
 	devtool: 'source-map',
@@ -15,5 +16,9 @@ module.exports = {
 	target: 'node',
 	externals: [require('webpack-node-externals')({
 		whitelist: ['utilities', 'open-physiology-model', 'open-physiology-manifest']
-	})]
+	})],
+    node: {
+        __filename: true,
+        __dirname:  false
+    }
 };

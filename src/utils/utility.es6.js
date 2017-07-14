@@ -10,15 +10,11 @@ import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
 
 import './loadRxjs.es6.js';
-//import modelFactory from "../../node_modules/open-physiology-model/src/index.js"
-//import moduleFactory from 'open-physiology-manifest';
-import moduleFactory from "../../node_modules/open-physiology-manifest/src/index.js"
-
-export const modelRef = moduleFactory();
-export const modelClasses = modelRef.classes;
+import manifestFactory from 'open-physiology-manifest';
+export const manifestClasses = manifestFactory().classes;
 
 export const resourceClasses = {};
-for (let [key, value] of Object.entries(modelRef.classes)){
+for (let [key, value] of Object.entries(manifestClasses)){
 	if (value.isResource) {resourceClasses[key] = value;}
 }
 

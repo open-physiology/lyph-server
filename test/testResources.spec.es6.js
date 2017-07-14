@@ -1,9 +1,3 @@
-/**
- * Created by Natallia on 12/1/2016.
- */
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// imports                                                                                                            //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 'use strict';
 
 import _, {template, isString, isFunction, isArray, isUndefined} from 'lodash';
@@ -13,7 +7,6 @@ import {initial, dynamic, describeResourceClass, describeEndpoint,
     withInvalidPathParams, withValidPathParams,
     requestSingleResource} from './testUtils.es6.js';
 import {OK, NO_CONTENT} from "../src/http-status-codes.es6";
-import {resourceClasses} from '../src/utils/utility.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -24,15 +17,10 @@ import {resourceClasses} from '../src/utils/utility.es6.js';
         "Group", "CanonicalTree", "Publication", "ClinicalIndex", "Correlation", "Coalescence",
         "CoalescenceScenario", "Type"
     ]){
-        let plural = resourceClasses[className].plural;
-        // it(`plural of class ${className} is defined`, () =>
-        //     expect(plural).to.not.be.undefined
-        // );
-
         describeResourceClass(className, () => {
-            describeEndpoint(`/${plural}`, ['GET', 'POST']);
+            describeEndpoint(`/${className}`, ['GET', 'POST']);
 
-            describeEndpoint(`/${plural}/{id}`, ['GET', 'POST', 'PUT', 'DELETE'], () => {
+            describeEndpoint(`/${className}/{id}`, ['GET', 'POST', 'PUT', 'DELETE'], () => {
 
                 withInvalidPathParams("non-existing", {id: 999999});
 
@@ -48,15 +36,10 @@ import {resourceClasses} from '../src/utils/utility.es6.js';
     for (let className of [
         "Template", "NodeLocation", "MeasurableLocation"
     ]){
-        let plural = resourceClasses[className].plural;
-        // it(`plural of class ${className} is defined`, () =>
-        //     expect(plural).to.not.be.undefined
-        // );
-
         describeResourceClass(className, () => {
-            describeEndpoint(`/${plural}`, ['GET']);
+            describeEndpoint(`/${className}`, ['GET']);
 
-            describeEndpoint(`/${plural}/{id}`, ['GET', 'POST', 'DELETE'], () => {
+            describeEndpoint(`/${className}/{id}`, ['GET', 'POST', 'DELETE'], () => {
 
                 withInvalidPathParams("non-existing", {id: 999999});
 

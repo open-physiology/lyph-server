@@ -19,8 +19,7 @@ import LyphNeo4j from './LyphNeo4j.es6.js';
 import swagger   from './swagger.es6';
 import {
 	isCustomError,
-	cleanCustomError,
-	sw
+	cleanCustomError
 } from './utils/utility.es6.js';
 import {
 	OK,
@@ -29,8 +28,8 @@ import {
 	NOT_FOUND,
 	INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
-import { createModelWithFrontend } from './model.es6.js';
-//import {sw} from 'utilities'; //TODO: replace sw from utility.es6.js after it is fixed
+import { createModelWithBackend } from './model.es6.js';
+import {sw} from 'utilities';
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -61,7 +60,6 @@ async function getRelatedResources(db, cls, id, relName){
 const getInfo = (
 	pathObj) => sw(pathObj['x-path-type'])(
 		[['clear'], ()=>({})],
-		[['batch'], ()=>({})],
 		[['resources', 'specificResources'], ()=>({
 			cls: model[pathObj['x-resource-type']]
 		})],
@@ -79,86 +77,23 @@ const requestHandler = {
 		}
 	},
 
-	batch: {
-		async post({db}, req, res){
-			let batchStatusCode = OK;
-			let responses = [];
-			let ids = [];
-			let {temporaryIDs, operations} = req.body;
-			for (let operation of operations) {
-				let {method, path, body} = operation;
-				let pathObj = swagger.paths[path];
-				let info = getInfo(pathObj);
-				if (!body.class) { body.class = info.cls.name; }
-
-				let tmpID = body.id;
-				if (temporaryIDs.includes(body.id)) {
-					db.assignId(body);
-					ids.push(body.id);
-				}
-				let result = {};
-				try {
-					result = await requestHandler[pathObj['x-path-type']][method.toLowerCase()]({...info, ...{db}}, {body});
-				} catch (err) {
-					result = {statusCode: err.status, response: err};
-					if (batchStatusCode === OK) {
-						batchStatusCode = err.status;
-					}
-				}
-				responses.push(result);
-
-				if ((method === "POST") && (result.statusCode === CREATED)) {
-					//assign permanent ID and replace temporary IDs in the subsequent operations
-					if (temporaryIDs.includes(tmpID)) {
-						for (let o of operations.filter(o => !!o.body)) {
-							let {cls} = getInfo(swagger.paths[o.path]);
-							if (cls.isResource) {
-								for (let key of Object.keys(cls.relationshipShortcuts).filter(key => !!o.body[key])) {
-									if (o.body[key] === tmpID) {
-										o.body[key] = result.entity.id;
-									} else {
-										let index = [...o.body[key]].indexOf(tmpID);
-										if (index > -1) {
-											o.body[key][index] = result.entity.id;
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-
-				for (let response of responses) {
-					if (response.entity) {
-						await response.entity.commit();
-						if (response.statusCode === OK || response.statusCode === CREATED) {
-							response.response = [response.entity.toJSON()];
-						}
-						delete response.entity;
-					}
-				}
-			}
-			return {statusCode: batchStatusCode, response: {ids: ids, responses: responses}}
-		}
-	},
-
 	resources: /*get, post*/ {
 		async get({db, cls}, req, res) {
 			let response = [...await cls.getAll()].map(r => r.toJSON());
 			return {statusCode: OK, response: response};
 		},
-		async post({db, cls, doCommit}, req, res) {
-			let entity = await createModelResource(db, cls, req.body, {acceptId: !doCommit});
+		async post({db, cls}, req, res) {
+			let entity = await createModelResource(db, cls, req.body);
 			return {statusCode: CREATED, entity: entity};
 		}
 	},
 
 	specificResources: /*get, post, put, delete*/ {
-		async get({db, cls }, req, res) {
+		async get({db, cls}, req, res) {
 			let response = [...await cls.get(req.pathParams.ids)].map(r => r.toJSON());
 			return {statusCode: OK, response: response};
 		},
-		async post({db, cls }, req, res) {
+		async post({db, cls}, req, res) {
 			let entity = await cls.get(req.pathParams.id);
 			for (let fieldName of Object.keys(req.body)) { entity[fieldName] = req.body[fieldName]; }
 			return {statusCode: OK, entity: entity};
@@ -175,7 +110,7 @@ const requestHandler = {
 			}
 			return {statusCode: OK, entity: entity};
 		},
-		async delete({db, cls, doCommit}, req, res) {
+		async delete({db, cls}, req, res) {
 			let entity = await cls.get(req.pathParams.id);
 			entity.delete();
 			return {statusCode: NO_CONTENT, entity: entity};
@@ -197,13 +132,11 @@ const requestHandler = {
 			let resA = await relA.resourceClass.get(idA);
 			let resB = await relA.codomain.resourceClass.get(idB);
 
-            //TODO How to create a new relationship?
-            //resA[relA.keyInResource].add(resB);
-			let entity = relA.new({
-				1: {class: resA.class, id: resA.id},
-				2: {class: resB.class, id: resB.id}
-			});
-			return {statusCode: NO_CONTENT, entity: entity}; //TODO
+            if (resA[relA.keyInResource]::isUndefined()){
+                resA[relA.keyInResource] = new Set();
+            }
+			resA[relA.keyInResource].add(resB);
+			return {statusCode: NO_CONTENT, entity: entity};
 		},
 		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
@@ -351,7 +284,7 @@ export default async (distDir, config) => {
 	}
 
 	//Assign model library methods
-	model = createModelWithFrontend(db);
+	model = createModelWithBackend(db);
 
 	/* create uniqueness constraints for all resource types (only if database is new) */
 	await Promise.all(Object.keys(model).filter(key => model[key].isResource).map(r => db.createUniqueIdConstraintOn(r)));
@@ -367,7 +300,7 @@ export default async (distDir, config) => {
 				let result = {};
 				try {
 					req.url = encodeURI(req.url);
-					result = await requestHandler[pathObj['x-path-type']][method]({...info, doCommit: true, ...{db}}, req, res);
+					result = await requestHandler[pathObj['x-path-type']][method]({...info, ...{db}}, req, res);
 					if (result.entity){
 						await result.entity.commit();
 						if (result.status !== NO_CONTENT){
