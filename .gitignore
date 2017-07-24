@@ -32,3 +32,5 @@ node_modules
 
 # Generated files
 dist
+/config.json
+/.tmp/

@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build-server": "webpack && node dist/tools/buildSwaggerJSON.js",
-    "build-docs": "cd src && copyfiles docs/**/* ../dist",
+    "build-docs": "cd src && copyfiles docs/**/* ../dist && copyfiles docs/* ../dist",
     "build": "npm run build-server && npm run build-docs",
     "prestart": "npm run build",
     "start": "forever start -a -l forever.log -o out.log -e err.log ./dist/server/server.js",

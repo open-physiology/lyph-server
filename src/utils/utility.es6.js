@@ -102,7 +102,6 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 
 /* to get node or relationship match labels for a given entity class */
 export function matchLabelsQueryFragment(cls, entityName){
-
 	/* We do not keep abstract resources or relationships in DB, so they can be skipped in queries*/
 	let subClasses = (cls.allSubclasses)? [...cls.allSubclasses()]
 		.filter(x => !x.abstract).map(x => x.name): [cls.name];
@@ -120,31 +119,32 @@ export function extractRelationshipFields(A, rels, includeShortcuts = true){
 		let objB = neo4jToData(resourceClasses[B.class], B);
 
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
-		let props = neo4jToData(relationships[rel.class], rel);
-		//let relObj = {...props, 1: (s === A.id)? objA: objB, 2: (s === A.id)? objB: objA};
-		let relObj = { id: props.id, class: props.class };
+		let props = neo4jToData(manifestClasses[rel.class], rel);
+		// let relObj = { id: props.id, class: props.class }; // TODO MH: (NK)
 
 		if (relFields[fieldName]::isUndefined()){ relFields[fieldName] = []; }
 		if (relFields[fieldName]::isArray()){
-			relFields[fieldName].push(relObj);
+			// relFields[fieldName].push(relObj); // TODO MH: (NK)
+			relFields[fieldName].push(objB);
 		} else {
-			relFields[fieldName] = relObj;
+			// relFields[fieldName] = relObj; // TODO MH: (NK)
+			relFields[fieldName] = objB;
 		}
 
 		let relA = resourceClasses[A.class].relationships[fieldName];
 		if ((relA.cardinality.max === 1) && relFields[fieldName]::isArray()) {
 			relFields[fieldName] = relFields[fieldName][0];
 		}
-		if (includeShortcuts){
-            if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
-                if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
-                //relFields[relA.shortcutKey].push(objB);
-				relFields[relA.shortcutKey].push({id: objB.href, class: objB.class});
-				if (relA.cardinality.max === 1) {
-					relFields[relA.shortcutKey] = relFields[relA.shortcutKey][0];
-				}
-            }
-        }
+        // if (includeShortcuts){ // TODO: not needed
+        //     if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
+        //         if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
+        //         //relFields[relA.shortcutKey].push(objB);
+			// 	relFields[relA.shortcutKey].push({id: objB.id, class: objB.class});
+			// 	if (relA.cardinality.max === 1) {
+			// 		relFields[relA.shortcutKey] = relFields[relA.shortcutKey][0];
+			// 	}
+        //     }
+        // }
 	}
 	return {...objA, ...relFields};
 }

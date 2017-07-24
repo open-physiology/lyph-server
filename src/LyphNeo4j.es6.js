@@ -43,8 +43,8 @@ import {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* Symbols for private methods */
-const createAllResourceRelationships      = Symbol('createAllResourceRelationships');
-const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships');
+// const createAllResourceRelationships      = Symbol('createAllResourceRelationships');
+// const removeUnspecifiedRelationships      = Symbol('removeUnspecifiedRelationships'); // NOTE: Not using this
 const getResourcesToDelete                = Symbol('getResourcesToDelete');
 
 /* The LyphNeo4j class */
@@ -59,83 +59,82 @@ export default class LyphNeo4j extends Neo4j {
 	////////////////////////////////////////////
 	// Common functionality for other methods //
 	////////////////////////////////////////////
-	async [createAllResourceRelationships](cls, id, fields) {
-		for (let fieldName of Object.keys(fields).filter(key => !!cls.relationships[key])){
-
-			let val = fields[fieldName];
-			if (val::isUndefined() || val::isNull()) { continue }
-
-			let rels = (val::isSet())? [...val]: [val];
-			for (let rel of rels){
-				if (rel::isNull() || rel::isUndefined()) { continue; }
-				//Skip more general collections, only create top most relationships
-				//Relationships to create have to correspond to the relationship field, e.g., -->HasLayer vs HasLayer
-				if (fieldName.substring(3) !== rel.class){ continue; }
-
-				let resA = rel[1], resB = rel[2];
-
-				let error = resA::isUndefined() || resB::isUndefined()
-					|| resA::isNull() || resB::isNull()
-					|| !resA.class || !resB.class;
-
-				if (!error && !resA.id::isNumber() && !resB.id::isNumber()) {
-					//assign a newly created id to one of relationship ends
-				}
-
-				if (error){
-					throw customError({
-						status:  BAD_REQUEST,
-						class:   rel.class,
-						rel:     rel,
-						message: humanMsg`Invalid resource definition found while creating relationship ${fieldName}.`
-					});
-				}
-
-				//If only one resource ID is missing, this entity has not been added to DB yet
-				if (!resA.id::isNumber() || !resB.id::isNumber()){ continue; }
-
-				let fields = rel.toJSON();
-				let relCls = manifestClasses[rel.class];
-
-				await this.createRelationship(relCls,
-					{clsA: manifestClasses[resA.class], idA: resA.id},
-					{clsB: manifestClasses[resB.class], idB: resB.id}, fields);
-			}
-		}
-	}
-
-
-	async [removeUnspecifiedRelationships](cls, id, fields, {includeUngivenFields = false} = {}) {
-		let relDeletionStatements = [];
-		for (let fieldName of Object.keys(fields).filter((key) => !!cls.relationships[key])){
-			let val = fields[fieldName];
-
-			if (val::isUndefined()){ continue }
-			let fieldSpec = cls.relationships[fieldName];
-			//We do not create abstract relationships and do need to delete them
-			if (fieldName.substring(3) !== fieldSpec.relationshipClass.name){ continue; }
-
-			let ids = [];
-            if (!val::isNull()) {
-				val = _(val).mapValues((x) => (x.value)).value();
-				ids = extractIds(val);
-			}
-
-			let [l, r] = arrowEnds(fieldSpec);
-			relDeletionStatements.push(`
-				MATCH (A { id: ${id} }) 
-					   ${l}[rel: ${matchLabelsQueryFragment(fieldSpec.relationshipClass).join('|')}]${r} 
-					  (B)
-				WHERE NOT B.id IN [${ids.join(', ')}]
-				   AND (${matchLabelsQueryFragment(cls, 'A').join(' OR ')})
-				   AND (${matchLabelsQueryFragment(fieldSpec.codomain.resourceClass, 'B').join(' OR ')}) 			 	  
-				DELETE rel
-			`);
-		}
-		if (relDeletionStatements.length > 0) {
-			await this.query(relDeletionStatements);
-		}
-	}
+	// async [createAllResourceRelationships](cls, id, fields) {
+	// 	for (let fieldName of Object.keys(fields).filter(key => !!cls.relationships[key])){
+	//
+	// 		let val = fields[fieldName];
+	// 		if (val::isUndefined() || val::isNull()) { continue }
+	//
+	// 		let rels = (val::isSet())? [...val]: [val];
+	// 		for (let rel of rels){
+	// 			if (rel::isNull() || rel::isUndefined()) { continue; }
+	// 			//Skip more general collections, only create top most relationships
+	// 			//Relationships to create have to correspond to the relationship field, e.g., -->HasLayer vs HasLayer
+	// 			if (fieldName.substring(3) !== rel.class){ continue; }
+	//
+	// 			let resA = rel[1], resB = rel[2];
+	//
+	// 			let error = resA::isUndefined() || resB::isUndefined()
+	// 				|| resA::isNull() || resB::isNull()
+	// 				|| !resA.class || !resB.class;
+	//
+	// 			if (!error && !resA.id::isNumber() && !resB.id::isNumber()) {
+	// 				//assign a newly created id to one of relationship ends
+	// 			}
+	//
+	// 			if (error){
+	// 				throw customError({
+	// 					status:  BAD_REQUEST,
+	// 					class:   rel.class,
+	// 					rel:     rel,
+	// 					message: humanMsg`Invalid resource definition found while creating relationship ${fieldName}.`
+	// 				});
+	// 			}
+	//
+	// 			//If only one resource ID is missing, this entity has not been added to DB yet
+	// 			if (!resA.id::isNumber() || !resB.id::isNumber()){ continue; }
+	//
+	// 			let fields = rel.toJSON();
+	// 			let relCls = manifestClasses[rel.class];
+	//
+	// 			await this.createRelationship(relCls,
+	// 				{clsA: manifestClasses[resA.class], idA: resA.id},
+	// 				{clsB: manifestClasses[resB.class], idB: resB.id}, fields);
+	// 		}
+	// 	}
+	// }
+	//
+	// async [removeUnspecifiedRelationships](cls, id, fields, {includeUngivenFields = false} = {}) {
+	// 	let relDeletionStatements = [];
+	// 	for (let fieldName of Object.keys(fields).filter((key) => !!cls.relationships[key])){
+	// 		let val = fields[fieldName];
+	//
+	// 		if (val::isUndefined()){ continue }
+	// 		let fieldSpec = cls.relationships[fieldName];
+	// 		//We do not create abstract relationships and do need to delete them
+	// 		if (fieldName.substring(3) !== fieldSpec.relationshipClass.name){ continue; }
+	//
+	// 		let ids = [];
+     //        if (!val::isNull()) {
+	// 			val = _(val).mapValues((x) => (x.value)).value();
+	// 			ids = extractIds(val);
+	// 		}
+	//
+	// 		let [l, r] = arrowEnds(fieldSpec);
+	// 		relDeletionStatements.push(`
+	// 			MATCH (A { id: ${id} })
+	// 				   ${l}[rel: ${matchLabelsQueryFragment(fieldSpec.relationshipClass).join('|')}]${r}
+	// 				  (B)
+	// 			WHERE NOT B.id IN [${ids.join(', ')}]
+	// 			   AND (${matchLabelsQueryFragment(cls, 'A').join(' OR ')})
+	// 			   AND (${matchLabelsQueryFragment(fieldSpec.codomain.resourceClass, 'B').join(' OR ')})
+	// 			DELETE rel
+	// 		`);
+	// 	}
+	// 	if (relDeletionStatements.length > 0) {
+	// 		await this.query(relDeletionStatements);
+	// 	}
+	// } // NOTE: We're not using this.
 
 	async [getResourcesToDelete](cls, id) {
 		/* collect nodes to delete */
@@ -250,11 +249,11 @@ export default class LyphNeo4j extends Neo4j {
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
 
-		/* remove the relationships explicitly left out */
-		await this[removeUnspecifiedRelationships](cls, id, fields);
-
-		/* create the required relationships */
-		await this[createAllResourceRelationships](cls, id, fields);
+		// /* remove the relationships explicitly left out */
+		// await this[removeUnspecifiedRelationships](cls, id, fields);
+		//
+		// /* create the required relationships */
+		// await this[createAllResourceRelationships](cls, id, fields); // NOTE: Not using this
 	}
 
 
@@ -275,11 +274,11 @@ export default class LyphNeo4j extends Neo4j {
 			parameters: {  dbProperties: dataToNeo4j(cls, fields) }
 		});
 
-		/* remove the relationships explicitly left out */
-		await this[removeUnspecifiedRelationships](cls, id, fields, { includeUngivenFields: true });
-
-		/* create the required relationships */
-		await this[createAllResourceRelationships](cls, id, fields);
+		// /* remove the relationships explicitly left out */
+		// await this[removeUnspecifiedRelationships](cls, id, fields, { includeUngivenFields: true });
+		//
+		// /* create the required relationships */
+		// await this[createAllResourceRelationships](cls, id, fields); // NOTE: Not using this
 
 	}
 

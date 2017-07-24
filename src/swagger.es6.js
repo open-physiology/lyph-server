@@ -7,6 +7,7 @@ import isUndefined from 'lodash-bound/isUndefined';
 import isEmpty     from 'lodash-bound/isEmpty';
 import cloneDeep   from 'lodash-bound/cloneDeep';
 import camelCase   from 'lodash-bound/camelCase';
+import omitBy      from 'lodash-bound/omitBy';
 
 /* local stuff */
 import {resourceClasses} from './utils/utility.es6.js';
@@ -24,13 +25,33 @@ const $ref = (className) => ({ $ref: `#/definitions/${className}` });
 
 let swaggerDataTypes = {};
 
+////////// convenience definitions //////////
+
+swaggerDataTypes.typed_id = {
+    type: 'object',
+    properties: {
+        class: { type: 'string'  },
+        id:    { type: 'integer' }
+    },
+    required: ['class', 'id']
+};
+
+
+////////// resource definitions //////////
+
 //Creates definitions for resources (assuming that any entry in manifest is one of those)
 for (let [className, cls] of Object.entries(resourceClasses)) {
 
-    let xTag = (cls.isResource)? 'x-resource-type': 'x-other-type';
+    let xTag = cls.isResource ? 'x-resource-type': 'x-other-type';
 
-    let exposedRelationshipShortcuts = cls.relationshipShortcuts? cls.relationshipShortcuts: {};
-    let allExposedFields = {...cls.properties, ...exposedRelationshipShortcuts};
+    let exposedRelationshipShortcuts  = cls.relationshipShortcuts;
+    let exposedFullRelationshipFields = cls.relationships::omitBy(fieldSpec => fieldSpec.relationshipClass.abstract);
+    let allExposedRelationshipFields  = { ...exposedFullRelationshipFields, ...exposedRelationshipShortcuts };
+    let allExposedFields = {
+        ...cls.properties,
+        ...exposedRelationshipShortcuts,
+        ...exposedFullRelationshipFields
+    };
 
     //TODO do not allow properties in new resources?
     //TODO do not allow relationship shortcut fields in update operations?
@@ -64,19 +85,15 @@ for (let [className, cls] of Object.entries(resourceClasses)) {
                 }
             }
         }
-        for (let [fieldName, fieldSpec] of Object.entries(exposedRelationshipShortcuts)) {
+        for (let [fieldName, fieldSpec] of Object.entries(allExposedRelationshipFields)) {
             if (properties[fieldName]::isEmpty()) {
                 if (fieldSpec.cardinality.max === 1) {
-                    properties[fieldName] = {
-                        type: "integer"
-                    }
+                    properties[fieldName] = $ref('typed_id')
                 }
                 else {
                     properties[fieldName] = {
                         type: "array",
-                        items: {
-                            type: "integer"
-                        },
+                        items: $ref('typed_id'),
                         uniqueItems: true
                     }
                 }
@@ -87,7 +104,7 @@ for (let [className, cls] of Object.entries(resourceClasses)) {
 
     swaggerDataTypes[className] = {
 		type:       'object',
-		properties: (() => { return replaceProperties(allExposedFields::cloneDeep()); })()
+		properties: replaceProperties(allExposedFields::cloneDeep())
 	};
 
     swaggerDataTypes[className][xTag] = cls.name;

@@ -3,7 +3,9 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 'use strict';
 
-import _, {template} from 'lodash';
+import process from 'process';
+
+import {template} from 'lodash';
 import isString from 'lodash-bound/isString';
 import isFunction from 'lodash-bound/isFunction';
 import isArray from 'lodash-bound/isArray';
@@ -64,14 +66,17 @@ chai.use((_chai, utils) => {
 /* before testing: start server, wait for it, get the supertest library rolling */
 export let api, db;
 
+// NOTE: The server is only generated once. Therefore, events from one test may bleed into another test.
+//     : However, this is justified because of how slow it would run otherwise.
+
 //escaping out of .tmp/mocha-webpack/dist
-before(() => getServer(`${__dirname}/../../dist/`, {
+before(() => getServer(`${__dirname}/../../../dist/`, {
     exposeDB: true,
     dbDocker: 'neo4j',
     dbUser: 'neo4j',
-    dbPass: 'nknk14',
-    dbHost: '192.168.99.100',
-    dbPort: 32769,
+    dbPass: 'mhmh13',
+    dbHost: '0.0.0.0',
+    dbPort: 7474,
     host: 'localhost',
     port: '8888',
     dbConsoleLogging: false,
@@ -82,7 +87,7 @@ before(() => getServer(`${__dirname}/../../dist/`, {
 }));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// utils                                                                                                            //
+// utils                                                                                                              //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* server request api (through our REST server) */
@@ -103,7 +108,7 @@ export const describeResourceClass = (className, runResourceClassTests) => {
     (only ? describe.only : describe)(className, () => {
 
         /* set useful variables */
-        before(() => { cls = model[className];});
+        beforeEach(() => { cls = model.entityClasses[className] });
 
         /* DESCRIBE BLOCK: given endpoint */
         describeEndpoint = (givenPath, supportedVerbs, runEndpointTests) => {
@@ -252,48 +257,55 @@ export let dynamic = {};
 let model;
 
 /* initial database clearing */
+// NOTE: The database is only initiated once. Therefore, events from one test may bleed into another test.
+//     : However, this is justified because of how slow it would run otherwise.
 before(async () => {
     db.clear('Yes! Delete all everythings!');
     model = createModelWithBackend(db);
 
     /* external resources */
-    initial.externalResource1 = model.ExternalResource.new({
+    initial.externalResource1 = model.new({
+        class: 'ExternalResource',
         name:  "Third plantar metatarsal vein",
         uri :  "http://purl.obolibrary.org/obo/FMA_44539",
-        type:  "fma"});
+        type:  "fma"
+    });
+
+    // initial.externalResource1.fields['name'].set("BLABLA");
+    // initial.externalResource1.fields['type'].set("FMA");
 
     /* borders */
     for (let i = 1; i <= 10; i++){
-        initial["border" + i] = model.Border.new({ nature: "open", name: "Initial border #" + i});
+        initial["border" + i] = model.new({ class: 'Border', nature: "open", name: "Initial border #" + i});
     }
 
     /* materials */
-    initial.material1 = model.Material.new({ name: "Blood"});
-    initial.material2 = model.Material.new({ name: "Urine"});
+    initial.material1 = model.new({ class: 'Material', name: "Blood"});
+    initial.material2 = model.new({ class: 'Material', name: "Urine"});
 
     /* measurables */
-    initial.measurable1 =  model.Measurable.new({ name:  "Concentration of water"});
-    initial.measurable2 =  model.Measurable.new({ name:  "Concentration of ion"});
+    initial.measurable1 =  model.new({ class: 'Measurable', name:  "Concentration of water"});
+    initial.measurable2 =  model.new({ class: 'Measurable', name:  "Concentration of ion"});
 
     /* types */
-    initial.materialType1 = model.Type.new({
+    initial.materialType1 = model.new({ class: 'Type',
         name: "Blood", definition: initial.material1});
-    initial.materialType2 = model.Type.new({
+    initial.materialType2 = model.new({ class: 'Type',
         name: "Urine", definition: initial.material2});
 
     /* causalities */
-    initial.causality1 = model.Causality.new({
+    initial.causality1 = model.new({ class: 'Causality',
         name:   "Functional dependency",
         cause:  initial.measurable1,
         effect: initial.measurable2});
 
 
     /* lyphs */
-    initial.lyph1 = model.Lyph.new({name: "Renal hilum", longitudinalBorders: [initial.border5, initial.border6] });
-    initial.lyph2 = model.Lyph.new({name: "Renal parenchyma", longitudinalBorders: [initial.border7, initial.border8] });
-    initial.lyph3 = model.Lyph.new({name: "Renal capsule", longitudinalBorders: [initial.border9, initial.border10] });
+    initial.lyph1 = model.new({ class: 'Lyph',name: "Renal hilum", longitudinalBorders: [initial.border5, initial.border6] });
+    initial.lyph2 = model.new({ class: 'Lyph',name: "Renal parenchyma", longitudinalBorders: [initial.border7, initial.border8] });
+    initial.lyph3 = model.new({ class: 'Lyph',name: "Renal capsule", longitudinalBorders: [initial.border9, initial.border10] });
 
-    initial.mainLyph1 = model.Lyph.new({
+    initial.mainLyph1 = model.new({ class: 'Lyph',
         name      : "Kidney",
         species   : "Homo sapiens",
         thickness : {value: 1},
@@ -306,54 +318,66 @@ before(async () => {
         measurables: [initial.measurable1]
     });
 
-    initial.mainLyph2 = model.Lyph.new({
+    initial.mainLyph2 = model.new({ class: 'Lyph',
         name:  "Stomach",
         layers: [initial.lyph3, initial.lyph2],
         measurables: [initial.measurable2],
         longitudinalBorders: [initial.border3, initial.border4]
     });
 
-    initial.lyphType1 = model.Type.new({
+    initial.mainLyph3 = model.new({ class: 'Lyph',
+        name:  "Liver",
+        layers: [initial.lyph3, initial.lyph2],
+        measurables: [initial.measurable2]
+    });
+
+    initial.mainLyph4 = model.new({ class: 'Lyph',
+        name:  "Liver 2",
+        layers: [initial.lyph3, initial.lyph2],
+        measurables: [initial.measurable2]
+    });
+
+    initial.lyphType1 = model.new({ class: 'Type',
         name: "Renal hilum type",
         definition: initial.lyph1});
 
-    initial.lyphType2 = model.Type.new({
+    initial.lyphType2 = model.new({ class: 'Type',
         name: "Renal parenchyma type",
         definition: initial.lyph2});
 
-    initial.lyphType3 = model.Type.new({
+    initial.lyphType3 = model.new({ class: 'Type',
         name: "Renal capsule type",
         definition: initial.lyph3});
 
     /* processes */
-    initial.process1 = model.Process.new({
+    initial.process1 = model.new({ class: 'Process',
         name : "Blood advective process",
         transportPhenomenon: "advection",
         conveyingLyph: [initial.mainLyph1]});
 
     /* nodes */
-    initial.node1 = model.Node.new({
+    initial.node1 = model.new({ class: 'Node',
         measurables: [initial.measurable1],
         incomingProcesses:  [initial.process1],
         locations: [initial.mainLyph1]});
 
     /* groups */
-    initial.group1 = model.Group.new({
+    initial.group1 = model.new({ class: 'Group',
         name:  "Mixed group",
         elements: [initial.lyph1, initial.node1, initial.process1]
     });
 
     /* canonical trees */
-    initial.canonicalTree1 = model.CanonicalTree.new({
+    initial.canonicalTree1 = model.new({ class: 'CanonicalTree',
         name:  "SLN"});
 
-    initial.canonicalTree1_2 = model.CanonicalTree.new({
+    initial.canonicalTree1_2 = model.new({ class: 'CanonicalTree',
         name:  "SLN tail 1"});
 
-    initial.canonicalTree1_3 = model.CanonicalTree.new({
+    initial.canonicalTree1_3 = model.new({ class: 'CanonicalTree',
         name:  "SLN tail 2"});
 
-    initial.canonicalTreeBranch1_2 = model.CanonicalTreeBranch.new({
+    initial.canonicalTreeBranch1_2 = model.new({ class: 'CanonicalTreeBranch',
         name:  "SLN 1st level branch",
         conveyingLyphType: initial.lyphType1,
         parentTree: initial.canonicalTree1,
@@ -361,49 +385,57 @@ before(async () => {
     });
 
     /* publications */
-    initial.publication1 = model.Publication.new({
+    initial.publication1 = model.new({ class: 'Publication',
         name:  "Multimodal MRI of the hippocampus in Parkinson's disease with visual hallucinations"
     });
 
     /* clinical indices */
-    initial.clinicalIndex1 = model.ClinicalIndex.new({
+    initial.clinicalIndex1 = model.new({ class: 'ClinicalIndex',
         name:  "NP3FRZGT MDS - Unified Parkinson's Disease Rating Scale (3.11 Freezing of Gait)",
     });
 
-    initial.clinicalIndex2 = model.ClinicalIndex.new({
+    initial.clinicalIndex2 = model.new({ class: 'ClinicalIndex',
         name:  "NP1HALL MDS - Unified Parkinson's Disease Rating Scale (1.2 Hallucinations and Psychosis)",
         parent: initial.clinicalIndex1});
 
     /* correlations */
-    initial.correlation1 = model.Correlation.new({
+    initial.correlation1 = model.new({ class: 'Correlation',
         publication: initial.publication1,
         clinicalIndices: [initial.clinicalIndex1, initial.clinicalIndex2],
         measurables: [initial.measurable1, initial.measurable2]
     });
 
     /* coalescences */
-    initial.coalescence1 = model.Coalescence.new({
+    initial.coalescence1 = model.new({ class: 'Coalescence',
         lyphs: [initial.lyph1, initial.lyph2]
     });
 
     /* coalescence scenarios */
-    initial.coalescenceScenario1 = model.CoalescenceScenario.new({
-        lyphs: [initial.mainLyph1, initial.mainLyph2]});
+    initial.coalescenceScenario1 = model.new({
+        class: 'CoalescenceScenario',
+        lyphs: [initial.mainLyph1, initial.mainLyph2]
+    });
 
-    for (let key of Object.keys(initial)){ await initial[key].commit(); }
-
-    dynamic.externalResource1 = model.ExternalResource.new({
+    dynamic.externalResource1 = model.new({ class: 'ExternalResource',
         name: "Right fourth dorsal metatarsal vein",
         uri: "http://purl.obolibrary.org/obo/FMA_44515",
         type: "fma"
     });
 
-    for (let i = 1; i <= 6; i++){ dynamic["borders" + i] = model.Border.new({nature: "open" })}
+    for (let i = 1; i <= 6; i++){ dynamic["borders" + i] = model.new({ class: 'Border',nature: "open" })}
 
-    dynamic.lyph1 = model.Lyph.new({name:  "Aorta", longitudinalBorders: [dynamic.borders3, dynamic.borders4]});
-    dynamic.lyph2 = model.Lyph.new({name:  "Heart", longitudinalBorders: [dynamic.borders5, dynamic.borders6]});
+    dynamic.lyph1 = model.new({ class: 'Lyph',name:  "Aorta", longitudinalBorders: [dynamic.borders3, dynamic.borders4]});
+    dynamic.lyph2 = model.new({ class: 'Lyph',name:  "Heart", longitudinalBorders: [dynamic.borders5, dynamic.borders6]});
 
-    for (let key of Object.keys(dynamic)){ await dynamic[key].commit(); }
+    await model.commit();
+
+
+    console.log();
+
+
+    // process.exit(); // UNCOMMENT TO EXIT WHILE LEAVING THE DB POPULATED
+
+
 });
 
 
