@@ -1,18 +1,19 @@
 {
   "name": "lyph-server",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "the lyph server",
   "main": "dist/index.js",
   "scripts": {
     "build-server": "webpack && node dist/tools/buildSwaggerJSON.js",
-    "build-docs": "cd src && copyfiles docs/**/* ../dist",
+    "build-docs": "cd src && copyfiles docs/**/* ../dist && copyfiles docs/* ../dist",
     "build": "npm run build-server && npm run build-docs",
     "prestart": "npm run build",
     "start": "forever start -a -l forever.log -o out.log -e err.log ./dist/server/server.js",
     "stop": "forever stop dist/server/server.js",
     "prerestart": "npm run build",
     "restart": "forever restart -a ./dist/server/server.js",
-    "test": "mocha --timeout 10000  --compilers js:babel-core/register"
+    "test": "mocha --timeout 10000  --compilers js:babel-core/register",
+    "dev-server": "webpack-dev-server --open --hot --config webpack.config-dev.js"
   },
   "keywords": [
     "lyph"
@@ -29,17 +30,19 @@
     "express": "~4",
     "forever": "~0.15",
     "lodash": "~4",
+    "lodash-bound": "1",
     "node-rest-client": "~1",
     "promisify": "~0.0",
     "swagger-express-middleware": "~0.4",
-    "open-physiology-model": "open-physiology/open-physiology-model",
+    "open-physiology-manifest": "open-physiology/open-physiology-manifest#develop",
+    "open-physiology-model": "open-physiology/open-physiology-model#develop",
     "utilities": "open-physiology/utilities",
     "rxjs": "~5"
   },
   "devDependencies": {
     "babel": "6",
     "babel-cli": "^6.10.1",
-    "babel-core": "6",
+    "babel-core": "^6.10.4",
     "babel-loader": "^6.2.4",
     "babel-plugin-espower": "^2.3.1",
     "babel-plugin-syntax-flow": "^6.8.0",
@@ -66,15 +69,20 @@
     "power-assert": "^1.4.1",
     "progress": "~1",
     "raw-loader": "~0.5",
+    "source-map-support": "^0.4.2",
     "superagent": "latest",
     "superagent-promise": "~1",
     "supertest": "~1",
     "supertest-as-promised": "~2",
     "swagger-ui": "~2",
-    "source-map-support": "^0.4.2",
     "thenify": "~3",
     "thenify-all": "~1",
-    "webpack": "^1.13.1",
-    "webpack-node-externals": "1.5"
+    "url-loader": "0.5",
+    "file-loader": "~0.11.2",
+    "webpack": "~2.7.0",
+    "webpack-dev-server": "^2.4.5",
+    "webpack-node-externals": "1.5",
+    "copy-webpack-plugin": "^4.0.1",
+    "child_process": "~1.0.2"
   }
 }

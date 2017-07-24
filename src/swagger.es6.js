@@ -5,11 +5,12 @@
 /* external libs */
 import isUndefined from 'lodash-bound/isUndefined';
 import isEmpty     from 'lodash-bound/isEmpty';
-import cloneDeep   from 'lodash/cloneDeep';
+import cloneDeep   from 'lodash-bound/cloneDeep';
 import camelCase   from 'lodash-bound/camelCase';
+import omitBy      from 'lodash-bound/omitBy';
 
 /* local stuff */
-import {resources} from './utils/utility.es6.js';
+import {resourceClasses} from './utils/utility.es6.js';
 import {OK, CREATED, NO_CONTENT} from './http-status-codes.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,13 +25,37 @@ const $ref = (className) => ({ $ref: `#/definitions/${className}` });
 
 let swaggerDataTypes = {};
 
+////////// convenience definitions //////////
+
+swaggerDataTypes.typed_id = {
+    type: 'object',
+    properties: {
+        class: { type: 'string'  },
+        id:    { type: 'integer' }
+    },
+    required: ['class', 'id']
+};
+
+
+////////// resource definitions //////////
+
 //Creates definitions for resources (assuming that any entry in manifest is one of those)
-for (let [className, cls] of Object.entries(resources)) {
+for (let [className, cls] of Object.entries(resourceClasses)) {
 
-    let xTag = (cls.isResource)? 'x-resource-type': 'x-other-type';
+    let xTag = cls.isResource ? 'x-resource-type': 'x-other-type';
 
-    let exposedRelationshipShortcuts = cls.relationshipShortcuts? cls.relationshipShortcuts: {};
-    let allExposedFields = {...cls.properties, ...exposedRelationshipShortcuts};
+    let exposedRelationshipShortcuts  = cls.relationshipShortcuts;
+    let exposedFullRelationshipFields = cls.relationships::omitBy(fieldSpec => fieldSpec.relationshipClass.abstract);
+    let allExposedRelationshipFields  = { ...exposedFullRelationshipFields, ...exposedRelationshipShortcuts };
+    let allExposedFields = {
+        ...cls.properties,
+        ...exposedRelationshipShortcuts,
+        ...exposedFullRelationshipFields
+    };
+
+    //TODO do not allow properties in new resources?
+    //TODO do not allow relationship shortcut fields in update operations?
+    //let allExposedFields = cls.properties;
 
     function replaceProperties(properties){
         for (let prop of Object.values(properties)) {
@@ -60,19 +85,15 @@ for (let [className, cls] of Object.entries(resources)) {
                 }
             }
         }
-        for (let [fieldName, fieldSpec] of Object.entries(exposedRelationshipShortcuts)) {
+        for (let [fieldName, fieldSpec] of Object.entries(allExposedRelationshipFields)) {
             if (properties[fieldName]::isEmpty()) {
                 if (fieldSpec.cardinality.max === 1) {
-                    properties[fieldName] = {
-                        type: "integer"
-                    }
+                    properties[fieldName] = $ref('typed_id')
                 }
                 else {
                     properties[fieldName] = {
                         type: "array",
-                        items: {
-                            type: "integer"
-                        },
+                        items: $ref('typed_id'),
                         uniqueItems: true
                     }
                 }
@@ -83,7 +104,7 @@ for (let [className, cls] of Object.entries(resources)) {
 
     swaggerDataTypes[className] = {
 		type:       'object',
-		properties: (() => { return replaceProperties(cloneDeep(allExposedFields)); })()
+		properties: replaceProperties(allExposedFields::cloneDeep())
 	};
 
     swaggerDataTypes[className][xTag] = cls.name;
@@ -98,7 +119,7 @@ for (let [className, cls] of Object.entries(resources)) {
 	swaggerDataTypes[`partial_${className}`] = {
 		// partial = allow required fields to be absent for update commands
 		type: 'object',
-		properties: (() => { return replaceProperties(cloneDeep(allExposedFields)); })()
+		properties: (() => { return replaceProperties(allExposedFields::cloneDeep()); })()
 	};
     swaggerDataTypes[`partial_${className}`][xTag] = cls.name;
 
@@ -114,9 +135,8 @@ let operationEndpoints = {};
 function addResourceEndpoint(cls) {
 
     const {singular, plural, abstract} = cls;
-	const pluralKey     = plural::camelCase();
 
-	resourceEndpoints[`/${pluralKey}`] = {
+	resourceEndpoints[`/${cls.name}`] = {
 		'x-path-type': 'resources',
 		'x-resource-type': cls.name,
 		get: {
@@ -156,9 +176,8 @@ function addSpecificResourceEndpoint(cls) {
     const {singular, plural, abstract} = cls;
 
     const singularIdKey = `${singular::camelCase()}ID`;
-    const pluralKey     = plural::camelCase();
 
-    resourceEndpoints[`/${pluralKey}/{${singularIdKey}}`] = {
+    resourceEndpoints[`/${cls.name}/{${singularIdKey}}`] = {
         'x-path-type': 'specificResources',
         'x-resource-type': cls.name,
         'x-param-map': {
@@ -257,7 +276,6 @@ function addRelatedResourceEndpoint(relA) {
     const pluralB   	= relA.codomain.resourceClass.plural;
 
     const singularIdKeyA = `${singularA::camelCase()}ID`;
-    const pluralKeyA     = pluralA::camelCase();
 
     let fieldNames = [relA.keyInResource];
     if (!relA.shortcutKey::isUndefined()) {
@@ -265,7 +283,7 @@ function addRelatedResourceEndpoint(relA) {
     }
 
     for (let fieldName of fieldNames) {
-        resourceEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}`] = {
+        resourceEndpoints[`/${relA.resourceClass.name}/{${singularIdKeyA}}/${fieldName}`] = {
             'x-path-type': 'relatedResources',
             'x-param-map': {
                 idA: singularIdKeyA,
@@ -308,7 +326,6 @@ function addSpecificRelatedResourceEndpoint(relA) {
 
     const singularIdKeyA = `${singularA::camelCase()}ID`;
     const singularIdKeyB = `${((relA.resourceClass === relA.codomain.resourceClass? "other " : "") + singularB)::camelCase()}ID`;
-    const pluralKeyA     = pluralA::camelCase();
 
     const msg = relA.resourceClass === relA.codomain.resourceClass? pluralA: singularA + " and " + singularB;
 
@@ -318,7 +335,7 @@ function addSpecificRelatedResourceEndpoint(relA) {
     }
 
     for (let fieldName of fieldNames) {
-        resourceEndpoints[`/${pluralKeyA}/{${singularIdKeyA}}/${fieldName}/{${singularIdKeyB}}`] = {
+        resourceEndpoints[`/${relA.resourceClass.name}/{${singularIdKeyA}}/${fieldName}/{${singularIdKeyB}}`] = {
             'x-path-type': 'specificRelatedResource',
             'x-param-map': {
                 idA: singularIdKeyA,
@@ -343,18 +360,11 @@ function addSpecificRelatedResourceEndpoint(relA) {
                         description: `ID of the ${singularB} which is added to the given ${singularA}`,
                         required: true,
                         type: 'integer'
-                    }, {
-                        name: `new ${cls.name}`::camelCase(),
-                        in: 'body',
-                        description: `properties of a new ${cls.name} relationship between given ${msg}`,
-                        required: true,
-                        schema: $ref(cls.name)
                     }
                 ],
                 responses: {
-                    [OK]: {
-                        description: `an array containing one element: the full added ${cls.name} relationship`,
-                        schema: {type: 'array', items: $ref(cls.name), minItems: 1, maxItems: 1}
+                    [NO_CONTENT]: {
+                        description: `successfully added the relationship with the ${singularB}`
                     }
                 }
             },
@@ -390,65 +400,6 @@ function addSpecificRelatedResourceEndpoint(relA) {
 ////////////////////////////////////////////////////////////////
 
 function addOperationEndpoints() {
-    swaggerDataTypes[`batch_Request`] = {
-        type:       'object',
-        properties: {
-            temporaryIDs: {
-                type: 'array',
-                items: { type: 'integer' },
-                uniqueItems: true
-            },
-            operations: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    properties: {
-                        method: {
-                            type: 'string',
-                            enum: ['GET', 'POST', 'PUT', 'DELETE']
-                        },
-                        path: {type: 'string'},
-                        body: $ref(`partial_Resource`)
-                    }
-                }
-            }
-        }
-    };
-
-    swaggerDataTypes[`batch_Response`] = {
-        type:       'object',
-        properties: {
-            ids: {
-                type: 'array',
-                items: { type: 'integer' }
-            },
-            responses: {
-                type: 'array',
-                items: $ref(`Resource`)
-            }
-        }
-    };
-
-    operationEndpoints['/batch'] = {
-        'x-path-type': 'batch',
-        post: {
-            summary: "Executes a batch of POST requests on resources.",
-            parameters: [{
-                name: 'commands',
-                in: 'body',
-                description: `an array of API calls`,
-                required: true,
-                schema: $ref(`batch_Request`)
-            }],
-            responses: {
-                [OK]: {
-                    description: `an array containing responses for operations in the batch`,
-                    schema: { type: 'array', items: $ref('batch_Response'), minItems: 1, maxItems: 1 }
-                }
-            }
-        }
-    };
-
     operationEndpoints['/clear'] = {
         'x-path-type': 'clear',
         post: {
@@ -460,22 +411,18 @@ function addOperationEndpoints() {
             }
         }
     };
-
 }
 
 ////////////////////////////////////////////////////////////////
 
-for (let resource of Object.values(resources)) {
+for (let resource of Object.values(resourceClasses)) {
     addResourceEndpoint(resource);
     addSpecificResourceEndpoint(resource);
     for (let rel of Object.values(resource.relationships)){
-        //if (rel.cardinality.max !== 1){
-            addRelatedResourceEndpoint(rel);
-            addSpecificRelatedResourceEndpoint(rel);
-        //}
+        addRelatedResourceEndpoint(rel);
+        addSpecificRelatedResourceEndpoint(rel);
     }
 }
-
 addOperationEndpoints();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

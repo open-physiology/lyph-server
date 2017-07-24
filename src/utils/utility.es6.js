@@ -10,15 +10,12 @@ import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
 
 import './loadRxjs.es6.js';
-import modelFactory from "../../node_modules/open-physiology-model/src/index.js"
+import manifestFactory from 'open-physiology-manifest';
+export const manifestClasses = manifestFactory().classes;
 
-export const modelRef = modelFactory();
-export const modelClasses = modelRef.classes;
-
-export const resources = {};
-
-for (let [key, value] of Object.entries(modelRef.classes)){
-	if (value.isResource) {resources[key] = value;}
+export const resourceClasses = {};
+for (let [key, value] of Object.entries(manifestClasses)){
+	if (value.isResource) {resourceClasses[key] = value;}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -105,7 +102,6 @@ export const arrowMatch = (relTypes, a, l, r, b) => relTypes.length > 0
 
 /* to get node or relationship match labels for a given entity class */
 export function matchLabelsQueryFragment(cls, entityName){
-
 	/* We do not keep abstract resources or relationships in DB, so they can be skipped in queries*/
 	let subClasses = (cls.allSubclasses)? [...cls.allSubclasses()]
 		.filter(x => !x.abstract).map(x => x.name): [cls.name];
@@ -115,39 +111,40 @@ export function matchLabelsQueryFragment(cls, entityName){
 
 /* to get relationships of a given resource*/
 export function extractRelationshipFields(A, rels, includeShortcuts = true){
-	let objA = neo4jToData(resources[A.class], A);
+	let objA = neo4jToData(resourceClasses[A.class], A);
 	let relFields = {};
 	for (let {rel, B, s} of rels){
 		if (rel::isNull() || B::isNull()) { continue }
 		if (rel.class::isUndefined() || B.class::isUndefined()) { continue }
-		let objB = neo4jToData(resources[B.class], B);
+		let objB = neo4jToData(resourceClasses[B.class], B);
 
 		let fieldName = ((s === A.id)? "-->": "<--") + rel.class;
-		let props = neo4jToData(relationships[rel.class], rel);
-		//let relObj = {...props, 1: (s === A.id)? objA: objB, 2: (s === A.id)? objB: objA};
-		let relObj = { id: props.id, class: props.class };
+		let props = neo4jToData(manifestClasses[rel.class], rel);
+		// let relObj = { id: props.id, class: props.class }; // TODO MH: (NK)
 
 		if (relFields[fieldName]::isUndefined()){ relFields[fieldName] = []; }
 		if (relFields[fieldName]::isArray()){
-			relFields[fieldName].push(relObj);
+			// relFields[fieldName].push(relObj); // TODO MH: (NK)
+			relFields[fieldName].push(objB);
 		} else {
-			relFields[fieldName] = relObj;
+			// relFields[fieldName] = relObj; // TODO MH: (NK)
+			relFields[fieldName] = objB;
 		}
 
-		let relA = resources[A.class].relationships[fieldName];
+		let relA = resourceClasses[A.class].relationships[fieldName];
 		if ((relA.cardinality.max === 1) && relFields[fieldName]::isArray()) {
 			relFields[fieldName] = relFields[fieldName][0];
 		}
-		if (includeShortcuts){
-            if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
-                if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
-                //relFields[relA.shortcutKey].push(objB);
-				relFields[relA.shortcutKey].push({id: objB.href, class: objB.class});
-				if (relA.cardinality.max === 1) {
-					relFields[relA.shortcutKey] = relFields[relA.shortcutKey][0];
-				}
-            }
-        }
+        // if (includeShortcuts){ // TODO: not needed
+        //     if (!relA::isUndefined() && !relA.shortcutKey::isUndefined()){
+        //         if (relFields[relA.shortcutKey]::isUndefined()) { relFields[relA.shortcutKey] = []; }
+        //         //relFields[relA.shortcutKey].push(objB);
+			// 	relFields[relA.shortcutKey].push({id: objB.id, class: objB.class});
+			// 	if (relA.cardinality.max === 1) {
+			// 		relFields[relA.shortcutKey] = relFields[relA.shortcutKey][0];
+			// 	}
+        //     }
+        // }
 	}
 	return {...objA, ...relFields};
 }

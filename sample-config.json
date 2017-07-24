@@ -3,7 +3,7 @@
 	"port":       8888,
 	"db-docker": "neo4j",
 	"db-user":   "neo4j",
-	"db-pass":   "mhmh13",
+	"db-pass":   "neo4j",
 	"db-host":   "localhost",
 	"db-port":    7474
 }

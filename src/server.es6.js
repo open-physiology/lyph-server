@@ -4,10 +4,19 @@
 'use strict';
 
 /* external libs */
-import _ from 'lodash';
+// import _ from 'lodash';
 import isArray from 'lodash-bound/isArray';
 import isNull from 'lodash-bound/isNull';
 import isUndefined from 'lodash-bound/isUndefined';
+import isObject from 'lodash-bound/isObject';
+import isInteger from 'lodash-bound/isInteger';
+import omit from 'lodash-bound/omit';
+import entries from 'lodash-bound/entries';
+import keys from 'lodash-bound/keys';
+import intersection from 'lodash-bound/intersection';
+import pick from 'lodash-bound/pick';
+import omitBy from 'lodash-bound/omitBy';
+import assert from 'power-assert';
 
 import express                from 'express';
 import promisify              from 'es6-promisify';
@@ -19,8 +28,7 @@ import LyphNeo4j from './LyphNeo4j.es6.js';
 import swagger   from './swagger.es6';
 import {
 	isCustomError,
-	cleanCustomError,
-	sw
+	cleanCustomError
 } from './utils/utility.es6.js';
 import {
 	OK,
@@ -29,46 +37,88 @@ import {
 	NOT_FOUND,
 	INTERNAL_SERVER_ERROR
 } from './http-status-codes.es6.js';
-import { createModelWithFrontend } from './model.es6.js';
-//import {sw} from 'utilities'; //TODO: replace sw from utility.es6.js after it is fixed
+import { createModelWithBackend } from './model.es6.js';
+import {sw, humanMsg} from 'utilities';
 
+import {customError} from './utils/utility.es6.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // request handlers                                                                                                   //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 let model;
 
 /*Helpers*/
-async function createModelResource(db, cls, fields, options = {}){
-	for (let [fieldName, fieldSpec] of Object.entries(cls.relationshipShortcuts)){
-		let ids = fields[fieldName];
-		if (ids::isUndefined() || ids::isNull()) { continue }
-		let fieldCls = fieldSpec.codomain.resourceClass;
-		if (fieldSpec.cardinality.max === 1){
-			fields[fieldName] = await fieldCls.get(ids);
-		} else {
-			fields[fieldName] = [...await fieldCls.get(ids)];
-		}
+async function createModelResource(db, cls, fields, options = {}) {
+	let allExposedRelationshipFields  = {
+		...cls.relationships::omitBy(fieldSpec => fieldSpec.relationshipClass.abstract),
+		...cls.relationshipShortcuts
+	};
+	for (let [fieldName, fieldSpec] of Object.entries(allExposedRelationshipFields)){
+		let addressOrAddresses = fields[fieldName];
+		if (addressOrAddresses::isUndefined() || addressOrAddresses::isNull()) { continue }
+		fields[fieldName] = await model.get(addressOrAddresses);
+		// if (!addressOrAddresses::isArray()) { addressOrAddresses = [addressOrAddresses] }
+		// if (fieldSpec.cardinality.max === 1) {
+		// 	fields[fieldName] = await model.get(addressOrAddresses[0]);
+		// } else {
+		// 	fields[fieldName] = await model.get(addressOrAddresses);
+		// }
 	}
-	return cls.new(fields, options);
+	return model.new({ ...fields, class: cls.name }, options);
 }
 
-async function getRelatedResources(db, cls, id, relName){
-	let resource = await cls.get(id);
-	return [...resource[relName]];
+async function getRelatedResources(db, address, key){
+	let [resource] = await model.get([address]);
+	return await model.get([...resource[key]]);
 }
 
 const getInfo = (pathObj) => sw(pathObj['x-path-type'])(
-		[['clear'], ()=>({})],
-		[['batch'], ()=>({})],
-		[['resources', 'specificResources'], ()=>({
-			cls: model[pathObj['x-resource-type']]
-		})],
-		[['relatedResources', 'specificRelatedResource'], ()=> ({
-			cls: model[pathObj['x-resource-type']],
-			relA: model[pathObj['x-resource-type']].relationships[pathObj['x-relationship-type']]
-		})]
+	[['clear'], ()=>({})],
+	[['resources', 'specificResources'], ()=>({
+		cls: model.entityClasses[pathObj['x-resource-type']]
+	})],
+	[['relatedResources', 'specificRelatedResource'], ()=> ({
+		cls: model.entityClasses[pathObj['x-resource-type']],
+		relA: model.entityClasses[pathObj['x-resource-type']].relationships[pathObj['x-relationship-type']]
+	})]
 );
+
+function nonExistingEntitiesError(cls, ids) {
+	return customError({
+		status: NOT_FOUND,
+		class: cls.name,
+		ids: ids,
+		message: humanMsg`Not all specified ${cls.name} entities with IDs '${ids.join(',')}' exist.`
+	});
+}
+
+function entityToJSON(entity) {
+	let result = {};
+	for (let [key, field] of entity.fields::entries()) {
+		if (field instanceof model.Rel1Field) {
+
+			if (key[0] !== '<' && key[0] !== '-')           { continue }
+			if (model.entityClasses[key.slice(3)].abstract) { continue }
+			if (!field.get())                               { continue }
+			result[key] = field.get()::pick('id', 'class');
+
+		} else if (field instanceof model.Rel$Field) {
+
+			if (key[0] !== '<' && key[0] !== '-')           { continue }
+			if (model.entityClasses[key.slice(3)].abstract) { continue }
+			if (field.get().size === 0)                     { continue }
+			result[key] = [...field.get()].map(entity => entity::pick('class', 'id'));
+
+		} else if (field instanceof model.PropertyField) {
+
+			if (field.get()::isUndefined()) { continue }
+			result[key] = field.get();
+
+		}
+	}
+	return result;
+}
 
 const requestHandler = {
 	clear: {
@@ -78,104 +128,39 @@ const requestHandler = {
 		}
 	},
 
-	batch: {
-		async post({db}, req, res){
-			let batchStatusCode = OK;
-			let responses = [];
-			let ids = [];
-			let {temporaryIDs, operations} = req.body;
-			for (let operation of operations) {
-				let {method, path, body} = operation;
-				let pathObj = swagger.paths[path];
-				let info = getInfo(pathObj);
-				if (!body.class) { body.class = info.cls.name; }
-
-				let tmpID = body.id;
-				if (temporaryIDs.includes(body.id)) {
-					db.assignId(body);
-					ids.push(body.id);
-				}
-				let result = {};
-				try {
-					result = await requestHandler[pathObj['x-path-type']][method.toLowerCase()]({...info, ...{db}}, {body});
-				} catch (err) {
-					result = {statusCode: err.status, response: err};
-					if (batchStatusCode === OK) {
-						batchStatusCode = err.status;
-					}
-				}
-				responses.push(result);
-
-				if ((method === "POST") && (result.statusCode === CREATED)) {
-					//assign permanent ID and replace temporary IDs in the subsequent operations
-					if (temporaryIDs.includes(tmpID)) {
-						for (let o of operations.filter(o => !!o.body)) {
-							let {cls} = getInfo(swagger.paths[o.path]);
-							if (cls.isResource) {
-								for (let key of Object.keys(cls.relationshipShortcuts).filter(key => !!o.body[key])) {
-									if (o.body[key] === tmpID) {
-										o.body[key] = result.entity.id;
-									} else {
-										let index = [...o.body[key]].indexOf(tmpID);
-										if (index > -1) {
-											o.body[key][index] = result.entity.id;
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-
-				for (let response of responses) {
-					if (response.entity) {
-						await response.entity.commit();
-						if (response.statusCode === OK || response.statusCode === CREATED) {
-							response.response = [response.entity.toJSON()];
-						}
-						delete response.entity;
-					}
-				}
-			}
-			return {statusCode: batchStatusCode, response: {ids: ids, responses: responses}}
-		}
-	},
-
 	resources: /*get, post*/ {
 		async get({db, cls}, req, res) {
-			let response = [...await cls.getAll()].map(r => r.toJSON());
+			let response = ( await model.getAll({ class: cls.name }) ).map(entityToJSON);
 			return {statusCode: OK, response: response};
 		},
-		async post({db, cls, doCommit}, req, res) {
-			let entity = await createModelResource(db, cls, req.body, {acceptId: !doCommit});
+		async post({db, cls}, req, res) {
+			let entity = await createModelResource(db, cls, req.body);
 			return {statusCode: CREATED, entity: entity};
 		}
 	},
 
 	specificResources: /*get, post, put, delete*/ {
-		async get({db, cls }, req, res) {
-			let response = [...await cls.get(req.pathParams.ids)].map(r => r.toJSON());
-			return {statusCode: OK, response: response};
+		async get({db, cls}, req, res) {
+			let entities = [...await model.get(req.pathParams.ids.map(id=>({ class: cls.name, id })))];
+			if (entities.includes(null)) { throw nonExistingEntitiesError(cls, req.pathParams.ids) }
+			return { statusCode: OK, response: entities.map(entityToJSON) };
 		},
-		async post({db, cls }, req, res) {
-			let entity = await cls.get(req.pathParams.id);
-			for (let fieldName of Object.keys(req.body)) { entity[fieldName] = req.body[fieldName]; }
+		async post({db, cls}, req, res) {
+			let entity = await model.get({ class: cls.name, id: req.pathParams.id });
+			if (entity === null) { throw nonExistingEntitiesError(cls, [req.pathParams.id]) }
+			model.setEntityFields(entity, req.body);
 			return {statusCode: OK, entity: entity};
 		},
 		async put({db, cls}, req, res) {
-			let entity = await cls.get(req.pathParams.id);
-			for (let fieldName of Object.keys(entity.fields)) {
-				let fieldSpec = entity.constructor.properties[fieldName];
-				if (!(fieldSpec && fieldSpec.readonly)) { delete entity[fieldName]; }
-			}
-			for (let fieldName of Object.keys(req.body)) {
-				let fieldSpec = entity.constructor.properties[fieldName];
-				if (!(fieldSpec && fieldSpec.readonly)) { entity[fieldName] = req.body[fieldName]; }
-			}
+			let entity = await model.get({ class: cls.name, id: req.pathParams.id });
+			if (entity === null) { throw nonExistingEntitiesError(cls, [req.pathParams.id]) }
+			model.resetEntityFields(entity);
+			model.setEntityFields(entity, req.body);
 			return {statusCode: OK, entity: entity};
 		},
-		async delete({db, cls, doCommit}, req, res) {
-			let entity = await cls.get(req.pathParams.id);
+		async delete({db, cls}, req, res) {
+			let entity = await model.get({ class: cls.name, id: req.pathParams.id });
+			if (entity === null) { throw nonExistingEntitiesError(cls, [req.pathParams.id]) }
 			entity.delete();
 			return {statusCode: NO_CONTENT, entity: entity};
 		}
@@ -183,9 +168,11 @@ const requestHandler = {
 
 	relatedResources: /*get*/ {
 		async get({db, cls, relA}, req, res) {
-			let rels = await getRelatedResources(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
-			let related = await Promise.all(rels.map(x => model[x.class].get(x.id)));
-			let response = related.map(r => r.toJSON());
+			let entity = await model.get({class: relA.resourceClass.name, id: req.pathParams.idA});
+			if (entity === null) { throw nonExistingEntitiesError(cls, [req.pathParams.idA]) }
+
+			let related = await model.get([...entity.fields[relA.keyInResource].get()]);
+			let response = related.map(entityToJSON);
 			return {statusCode: OK, response: response};
 		}
 	},
@@ -193,21 +180,27 @@ const requestHandler = {
 	specificRelatedResource: /*put, delete*/ {
 		async put({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let resA = await relA.resourceClass.get(idA);
-			let resB = await relA.codomain.resourceClass.get(idB);
-			let entity = cls.new({...req.body,
-				1: {class: resA.class, id: resA.id},
-				2: {class: resB.class, id: resB.id}
-			});
-			return {statusCode: OK, entity: entity};
+			let [resA, resB] = await model.get([
+				{ class: relA.resourceClass.name,          id: idA },
+				{ class: relA.codomain.resourceClass.name, id: idB }
+			]);
+			resA.fields[relA.keyInResource].add(resB);
+			return {statusCode: NO_CONTENT, entity: resA};
 		},
 		async delete({db, cls, relA}, req, res) {
 			let {idA, idB} = req.pathParams;
-			let rels = await getRelatedResources(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
-			let entity = rels.find(rel => (rel.id === idB));
-			if (!entity){ return {statusCode: NOT_FOUND}; }
-			entity.delete();
-			return {statusCode: NO_CONTENT, entity: entity};
+			let [resA, resB] = await model.get([
+				{ class: relA.resourceClass.name,          id: idA },
+				{ class: relA.codomain.resourceClass.name, id: idB }
+			]);
+			resA.fields[relA.keyInResource].delete(resB);
+			return {statusCode: NO_CONTENT, entity: resA};
+
+			// let relatedResources = await getRelatedResources(db, relA.resourceClass, req.pathParams.idA, relA.keyInResource);
+			// let entity = relatedResources.find(rel => rel.id === idB);
+			// if (!entity){ return {statusCode: NOT_FOUND}; }
+			// entity.delete();
+			// return {statusCode: NO_CONTENT, entity: entity};
 		}
 	},
 };
@@ -216,6 +209,11 @@ const requestHandler = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // internal middleware                                                                                                //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function decodePath (req, res, next) {
+	req.url = decodeURI(req.url);
+	return next();
+}
 
 /* parameter normalizer */
 function parameterNormalizer(req, res, next) {
@@ -314,6 +312,7 @@ export default async (distDir, config) => {
 	/* load the middleware */
 	let [middleware] = await swaggerMiddleware(`${distDir}/swagger.json`, server);
 
+	/* decode URI */
 	server.use(decodePath);
 
 	/* use Swagger middleware */
@@ -324,8 +323,6 @@ export default async (distDir, config) => {
 		middleware.parseRequest(),
 		middleware.validateRequest()
 	);
-
-	console.log("DB CONFIG", config);
 
 	/* set up database */
 	let db = new LyphNeo4j({
@@ -341,37 +338,34 @@ export default async (distDir, config) => {
 	/* normalize parameter names */
 	server.use(parameterNormalizer);
 
-	function decodePath (req, res, next) {
-		req.url = decodeURI(req.url);
-		return next();
-	}
-
-	//Assign model library methods
-	model = createModelWithFrontend(db);
+	/* set global variable `model` = the open-physiology-model instance */
+	model = createModelWithBackend(db);
 
 	/* create uniqueness constraints for all resource types (only if database is new) */
-	await Promise.all(Object.keys(model).filter(key => model[key].isResource).map(r => db.createUniqueIdConstraintOn(r)));
+	await Promise.all(
+		Object.keys(model.entityClasses)
+			.filter(key => model.entityClasses[key].isResource)
+			.map(r => db.createUniqueIdConstraintOn(r))
+	);
 
 	/* request handling */
 	for (let path of Object.keys(swagger.paths)) {
-		let expressStylePath = path.replace(/{(\w+)}/g, ':$1');
-		let pathObj = swagger.paths[path];
-
-		for (let method of _(pathObj).keys().intersection(['get', 'post', 'put', 'delete'])) {
-			let info = getInfo(pathObj);
+		const expressStylePath = path.replace(/{(\w+)}/g, ':$1');
+		const pathObj = swagger.paths[path];
+		for (let method of pathObj::keys()::intersection(['get', 'post', 'put', 'delete'])) {
+			const info = getInfo(pathObj);
 			server[method](expressStylePath, async (req, res, next) => {
 				let result = {};
 				try {
 					req.url = encodeURI(req.url);
-					result = await requestHandler[pathObj['x-path-type']][method]({...info, doCommit: true, ...{db}}, req, res);
+					result = await requestHandler[pathObj['x-path-type']][method]({...info, db}, req, res);
 					if (result.entity){
-						await result.entity.commit();
-						if (result.status !== NO_CONTENT){
-							result.response = [result.entity.toJSON()];
+						await model.commit();
+						if (result.status !== NO_CONTENT) {
+							result.response = [entityToJSON(result.entity)];
 						}
 					}
-				}
-				catch (err) {
+				} catch (err) {
 					result = {statusCode: err.status, response: err};
 				}
 				res.status(result.statusCode).jsonp(result.response);
@@ -386,5 +380,5 @@ export default async (distDir, config) => {
 	server.use(doneWithError);
 
 	/* return the server app and possibly database */
-		return config.exposeDB ? { database: db, server } : server;
-	};
+	return config.exposeDB ? { database: db, server } : server;
+};

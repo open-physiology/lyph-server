@@ -22,13 +22,13 @@ commander
 let config = findConfig(commander.config);
 
 commander
-	.option('--host      [host]',  "the host through which this server is exposed",  config['host']      || 'localhost' )
-	.option('--port      [port]',  "the port to listen to",     a=>parseInt(a, 10),  config['port']      ||  8888       )
-	.option('--db-docker [name]',  "the database docker instance name",              config['db-docker'] || 'neo4j'     )
-	.option('--db-user   [user]',  "the database username",                          config['db-user']   || 'neo4j'     )
-	.option('--db-pass   [pass]',  "the database password",                          config['db-pass']   || 'nknk14'     )
-	.option('--db-host   [host]',  "the database host",                              config['db-host']   || '192.168.99.100' ) //localhost
-	.option('--db-port   [port]',  "the database port",         a=>parseInt(a, 10),  config['db-port']   ||  32769      ) //7474
+	.option('--host      [host]',  "the host through which this server is exposed",  config['host']      || 'localhost')
+	.option('--port      [port]',  "the port to listen to",     a=>parseInt(a, 10),  config['port']      ||  8888      )
+	.option('--db-docker [name]',  "the database docker instance name",              config['db-docker'] || 'neo4j'    )
+	.option('--db-user   [user]',  "the database username",                          config['db-user']   || 'neo4j'    )
+	.option('--db-pass   [pass]',  "the database password",                          config['db-pass']   || 'neo4j'    )
+	.option('--db-host   [host]',  "the database host",                              config['db-host']   || 'localhost')
+	.option('--db-port   [port]',  "the database port",         a=>parseInt(a, 10),  config['db-port']   ||  7474      )
 	.parse(process.argv);
 
 export default commander;
